@@ -2,6 +2,21 @@
 
 This guide covers migration to the formal v1 stable baseline and the new package split.
 
+## Update: Phase 1 v1.1 Foundation (PR-1A + PR-1B) - 2026-02-22
+
+- `PixelGridEffect` internals were further decomposed to reduce coupling:
+  - extracted mask cache coordinator
+  - extracted reactive interaction coordinator
+- React overlay interaction now supports:
+  - `overlayPointerEvents="hybrid"` in `PixelSurface` and `PixelCard`
+  - pointer bridge forwarding from overlay to canvas so overlay UI stays interactive while hover/ripple continue to work
+
+Maintainer note:
+- Existing modes remain unchanged:
+  - `none`: full pass-through to canvas
+  - `auto`: overlay captures interactions
+  - `hybrid`: overlay interactive + bridged canvas interaction
+
 ## Update: Release v1.0.13 (2026-02-21)
 
 - Release automation scripts added:

@@ -1,14 +1,15 @@
-import { CSSProperties, PropsWithChildren } from "react";
+import { CSSProperties, PropsWithChildren, useEffect, useRef } from "react";
 import { PixelCanvas } from "./PixelCanvas";
 import { PixelGridCanvas } from "./PixelGridCanvas";
-import { PixelCanvasProps, PixelGridCanvasProps } from "./types";
+import { OverlayPointerEventsMode, PixelCanvasProps, PixelGridCanvasProps } from "./types";
+import { attachHybridPointerBridge } from "./pointer-bridge";
 
 interface PixelCardBaseProps extends PropsWithChildren {
   containerClassName?: string;
   containerStyle?: CSSProperties;
   overlayClassName?: string;
   overlayStyle?: CSSProperties;
-  overlayPointerEvents?: CSSProperties["pointerEvents"];
+  overlayPointerEvents?: OverlayPointerEventsMode;
   radius?: number;
   padding?: number;
 }
@@ -43,6 +44,20 @@ export function PixelCard({
   overlayPointerEvents = "none",
   ...canvasProps
 }: PixelCardProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (overlayPointerEvents !== "hybrid") return;
+    const container = containerRef.current;
+    const overlay = overlayRef.current;
+    const canvasElement = container?.querySelector("canvas");
+    if (!overlay || !(canvasElement instanceof HTMLCanvasElement)) return;
+
+    const bridge = attachHybridPointerBridge(overlay, canvasElement);
+    return () => bridge.detach();
+  }, [overlayPointerEvents]);
+
   const isGridCard =
     "gridConfig" in canvasProps ||
     "preset" in canvasProps ||
@@ -58,7 +73,7 @@ export function PixelCard({
   const mergedOverlayStyle: CSSProperties = {
     position: "relative",
     zIndex: 1,
-    pointerEvents: overlayPointerEvents,
+    pointerEvents: overlayPointerEvents === "hybrid" ? "auto" : overlayPointerEvents,
     borderRadius: radius,
     padding,
     ...overlayStyle
@@ -69,7 +84,7 @@ export function PixelCard({
   };
 
   return (
-    <div className={containerClassName} style={mergedContainerStyle}>
+    <div ref={containerRef} className={containerClassName} style={mergedContainerStyle}>
       {isGridCard ? (
         <PixelGridCanvas
           {...(canvasProps as PixelGridCanvasProps)}
@@ -83,7 +98,7 @@ export function PixelCard({
           style={mergedCanvasStyle}
         />
       )}
-      <div className={overlayClassName} style={mergedOverlayStyle}>
+      <div ref={overlayRef} className={overlayClassName} style={mergedOverlayStyle}>
         {children}
       </div>
     </div>

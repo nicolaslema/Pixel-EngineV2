@@ -8,6 +8,7 @@ High-performance 2D pixel simulation engine for browser apps and UI frameworks.
 - Phase A/B/C/D completed
 - Phase E completed (PR-E1 + PR-E2 + PR-E3)
 - Phase F completed (PR-F1 + PR-F2 + PR-F3)
+- v1.1 Phase 1 completed (PR-1A + PR-1B)
 
 ## Install
 
@@ -185,6 +186,7 @@ export function Card() {
 
 - Default: `overlayPointerEvents="none"` (hover/ripple pass through)
 - Set `overlayPointerEvents="auto"` only when overlay UI must be clickable
+- Set `overlayPointerEvents="hybrid"` to keep overlay clickable and still forward hover/ripple interactions to canvas
 
 ## When to use what
 
@@ -221,6 +223,7 @@ Preset matrix:
 - Overlay interactions:
   - `PixelSurface`/`PixelCard` default to `overlayPointerEvents="none"`.
   - Set `overlayPointerEvents="auto"` for clickable overlay UI.
+  - Set `overlayPointerEvents="hybrid"` for clickable overlay UI while preserving canvas hover/ripple via pointer bridge forwarding.
 - Effect lifecycle:
   - Use `effectKey` when you want an intentional effect remount.
   - Keep `effectKey` stable to avoid unnecessary remounts.

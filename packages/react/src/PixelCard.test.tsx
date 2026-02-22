@@ -141,6 +141,68 @@ describe("PixelCard", () => {
     cleanupHost(container, root);
   });
 
+  it("supports overlayPointerEvents hybrid and forwards overlay clicks to canvas ripple", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const onRipple = vi.fn();
+    const createEngine = vi.fn(() => ({
+      addEntity: vi.fn(),
+      removeEntity: vi.fn(),
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    })) as never;
+    const triggerRipple = vi.fn();
+    const createGridEffect = vi.fn(() => ({
+      triggerRipple
+    })) as never;
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelCard
+          width={320}
+          height={180}
+          gridConfig={{
+            colors: ["#334155", "#475569", "#64748b"],
+            gap: 6,
+            expandEase: 0.08,
+            breathSpeed: 1
+          }}
+          createEngine={createEngine}
+          createGridEffect={createGridEffect}
+          onRipple={onRipple}
+          overlayPointerEvents="hybrid"
+        >
+          <button type="button">Overlay button</button>
+        </PixelCard>
+      );
+    });
+
+    const canvas = container.querySelector("canvas");
+    expect(canvas).not.toBeNull();
+    vi.spyOn(canvas as HTMLCanvasElement, "getBoundingClientRect").mockReturnValue({
+      left: 4,
+      top: 5,
+      width: 320,
+      height: 180,
+      right: 324,
+      bottom: 185,
+      x: 4,
+      y: 5,
+      toJSON: () => ({})
+    } as DOMRect);
+
+    const button = container.querySelector("button");
+    act(() => {
+      button?.dispatchEvent(new MouseEvent("click", { clientX: 24, clientY: 35, bubbles: true }));
+    });
+
+    expect(triggerRipple).toHaveBeenCalledWith(20, 30);
+    expect(onRipple).toHaveBeenCalledWith(expect.objectContaining({ x: 20, y: 30 }));
+
+    cleanupHost(container, root);
+  });
+
   it("uses grid mode when preset is provided without gridConfig", () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     const createEngine = vi.fn(() => ({

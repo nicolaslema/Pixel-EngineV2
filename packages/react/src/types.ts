@@ -12,6 +12,7 @@ import type {
 export type ResizeMode = "observer" | "window" | "none";
 export type FitMode = "none" | "client";
 export type RippleTriggerMode = "click" | "pointerdown" | "none";
+export type OverlayPointerEventsMode = React.CSSProperties["pointerEvents"] | "hybrid";
 export type PixelGridPresetName = "minimal" | "card-soft" | "card-ripple" | "hero-image";
 export type PixelGridPresetMaskSupport = "none" | "optional" | "recommended";
 

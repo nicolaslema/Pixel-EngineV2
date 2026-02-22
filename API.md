@@ -185,6 +185,7 @@ export function Card() {
 
 - `overlayPointerEvents="none"` by default (canvas interactions pass through)
 - set `overlayPointerEvents="auto"` for clickable overlay UI
+- set `overlayPointerEvents="hybrid"` for clickable overlay UI while preserving canvas hover/ripple behavior
 
 ## Choosing `preset` vs `gridConfig`
 
@@ -225,6 +226,7 @@ Preset matrix:
 - Overlay events:
   - default pass-through on `PixelSurface`/`PixelCard` (`overlayPointerEvents="none"`)
   - set `overlayPointerEvents="auto"` for clickable overlay controls
+  - set `overlayPointerEvents="hybrid"` for simultaneous overlay interaction + canvas effect interaction
 - Effect remount behavior:
   - stable `effectKey` keeps the same effect instance
   - changing `effectKey` forces intentional recreation

@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.0.14] - 2026-02-22
+
+### Added
+- Completed v1.1 Phase 1:
+  - PR-1A: internal `PixelGridEffect` decoupling modules
+  - PR-1B: React hybrid overlay interaction mode
+- New React pointer bridge utility:
+  - `packages/react/src/pointer-bridge.ts`
+- New React tests for hybrid overlay mode:
+  - `packages/react/src/PixelSurface.test.tsx`
+  - extended `packages/react/src/PixelCard.test.tsx`
+
+### Changed
+- `PixelSurface` and `PixelCard` now support:
+  - `overlayPointerEvents="hybrid"`
+- `PixelGridEffect` update responsibilities are now cleaner via extracted coordinators:
+  - `mask-weight-cache`
+  - `interaction-coordinator`
+
 ## [1.0.13] - 2026-02-21
 
 ### Added

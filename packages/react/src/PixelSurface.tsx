@@ -1,13 +1,14 @@
-import { CSSProperties, PropsWithChildren } from "react";
+import { CSSProperties, PropsWithChildren, useEffect, useRef } from "react";
 import { PixelCanvas } from "./PixelCanvas";
-import { PixelCanvasProps } from "./types";
+import { OverlayPointerEventsMode, PixelCanvasProps } from "./types";
+import { attachHybridPointerBridge } from "./pointer-bridge";
 
 export interface PixelSurfaceProps extends PixelCanvasProps, PropsWithChildren {
   containerClassName?: string;
   containerStyle?: CSSProperties;
   overlayClassName?: string;
   overlayStyle?: CSSProperties;
-  overlayPointerEvents?: CSSProperties["pointerEvents"];
+  overlayPointerEvents?: OverlayPointerEventsMode;
 }
 
 const surfaceStyle: CSSProperties = {
@@ -37,16 +38,30 @@ export function PixelSurface({
   style,
   ...canvasProps
 }: PixelSurfaceProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (overlayPointerEvents !== "hybrid") return;
+    const container = containerRef.current;
+    const overlay = overlayRef.current;
+    const canvasElement = container?.querySelector("canvas");
+    if (!overlay || !(canvasElement instanceof HTMLCanvasElement)) return;
+
+    const bridge = attachHybridPointerBridge(overlay, canvasElement);
+    return () => bridge.detach();
+  }, [overlayPointerEvents]);
+
   const mergedOverlayStyle: CSSProperties = {
     ...overlayStyleBase,
-    pointerEvents: overlayPointerEvents,
+    pointerEvents: overlayPointerEvents === "hybrid" ? "auto" : overlayPointerEvents,
     ...overlayStyle
   };
 
   return (
-    <div className={containerClassName} style={{ ...surfaceStyle, ...containerStyle }}>
+    <div ref={containerRef} className={containerClassName} style={{ ...surfaceStyle, ...containerStyle }}>
       <PixelCanvas {...canvasProps} style={{ ...canvasStyle, ...style }} />
-      <div className={overlayClassName} style={mergedOverlayStyle}>
+      <div ref={overlayRef} className={overlayClassName} style={mergedOverlayStyle}>
         {children}
       </div>
     </div>
