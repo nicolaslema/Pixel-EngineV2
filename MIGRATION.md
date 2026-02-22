@@ -2,6 +2,32 @@
 
 This guide covers migration to the formal v1 stable baseline and the new package split.
 
+## Update: v1.0.15 Phase 2 Runtime Tuning + Culling (2026-02-22)
+
+- `PixelGridConfig` now supports `performance` tuning:
+  - `quality`: `"low" | "medium" | "high"`
+  - `viewportCulling`: `boolean`
+  - `cullingPadding`: `number`
+  - `minRenderableSize`: `number`
+- `PixelGridEffect` render pass now supports viewport culling when engine size is available.
+- Quality tier now influences internal runtime behavior (including ripple limits and render detail threshold).
+
+Recommended:
+
+```ts
+const grid = new PixelGridEffect(engine, width, height, {
+  // ...existing config
+  performance: {
+    quality: "medium",
+    viewportCulling: true
+  }
+});
+```
+
+Maintainer note:
+- Use `quality: "low"` for heavy scenes / large effect areas.
+- Keep `viewportCulling` enabled when effect dimensions can exceed viewport dimensions.
+
 ## Update: Phase 1 v1.1 Foundation (PR-1A + PR-1B) - 2026-02-22
 
 - `PixelGridEffect` internals were further decomposed to reduce coupling:

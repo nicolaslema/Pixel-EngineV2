@@ -18,7 +18,7 @@ import {
   shouldAffectCell
 } from "./pixel-grid/internal/reactive-effects";
 import { applyBreathingSystem } from "./pixel-grid/internal/breathing-system";
-import { renderPixelCells } from "./pixel-grid/internal/render-pass";
+import { PixelRenderViewport, renderPixelCells } from "./pixel-grid/internal/render-pass";
 import { runPixelGridUpdatePipeline } from "./pixel-grid/internal/update-pipeline";
 import { setupBaseInfluences } from "./pixel-grid/internal/influence-setup";
 import { DEFAULT_PIXEL_GRID_RUNTIME_TUNING } from "./pixel-grid/internal/runtime-tuning";
@@ -48,7 +48,14 @@ export class PixelGridEffect extends Entity {
   private readonly rippleEffects: ResolvedPixelGridConfig["rippleEffects"];
   private readonly breathing: ResolvedPixelGridConfig["breathing"];
   private readonly autoMorph: ResolvedPixelGridConfig["autoMorph"];
+  private readonly performance: ResolvedPixelGridConfig["performance"];
   private maskCacheIsZeroed = true;
+  private readonly renderViewport: PixelRenderViewport = {
+    minX: 0,
+    maxX: 0,
+    minY: 0,
+    maxY: 0
+  };
 
   private readonly maskState: MaskStateMachine;
 
@@ -78,12 +85,13 @@ export class PixelGridEffect extends Entity {
     this.rippleEffects = resolved.rippleEffects;
     this.breathing = resolved.breathing;
     this.autoMorph = resolved.autoMorph;
+    this.performance = resolved.performance;
     this.applyCanvasBackgroundFromConfig();
 
     this.rippleSpeed = this.rippleEffects.speed;
     this.rippleThickness = this.rippleEffects.thickness;
     this.rippleStrength = this.rippleEffects.strength;
-    this.maxRipples = this.rippleEffects.maxRipples;
+    this.maxRipples = Math.min(this.rippleEffects.maxRipples, this.performance.maxRipplesCap);
 
     this.createGrid();
 
@@ -321,7 +329,26 @@ export class PixelGridEffect extends Entity {
   }
 
   render(renderer: IRenderer): void {
-    renderPixelCells(renderer, this.cells);
+    if (this.performance.viewportCulling) {
+      const size = this.engine.getSize?.();
+      if (size) {
+        const padding = this.performance.cullingPadding;
+        this.renderViewport.minX = -padding;
+        this.renderViewport.minY = -padding;
+        this.renderViewport.maxX = size.width + padding;
+        this.renderViewport.maxY = size.height + padding;
+
+        renderPixelCells(
+          renderer,
+          this.cells,
+          this.performance.minRenderableSize,
+          this.renderViewport
+        );
+        return;
+      }
+    }
+
+    renderPixelCells(renderer, this.cells, this.performance.minRenderableSize);
   }
 
   triggerRipple(x: number, y: number): void {

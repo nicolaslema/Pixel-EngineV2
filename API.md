@@ -82,8 +82,22 @@ Optional groups:
 - `hoverEffects`
 - `rippleEffects`
 - `breathing`
+- `performance` (`quality`, `viewportCulling`, `cullingPadding`, `minRenderableSize`)
 - `imageMask`, `textMask`, `autoMorph`, `initialMask`
 - `canvasBackground`
+
+Example runtime tuning:
+
+```ts
+gridConfig: {
+  performance: {
+    quality: "low",
+    viewportCulling: true,
+    cullingPadding: 16,
+    minRenderableSize: 1
+  }
+}
+```
 
 ## React examples by scenario
 

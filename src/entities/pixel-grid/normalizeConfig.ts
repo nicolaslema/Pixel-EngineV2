@@ -57,11 +57,52 @@ export function resolvePixelGridConfig(
     affectText: config.breathing?.affectText ?? true
   };
 
+  const quality = config.performance?.quality ?? "medium";
+  const qualityDefaults = getQualityDefaults(quality);
+  const resolvedPerformance: ResolvedPixelGridConfig["performance"] = {
+    quality,
+    viewportCulling: config.performance?.viewportCulling ?? qualityDefaults.viewportCulling,
+    cullingPadding: Math.max(0, config.performance?.cullingPadding ?? qualityDefaults.cullingPadding),
+    minRenderableSize: Math.max(
+      0.1,
+      config.performance?.minRenderableSize ?? qualityDefaults.minRenderableSize
+    ),
+    maxRipplesCap: qualityDefaults.maxRipplesCap
+  };
+
   return {
     hoverEffects: resolvedHover,
     rippleEffects: resolvedRipple,
     breathing,
     autoMorph,
+    performance: resolvedPerformance,
     initialMask: config.initialMask ?? "image"
+  };
+}
+
+function getQualityDefaults(quality: ResolvedPixelGridConfig["performance"]["quality"]) {
+  if (quality === "low") {
+    return {
+      viewportCulling: true,
+      cullingPadding: 12,
+      minRenderableSize: 1,
+      maxRipplesCap: 24
+    };
+  }
+
+  if (quality === "high") {
+    return {
+      viewportCulling: true,
+      cullingPadding: 28,
+      minRenderableSize: 0.5,
+      maxRipplesCap: 80
+    };
+  }
+
+  return {
+    viewportCulling: true,
+    cullingPadding: 20,
+    minRenderableSize: 0.75,
+    maxRipplesCap: 48
   };
 }

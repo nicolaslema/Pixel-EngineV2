@@ -5,6 +5,7 @@ import { ImageMaskOptions } from "../../influences/Masks/ImageMaskInfluence";
 export type HoverMode = "classic" | "reactive";
 export type ReactiveHoverScope = "all" | "activeOnly" | "imageMask";
 export type InitialMask = "image" | "text";
+export type PixelGridQualityLevel = "low" | "medium" | "high";
 
 export interface HoverEffectsOptions {
   mode?: HoverMode;
@@ -53,6 +54,21 @@ export interface AutoMorphOptions {
   intervalMs?: number;
 }
 
+export interface PerformanceOptions {
+  quality?: PixelGridQualityLevel;
+  viewportCulling?: boolean;
+  cullingPadding?: number;
+  minRenderableSize?: number;
+}
+
+export interface ResolvedPerformanceOptions {
+  quality: PixelGridQualityLevel;
+  viewportCulling: boolean;
+  cullingPadding: number;
+  minRenderableSize: number;
+  maxRipplesCap: number;
+}
+
 export interface PixelGridTextMaskConfig extends TextMaskOptions {
   text?: string;
   centerX?: number;
@@ -80,6 +96,7 @@ export interface PixelGridConfig {
   rippleEffects?: RippleEffectsOptions;
   breathing?: BreathingOptions;
   autoMorph?: AutoMorphOptions;
+  performance?: PerformanceOptions;
 
   imageMask?: PixelGridImageMaskConfig;
   textMask?: PixelGridTextMaskConfig;
@@ -97,5 +114,6 @@ export interface ResolvedPixelGridConfig {
   rippleEffects: Required<RippleEffectsOptions>;
   breathing: Required<BreathingOptions>;
   autoMorph: Required<AutoMorphOptions>;
+  performance: ResolvedPerformanceOptions;
   initialMask: InitialMask;
 }

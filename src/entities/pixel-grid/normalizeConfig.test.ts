@@ -15,6 +15,10 @@ describe("resolvePixelGridConfig", () => {
     expect(resolved.rippleEffects.speed).toBe(0.5);
     expect(resolved.rippleEffects.maxRipples).toBe(20);
     expect(resolved.breathing.enabled).toBe(false);
+    expect(resolved.performance.quality).toBe("medium");
+    expect(resolved.performance.viewportCulling).toBe(true);
+    expect(resolved.performance.minRenderableSize).toBe(0.75);
+    expect(resolved.performance.maxRipplesCap).toBe(48);
     expect(resolved.initialMask).toBe("image");
   });
 
@@ -42,6 +46,11 @@ describe("resolvePixelGridConfig", () => {
       autoMorph: {
         intervalMs: 700
       },
+      performance: {
+        quality: "low",
+        cullingPadding: -10,
+        minRenderableSize: 0
+      },
       initialMask: "text"
     });
 
@@ -51,6 +60,10 @@ describe("resolvePixelGridConfig", () => {
     expect(resolved.breathing.radius).toBe(90);
     expect(resolved.autoMorph.holdImageMs).toBe(700);
     expect(resolved.autoMorph.holdTextMs).toBe(700);
+    expect(resolved.performance.quality).toBe("low");
+    expect(resolved.performance.cullingPadding).toBe(0);
+    expect(resolved.performance.minRenderableSize).toBe(0.1);
+    expect(resolved.performance.maxRipplesCap).toBe(24);
     expect(resolved.initialMask).toBe("text");
   });
 });

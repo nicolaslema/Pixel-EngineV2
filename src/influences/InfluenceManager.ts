@@ -91,6 +91,8 @@ export class InfluenceManager {
     getCellIndex: (x: number, y: number) => number
   ): void {
 
+    if (this.influences.length === 0) return;
+
     if (this.dirty) {
       this.influences.sort((a, b) => b.priority - a.priority);
       this.dirty = false;

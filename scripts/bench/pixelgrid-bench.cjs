@@ -7,6 +7,7 @@ const repoRoot = resolve(process.cwd());
 const benchRoot = mkdtempSync(join(tmpdir(), "pixel-engine-bench-"));
 const packsDir = join(benchRoot, "packs");
 const appDir = join(benchRoot, "bench-app");
+const benchOptions = parseOptions(process.argv.slice(2));
 
 mkdirSync(packsDir, { recursive: true });
 mkdirSync(appDir, { recursive: true });
@@ -27,31 +28,117 @@ function findPack(prefix) {
   return join(packsDir, match);
 }
 
+function parseOptions(args) {
+  const entries = new Map();
+  for (const rawArg of args) {
+    if (!rawArg.startsWith("--")) continue;
+    const eqIndex = rawArg.indexOf("=");
+    if (eqIndex === -1) {
+      entries.set(rawArg.slice(2), "true");
+      continue;
+    }
+    entries.set(rawArg.slice(2, eqIndex), rawArg.slice(eqIndex + 1));
+  }
+
+  const suite = entries.get("suite") ?? "all";
+  if (!["all", "classic", "stress"].includes(suite)) {
+    throw new Error(`Invalid --suite value "${suite}". Expected all|classic|stress.`);
+  }
+
+  const runs = Math.max(1, Number.parseInt(entries.get("runs") ?? "5", 10) || 5);
+  const frames = Math.max(60, Number.parseInt(entries.get("frames") ?? "240", 10) || 240);
+  const warmupFrames = Math.max(20, Number.parseInt(entries.get("warmup") ?? "60", 10) || 60);
+
+  return { suite, runs, frames, warmupFrames };
+}
+
 const runnerCode = `
 const { performance } = require("node:perf_hooks");
 const { PixelGridEffect } = require("@pixel-engine/effects");
+const benchmarkOptions = ${JSON.stringify(benchOptions)};
 
 function createFakeRenderer() {
   const ctx = { fillStyle: "#000000", globalAlpha: 1, fillRect() {} };
   return { getContext() { return ctx; } };
 }
 
-function runBenchmark() {
-  const width = 1000;
-  const height = 700;
-  const gap = 6;
-  const frames = 240;
-  const warmupFrames = 60;
+function average(values) {
+  if (!values.length) return 0;
+  let total = 0;
+  for (let i = 0; i < values.length; i++) total += values[i];
+  return total / values.length;
+}
+
+function median(values) {
+  if (!values.length) return 0;
+  const sorted = values.slice().sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length * 0.5);
+  if (sorted.length % 2 === 1) return sorted[middle];
+  return (sorted[middle - 1] + sorted[middle]) * 0.5;
+}
+
+function percentile(values, ratio) {
+  if (!values.length) return 0;
+  const sorted = values.slice().sort((a, b) => a - b);
+  const position = Math.min(sorted.length - 1, Math.max(0, Math.ceil(sorted.length * ratio) - 1));
+  return sorted[position];
+}
+
+function createScenarios() {
+  return {
+    classic: {
+      title: "classic-comparable",
+      description: "Legacy-comparable scenario. Effect size equals viewport size.",
+      viewportWidth: 1000,
+      viewportHeight: 700,
+      effectWidth: 1000,
+      effectHeight: 700,
+      gap: 6,
+      qualityModes: ["medium"],
+      performance: {
+        quality: "medium",
+        viewportCulling: false
+      },
+      rippleMax: 24
+    },
+    stress: {
+      title: "stress-overdraw",
+      description: "Realistic heavy workload. Effect area is larger than viewport.",
+      viewportWidth: 1000,
+      viewportHeight: 700,
+      effectWidth: 1600,
+      effectHeight: 1100,
+      gap: 6,
+      qualityModes: ["low", "medium", "high"],
+      performance: {},
+      rippleMax: 64
+    }
+  };
+}
+
+function runSinglePass(scenario, quality) {
+  const {
+    viewportWidth,
+    viewportHeight,
+    effectWidth,
+    effectHeight,
+    gap
+  } = scenario;
+  const frames = benchmarkOptions.frames;
+  const warmupFrames = benchmarkOptions.warmupFrames;
 
   const enginePointer = {
-    mouse: { x: width * 0.5, y: height * 0.5, inside: true, down: false },
-    setClearColor() {}
+    mouse: { x: viewportWidth * 0.5, y: viewportHeight * 0.5, inside: true, down: false },
+    setClearColor() {},
+    getSize() {
+      return { width: viewportWidth, height: viewportHeight };
+    }
   };
 
   const effect = new PixelGridEffect(
     enginePointer,
-    width,
-    height,
+    effectWidth,
+    effectHeight,
     {
       colors: ["#334155", "#475569", "#64748b"],
       gap,
@@ -73,7 +160,7 @@ function runBenchmark() {
         speed: 0.5,
         thickness: 48,
         strength: 28,
-        maxRipples: 24,
+        maxRipples: scenario.rippleMax,
         deactivateMultiplier: 0.9,
         displaceMultiplier: 1.1,
         jitterMultiplier: 1.1
@@ -85,17 +172,21 @@ function runBenchmark() {
         affectHover: true,
         affectImage: false,
         affectText: false
+      },
+      performance: {
+        ...scenario.performance,
+        quality
       }
     },
     { ripple: true, hover: true, organic: false }
   );
 
   const renderer = createFakeRenderer();
-  const estimatedCells = Math.ceil(width / gap) * Math.ceil(height / gap);
+  const estimatedCells = Math.ceil(effectWidth / gap) * Math.ceil(effectHeight / gap);
 
   for (let i = 0; i < warmupFrames; i++) {
-    enginePointer.mouse.x = (Math.sin(i * 0.07) * 0.4 + 0.5) * width;
-    enginePointer.mouse.y = (Math.cos(i * 0.09) * 0.4 + 0.5) * height;
+    enginePointer.mouse.x = (Math.sin(i * 0.07) * 0.4 + 0.5) * viewportWidth;
+    enginePointer.mouse.y = (Math.cos(i * 0.09) * 0.4 + 0.5) * viewportHeight;
     if (i % 12 === 0) {
       effect.triggerRipple(enginePointer.mouse.x, enginePointer.mouse.y);
     }
@@ -108,8 +199,8 @@ function runBenchmark() {
   const heapStart = process.memoryUsage().heapUsed;
 
   for (let i = 0; i < frames; i++) {
-    enginePointer.mouse.x = (Math.sin(i * 0.07) * 0.4 + 0.5) * width;
-    enginePointer.mouse.y = (Math.cos(i * 0.09) * 0.4 + 0.5) * height;
+    enginePointer.mouse.x = (Math.sin(i * 0.07) * 0.4 + 0.5) * viewportWidth;
+    enginePointer.mouse.y = (Math.cos(i * 0.09) * 0.4 + 0.5) * viewportHeight;
     if (i % 12 === 0) {
       effect.triggerRipple(enginePointer.mouse.x, enginePointer.mouse.y);
     }
@@ -130,17 +221,70 @@ function runBenchmark() {
   const fps = 1000 / avgFrame;
   const heapDeltaMb = (heapEnd - heapStart) / (1024 * 1024);
 
-  console.log("PixelGrid benchmark baseline");
-  console.log("- Cells (estimated): " + estimatedCells);
-  console.log("- Frames sampled: " + frames);
-  console.log("- Avg update ms: " + avgUpdate.toFixed(3));
-  console.log("- Avg render ms: " + avgRender.toFixed(3));
-  console.log("- Avg frame ms: " + avgFrame.toFixed(3));
-  console.log("- Est. FPS: " + fps.toFixed(1));
-  console.log("- Heap delta MB: " + heapDeltaMb.toFixed(3));
+  return {
+    estimatedCells,
+    avgUpdate,
+    avgRender,
+    avgFrame,
+    fps,
+    heapDeltaMb
+  };
 }
 
-runBenchmark();
+function runScenario(scenarioKey, scenario) {
+  console.log("Scenario: " + scenario.title + " (" + scenarioKey + ")");
+  console.log("- Description: " + scenario.description);
+  console.log("- Viewport: " + scenario.viewportWidth + "x" + scenario.viewportHeight);
+  console.log("- Effect area: " + scenario.effectWidth + "x" + scenario.effectHeight);
+  console.log("- Gap: " + scenario.gap);
+  console.log("- Runs: " + benchmarkOptions.runs);
+  console.log("- Frames: " + benchmarkOptions.frames + " (warmup " + benchmarkOptions.warmupFrames + ")");
+  console.log("");
+
+  for (const quality of scenario.qualityModes) {
+    const passResults = [];
+    for (let runIndex = 0; runIndex < benchmarkOptions.runs; runIndex++) {
+      passResults.push(runSinglePass(scenario, quality));
+    }
+
+    const frameSeries = passResults.map((r) => r.avgFrame);
+    const fpsSeries = passResults.map((r) => r.fps);
+    const updateSeries = passResults.map((r) => r.avgUpdate);
+    const renderSeries = passResults.map((r) => r.avgRender);
+    const heapSeries = passResults.map((r) => r.heapDeltaMb);
+    const estimatedCells = passResults[0]?.estimatedCells ?? 0;
+
+    console.log("Quality: " + quality);
+    console.log("- Cells (estimated): " + estimatedCells);
+    console.log("- Avg update ms (mean): " + average(updateSeries).toFixed(3));
+    console.log("- Avg render ms (mean): " + average(renderSeries).toFixed(3));
+    console.log("- Avg frame ms (median): " + median(frameSeries).toFixed(3));
+    console.log("- Avg frame ms (mean): " + average(frameSeries).toFixed(3));
+    console.log("- Frame p95 ms: " + percentile(frameSeries, 0.95).toFixed(3));
+    console.log("- Est. FPS (median): " + median(fpsSeries).toFixed(1));
+    console.log("- Est. FPS (mean): " + average(fpsSeries).toFixed(1));
+    console.log("- Heap delta MB (mean): " + average(heapSeries).toFixed(3));
+    console.log("");
+  }
+}
+
+function getScenarioKeys(suite) {
+  if (suite === "classic") return ["classic"];
+  if (suite === "stress") return ["stress"];
+  return ["classic", "stress"];
+}
+
+const scenarios = createScenarios();
+const selectedScenarios = getScenarioKeys(benchmarkOptions.suite);
+
+console.log("PixelGrid benchmark suite");
+console.log("- suite: " + benchmarkOptions.suite);
+console.log("- runs: " + benchmarkOptions.runs);
+console.log("");
+
+for (const key of selectedScenarios) {
+  runScenario(key, scenarios[key]);
+}
 `;
 
 try {

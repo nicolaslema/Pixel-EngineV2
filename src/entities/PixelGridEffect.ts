@@ -14,7 +14,7 @@ import {
 } from "./pixel-grid/internal/runtime-state";
 import { createMaskStateMachine } from "./pixel-grid/internal/mask-state-machine";
 import { applyBreathingSystem } from "./pixel-grid/internal/breathing-system";
-import { renderPixelCells } from "./pixel-grid/internal/render-pass";
+import { PixelRenderViewport, renderPixelCells } from "./pixel-grid/internal/render-pass";
 import { runPixelGridUpdatePipeline } from "./pixel-grid/internal/update-pipeline";
 import { setupBaseInfluences } from "./pixel-grid/internal/influence-setup";
 import { DEFAULT_PIXEL_GRID_RUNTIME_TUNING } from "./pixel-grid/internal/runtime-tuning";
@@ -52,9 +52,50 @@ export class PixelGridEffect extends Entity {
   private readonly rippleEffects: ResolvedPixelGridConfig["rippleEffects"];
   private readonly breathing: ResolvedPixelGridConfig["breathing"];
   private readonly autoMorph: ResolvedPixelGridConfig["autoMorph"];
+  private readonly performance: ResolvedPixelGridConfig["performance"];
+  private readonly renderViewport: PixelRenderViewport = {
+    minX: 0,
+    maxX: 0,
+    minY: 0,
+    maxY: 0
+  };
 
   private readonly maskState: MaskStateMachine;
   private readonly maskWeightCache: MaskWeightCacheCoordinator;
+  private readonly shouldRecomputeMaskWeightCacheRef = () => this.maskWeightCache.shouldRecompute();
+  private readonly updateMaskWeightCacheRef = () => this.maskWeightCache.recompute();
+  private readonly applyReactiveHoverRef = () => {
+    applyReactiveHoverPass({
+      cells: this.cells,
+      runtime: this.runtime,
+      hoverEffects: this.hoverEffects,
+      hoverEnabled: !!this.influenceOptions.hover,
+      mouse: this.engine.mouse
+    });
+  };
+  private readonly applyReactiveRippleEffectsRef = () => {
+    applyReactiveRipplePass({
+      cells: this.cells,
+      runtime: this.runtime,
+      rippleEnabled: !!this.influenceOptions.ripple,
+      inverseGap: this.inverseGap,
+      columns: this.columns,
+      rows: this.rows,
+      hoverEffects: this.hoverEffects,
+      rippleEffects: this.rippleEffects,
+      getCellIndex: this.getCellIndexRef
+    });
+  };
+  private readonly applyBreathingRef = () => {
+    applyBreathingSystem({
+      cells: this.cells,
+      breathing: this.breathing,
+      mouse: this.engine.mouse,
+      imageMaskWeightCache: this.runtime.imageMaskWeightCache,
+      textMaskWeightCache: this.runtime.textMaskWeightCache,
+      reactiveTime: this.runtime.reactiveTime
+    });
+  };
 
   constructor(
     private engine: EnginePointerSource,
@@ -82,12 +123,13 @@ export class PixelGridEffect extends Entity {
     this.rippleEffects = resolved.rippleEffects;
     this.breathing = resolved.breathing;
     this.autoMorph = resolved.autoMorph;
+    this.performance = resolved.performance;
     this.applyCanvasBackgroundFromConfig();
 
     this.rippleSpeed = this.rippleEffects.speed;
     this.rippleThickness = this.rippleEffects.thickness;
     this.rippleStrength = this.rippleEffects.strength;
-    this.maxRipples = this.rippleEffects.maxRipples;
+    this.maxRipples = Math.min(this.rippleEffects.maxRipples, this.performance.maxRipplesCap);
 
     this.createGrid();
 
@@ -190,45 +232,35 @@ export class PixelGridEffect extends Entity {
       influenceManager: this.influenceManager,
       maskState: this.maskState,
       getCellIndex: this.getCellIndexRef,
-      shouldRecomputeMaskWeightCache: () => this.maskWeightCache.shouldRecompute(),
-      updateMaskWeightCache: () => this.maskWeightCache.recompute(),
-      applyReactiveHover: () => {
-        applyReactiveHoverPass({
-          cells: this.cells,
-          runtime: this.runtime,
-          hoverEffects: this.hoverEffects,
-          hoverEnabled: !!this.influenceOptions.hover,
-          mouse: this.engine.mouse
-        });
-      },
-      applyReactiveRippleEffects: () => {
-        applyReactiveRipplePass({
-          cells: this.cells,
-          runtime: this.runtime,
-          rippleEnabled: !!this.influenceOptions.ripple,
-          inverseGap: this.inverseGap,
-          columns: this.columns,
-          rows: this.rows,
-          hoverEffects: this.hoverEffects,
-          rippleEffects: this.rippleEffects,
-          getCellIndex: this.getCellIndexRef
-        });
-      },
-      applyBreathing: () => {
-        applyBreathingSystem({
-          cells: this.cells,
-          breathing: this.breathing,
-          mouse: this.engine.mouse,
-          imageMaskWeightCache: this.runtime.imageMaskWeightCache,
-          textMaskWeightCache: this.runtime.textMaskWeightCache,
-          reactiveTime: this.runtime.reactiveTime
-        });
-      }
+      shouldRecomputeMaskWeightCache: this.shouldRecomputeMaskWeightCacheRef,
+      updateMaskWeightCache: this.updateMaskWeightCacheRef,
+      applyReactiveHover: this.applyReactiveHoverRef,
+      applyReactiveRippleEffects: this.applyReactiveRippleEffectsRef,
+      applyBreathing: this.applyBreathingRef
     });
   }
 
   render(renderer: IRenderer): void {
-    renderPixelCells(renderer, this.cells);
+    if (this.performance.viewportCulling) {
+      const size = this.engine.getSize?.();
+      if (size) {
+        const padding = this.performance.cullingPadding;
+        this.renderViewport.minX = -padding;
+        this.renderViewport.minY = -padding;
+        this.renderViewport.maxX = size.width + padding;
+        this.renderViewport.maxY = size.height + padding;
+
+        renderPixelCells(
+          renderer,
+          this.cells,
+          this.performance.minRenderableSize,
+          this.renderViewport
+        );
+        return;
+      }
+    }
+
+    renderPixelCells(renderer, this.cells, this.performance.minRenderableSize);
   }
 
   triggerRipple(x: number, y: number): void {

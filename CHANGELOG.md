@@ -2,6 +2,32 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.0.15] - 2026-02-22
+
+### Added
+- Started v1.1 Phase 2 runtime/performance work:
+  - advanced playground runtime control panel (preset switcher, parameter inspector, timeline preview, config JSON IO, runtime stats)
+- Added `PixelGrid` performance config support:
+  - `performance.quality` (`low` | `medium` | `high`)
+  - `performance.viewportCulling`
+  - `performance.cullingPadding`
+  - `performance.minRenderableSize`
+- Added render-pass test coverage for:
+  - minimum renderable size threshold
+  - viewport culling behavior
+
+### Changed
+- `PixelGridEffect` now applies viewport culling at render-time when size context is available from engine.
+- Ripple cap is now quality-aware via resolved performance tier limits.
+- Hot-path improvements:
+  - `InfluenceManager` now early-returns when no influences are active.
+  - `PixelGridEffect` update pipeline callback references are now reused (reduced per-frame closure allocation).
+- Benchmark runner now reports quality-tier snapshots under a larger-than-viewport scenario.
+- Benchmark runner now supports realistic split suites and stable metrics:
+  - `classic` (comparable baseline) and `stress` (heavy overdraw) modes
+  - multi-run execution with median/mean/p95 frame metrics
+  - dedicated scripts: `bench:pixelgrid:classic`, `bench:pixelgrid:stress`, `bench:pixelgrid:all`
+
 ## [1.0.14] - 2026-02-22
 
 ### Added

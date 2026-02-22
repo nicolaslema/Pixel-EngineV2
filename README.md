@@ -230,6 +230,9 @@ Preset matrix:
 - Mask guidance:
   - `hero-image` should be paired with an image mask.
   - `mask.type = "hybrid"` is recommended for text+image morph flows.
+- Runtime quality:
+  - `PixelGridEffect` supports `performance.quality` (`low` | `medium` | `high`).
+  - `performance.viewportCulling` can reduce render cost when effect area is larger than viewport.
 
 ## External React Validation
 
@@ -262,6 +265,10 @@ Validated in an external React project (Vite + TypeScript) with local package in
 - `npm run build`
 - `npm run build:packages`
 - `npm run build:all`
+- `npm run bench:pixelgrid`
+- `npm run bench:pixelgrid:classic`
+- `npm run bench:pixelgrid:stress`
+- `npm run bench:pixelgrid:all`
 - `npm run typecheck`
 - `npm run verify`
 - `npm run release:check`
@@ -280,7 +287,10 @@ Detailed scripts:
 - `npm run build:packages`: builds `@pixel-engine/core`, `@pixel-engine/effects`, and `@pixel-engine/react`.
 - `npm run build:all`: builds aggregate + split packages.
 - `npm run verify`: test + build + typecheck.
-- `npm run bench:pixelgrid`: reproducible PixelGrid performance baseline.
+- `npm run bench:pixelgrid`: runs `classic + stress` suites (3 runs each, faster default).
+- `npm run bench:pixelgrid:classic`: comparable regression baseline (5 runs).
+- `npm run bench:pixelgrid:stress`: heavy overdraw + quality tiers (5 runs).
+- `npm run bench:pixelgrid:all`: full benchmark pack (classic + stress, 5 runs).
 - `npm run smoke:consumer`: validates package consumption from local tarballs.
 - `npm run release:check`: verify + pack dry-runs + consumer smoke test.
 - `npm run release:docs:prepare`: scaffold release entries in `CHANGELOG.md` and `MIGRATION.md`.
