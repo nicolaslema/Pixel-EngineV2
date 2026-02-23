@@ -104,12 +104,29 @@ const PRESET_DEFINITIONS: Record<PixelGridPresetName, PixelGridPresetDefinition>
 };
 
 function cloneConfig(config: PixelGridConfig): PixelGridConfig {
+  const clonedMaskTimeline =
+    config.maskTimeline
+      ? {
+        ...config.maskTimeline,
+        defaultTransition: config.maskTimeline.defaultTransition
+          ? { ...config.maskTimeline.defaultTransition }
+          : undefined,
+        steps: config.maskTimeline.steps
+          ? config.maskTimeline.steps.map((step) => ({
+            ...step,
+            transition: step.transition ? { ...step.transition } : undefined
+          }))
+          : undefined
+      }
+      : undefined;
+
   return {
     ...config,
     hoverEffects: config.hoverEffects ? { ...config.hoverEffects } : undefined,
     rippleEffects: config.rippleEffects ? { ...config.rippleEffects } : undefined,
     breathing: config.breathing ? { ...config.breathing } : undefined,
     autoMorph: config.autoMorph ? { ...config.autoMorph } : undefined,
+    maskTimeline: clonedMaskTimeline,
     imageMask: config.imageMask ? { ...config.imageMask } : undefined,
     textMask: config.textMask ? { ...config.textMask } : undefined
   };
@@ -167,6 +184,31 @@ export function mergePixelOptions(
         ...(override.autoMorph ?? {})
       }
       : undefined;
+  const mergedMaskTimeline =
+    base.maskTimeline || override.maskTimeline
+      ? {
+        ...(base.maskTimeline ?? {}),
+        ...(override.maskTimeline ?? {}),
+        defaultTransition:
+          base.maskTimeline?.defaultTransition || override.maskTimeline?.defaultTransition
+            ? {
+              ...(base.maskTimeline?.defaultTransition ?? {}),
+              ...(override.maskTimeline?.defaultTransition ?? {})
+            }
+            : undefined,
+        steps: override.maskTimeline?.steps
+          ? override.maskTimeline.steps.map((step) => ({
+            ...step,
+            transition: step.transition ? { ...step.transition } : undefined
+          }))
+          : base.maskTimeline?.steps
+            ? base.maskTimeline.steps.map((step) => ({
+              ...step,
+              transition: step.transition ? { ...step.transition } : undefined
+            }))
+            : undefined
+      }
+      : undefined;
   const mergedImageMask =
     base.imageMask || override.imageMask
       ? {
@@ -196,6 +238,7 @@ export function mergePixelOptions(
     rippleEffects: mergedRipple,
     breathing: mergedBreathing,
     autoMorph: mergedAutoMorph,
+    maskTimeline: mergedMaskTimeline,
     imageMask: mergedImageMask,
     textMask: mergedTextMask
   };

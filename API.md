@@ -69,6 +69,9 @@ Key fields:
 Notes:
 - `gridConfig` is optional when `preset` is provided.
 - `effectKey` controls explicit effect recreation (prevents accidental remounts from inline objects).
+- for `mask.type="hybrid"`, you can provide:
+  - `autoMorph`
+  - `maskTimeline` (full timeline schema: `enabled`, `autoplay`, `loop`, `initialStep`, `steps[]`)
 
 ## `PixelGridConfig` essentials
 
@@ -146,7 +149,24 @@ export function Advanced() {
         initialMask: "image",
         image: { src: catPngUrl, centerX: 450, centerY: 240, scale: 2 },
         text: { text: "PIXEL", centerX: 450, centerY: 280 },
-        autoMorph: { enabled: true, intervalMs: 900 }
+        maskTimeline: {
+          enabled: true,
+          autoplay: true,
+          loop: true,
+          initialStep: 0,
+          steps: [
+            {
+              mask: "image",
+              holdMs: 1200,
+              transition: { mode: "fade", durationMs: 400, seed: 11 }
+            },
+            {
+              mask: "text",
+              holdMs: 1400,
+              transition: { mode: "dissolve", durationMs: 550, seed: 22 }
+            }
+          ]
+        }
       }}
       effectKey="advanced-v1"
     />

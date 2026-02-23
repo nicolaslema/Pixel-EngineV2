@@ -9,6 +9,8 @@ High-performance 2D pixel simulation engine for browser apps and UI frameworks.
 - Phase E completed (PR-E1 + PR-E2 + PR-E3)
 - Phase F completed (PR-F1 + PR-F2 + PR-F3)
 - v1.1 Phase 1 completed (PR-1A + PR-1B)
+- v1.1 Phase 2 completed (PR-2A + PR-2B)
+- v1.1 Phase 3 completed (PR-3A + PR-3B)
 
 ## Install
 
@@ -230,6 +232,7 @@ Preset matrix:
 - Mask guidance:
   - `hero-image` should be paired with an image mask.
   - `mask.type = "hybrid"` is recommended for text+image morph flows.
+  - `mask.type = "hybrid"` also supports declarative `maskTimeline` for per-step hold/transition control.
 - Runtime quality:
   - `PixelGridEffect` supports `performance.quality` (`low` | `medium` | `high`).
   - `performance.viewportCulling` can reduce render cost when effect area is larger than viewport.
@@ -269,6 +272,11 @@ Validated in an external React project (Vite + TypeScript) with local package in
 - `npm run bench:pixelgrid:classic`
 - `npm run bench:pixelgrid:stress`
 - `npm run bench:pixelgrid:all`
+- `npm run bench:transition`
+- `npm run bench:transition:all`
+- `npm run bench:transition:morph`
+- `npm run bench:transition:fade`
+- `npm run bench:transition:dissolve`
 - `npm run typecheck`
 - `npm run verify`
 - `npm run release:check`
@@ -291,6 +299,11 @@ Detailed scripts:
 - `npm run bench:pixelgrid:classic`: comparable regression baseline (5 runs).
 - `npm run bench:pixelgrid:stress`: heavy overdraw + quality tiers (5 runs).
 - `npm run bench:pixelgrid:all`: full benchmark pack (classic + stress, 5 runs).
+- `npm run bench:transition`: runs text/image transition benchmark (`morph + fade + dissolve`, 3 runs).
+- `npm run bench:transition:all`: full transition benchmark pack (`morph + fade + dissolve`, 5 runs).
+- `npm run bench:transition:morph`: transition benchmark only for `morph` mode.
+- `npm run bench:transition:fade`: transition benchmark only for `fade` mode.
+- `npm run bench:transition:dissolve`: transition benchmark only for `dissolve` mode.
 - `npm run smoke:consumer`: validates package consumption from local tarballs.
 - `npm run release:check`: verify + pack dry-runs + consumer smoke test.
 - `npm run release:docs:prepare`: scaffold release entries in `CHANGELOG.md` and `MIGRATION.md`.

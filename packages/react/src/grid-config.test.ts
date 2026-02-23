@@ -20,17 +20,38 @@ describe("grid config helpers", () => {
     expect(merged.gap).toBeGreaterThan(0);
   });
 
-  it("maps hybrid declarative mask into image/text/automorph config", () => {
+  it("maps hybrid declarative mask into image/text/automorph/timeline config", () => {
     const mask = createMaskConfig({
       type: "hybrid",
       initialMask: "text",
       autoMorph: { enabled: true, intervalMs: 800 },
+      maskTimeline: {
+        enabled: true,
+        autoplay: false,
+        loop: true,
+        initialStep: 1,
+        steps: [
+          {
+            mask: "text",
+            holdMs: 500,
+            transition: { mode: "fade", durationMs: 250, seed: 1 }
+          },
+          {
+            mask: "image",
+            holdMs: 700,
+            transition: { mode: "dissolve", durationMs: 350, seed: 2 }
+          }
+        ]
+      },
       text: { text: "PIXEL", centerX: 320, centerY: 210 },
       image: { src: "/cat.png", centerX: 300, centerY: 200, scale: 2 }
     });
 
     expect(mask.initialMask).toBe("text");
     expect(mask.autoMorph?.enabled).toBe(true);
+    expect(mask.maskTimeline?.enabled).toBe(true);
+    expect(mask.maskTimeline?.steps?.[0]?.holdMs).toBe(500);
+    expect(mask.maskTimeline?.steps?.[1]?.transition?.durationMs).toBe(350);
     expect(mask.textMask?.text).toBe("PIXEL");
     expect(mask.imageMask?.src).toBe("/cat.png");
   });

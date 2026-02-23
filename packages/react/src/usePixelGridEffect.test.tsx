@@ -148,7 +148,7 @@ describe("usePixelGridEffect", () => {
     cleanupHost(container, root);
   });
 
-  it("supports preset + declarative mask without explicit gridConfig", () => {
+  it("supports preset + declarative mask with timeline config without explicit gridConfig", () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
     const engine = {
@@ -172,6 +172,24 @@ describe("usePixelGridEffect", () => {
         mask: {
           type: "hybrid",
           initialMask: "image",
+          maskTimeline: {
+            enabled: true,
+            autoplay: false,
+            loop: true,
+            initialStep: 0,
+            steps: [
+              {
+                mask: "image",
+                holdMs: 300,
+                transition: { mode: "fade", durationMs: 120, seed: 5 }
+              },
+              {
+                mask: "text",
+                holdMs: 400,
+                transition: { mode: "dissolve", durationMs: 140, seed: 8 }
+              }
+            ]
+          },
           image: {
             src: "/cat.png",
             centerX: 150,
@@ -200,6 +218,9 @@ describe("usePixelGridEffect", () => {
     expect(configArg.colors.length).toBeGreaterThan(0);
     expect(configArg.textMask?.text).toBe("HELLO");
     expect(configArg.imageMask?.src).toBe("/cat.png");
+    expect(configArg.maskTimeline?.enabled).toBe(true);
+    expect(configArg.maskTimeline?.steps?.[0]?.holdMs).toBe(300);
+    expect(configArg.maskTimeline?.steps?.[1]?.transition?.mode).toBe("dissolve");
     expect(configArg.gap).toBeGreaterThan(0);
 
     cleanupHost(container, root);

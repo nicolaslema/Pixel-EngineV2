@@ -39,6 +39,7 @@ export function resolvePixelGridConfig(
     morphDurationMs: config.autoMorph?.morphDurationMs ?? 1200,
     intervalMs: config.autoMorph?.intervalMs ?? 0
   };
+  const maskTimeline = resolveMaskTimeline(config, autoMorph);
 
   const breathing: Required<ResolvedPixelGridConfig["breathing"]> = {
     enabled: config.breathing?.enabled ?? false,
@@ -75,8 +76,87 @@ export function resolvePixelGridConfig(
     rippleEffects: resolvedRipple,
     breathing,
     autoMorph,
+    maskTimeline,
     performance: resolvedPerformance,
     initialMask: config.initialMask ?? "image"
+  };
+}
+
+function resolveMaskTimeline(
+  config: PixelGridConfig,
+  autoMorph: Required<ResolvedPixelGridConfig["autoMorph"]>
+): ResolvedPixelGridConfig["maskTimeline"] {
+  type TimelineSourceStep = {
+    mask: "image" | "text";
+    holdMs?: number;
+    transition?: {
+      mode?: "morph" | "fade" | "dissolve";
+      durationMs?: number;
+      seed?: number;
+    };
+  };
+
+  const explicitSteps: TimelineSourceStep[] = config.maskTimeline?.steps ?? [];
+  const hasExplicitSteps = explicitSteps.length > 0;
+
+  const legacySteps: TimelineSourceStep[] =
+    autoMorph.enabled
+      ? [
+        {
+          mask: "image" as const,
+          holdMs: autoMorph.holdImageMs + autoMorph.intervalMs,
+          transition: {
+            mode: "morph" as const,
+            durationMs: autoMorph.morphDurationMs
+          }
+        },
+        {
+          mask: "text" as const,
+          holdMs: autoMorph.holdTextMs + autoMorph.intervalMs,
+          transition: {
+            mode: "morph" as const,
+            durationMs: autoMorph.morphDurationMs
+          }
+        }
+      ]
+      : [];
+
+  const sourceSteps = hasExplicitSteps ? explicitSteps : legacySteps;
+  const defaultTransition = {
+    mode: config.maskTimeline?.defaultTransition?.mode ?? "morph",
+    durationMs: Math.max(1, config.maskTimeline?.defaultTransition?.durationMs ?? autoMorph.morphDurationMs),
+    seed: config.maskTimeline?.defaultTransition?.seed ?? 1337
+  };
+  const defaultHoldMs = Math.max(0, config.maskTimeline?.defaultHoldMs ?? 2500);
+  const enabled = config.maskTimeline?.enabled ?? (sourceSteps.length > 0);
+  const loop = config.maskTimeline?.loop ?? true;
+  const autoplay = config.maskTimeline?.autoplay ?? true;
+  const initialStepRaw = config.maskTimeline?.initialStep ?? 0;
+
+  const resolvedSteps = sourceSteps.map((step, index) => ({
+    mask: step.mask,
+    holdMs: Math.max(0, step.holdMs ?? defaultHoldMs),
+    transition: {
+      mode: step.transition?.mode ?? defaultTransition.mode,
+      durationMs: Math.max(1, step.transition?.durationMs ?? defaultTransition.durationMs),
+      seed: step.transition?.seed ?? defaultTransition.seed + index * 97
+    }
+  }));
+
+  const initialStep =
+    resolvedSteps.length === 0
+      ? 0
+      : Math.min(
+        resolvedSteps.length - 1,
+        Math.max(0, Math.floor(initialStepRaw))
+      );
+
+  return {
+    enabled,
+    loop,
+    autoplay,
+    initialStep,
+    steps: resolvedSteps
   };
 }
 

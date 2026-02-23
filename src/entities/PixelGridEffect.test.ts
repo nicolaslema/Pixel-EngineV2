@@ -64,4 +64,57 @@ describe("PixelGridEffect", () => {
 
     engine.destroy();
   });
+
+  it("should expose mask timeline playback controls", () => {
+    const canvas = document.createElement("canvas");
+    const engine = new PixelEngine({
+      canvas,
+      width: 200,
+      height: 120
+    });
+
+    const effect = new PixelGridEffect(engine, 200, 120, {
+      colors: ["#334155", "#475569", "#64748b"],
+      gap: 8,
+      expandEase: 0.08,
+      breathSpeed: 1,
+      maskTimeline: {
+        enabled: true,
+        autoplay: false,
+        loop: true,
+        steps: [
+          {
+            mask: "text",
+            holdMs: 30,
+            transition: {
+              mode: "fade",
+              durationMs: 30
+            }
+          },
+          {
+            mask: "image",
+            holdMs: 30,
+            transition: {
+              mode: "dissolve",
+              durationMs: 30
+            }
+          }
+        ]
+      }
+    });
+
+    expect(effect.getMaskTimelineState().playing).toBe(false);
+    expect(effect.getMaskTimelineState().stepIndex).toBe(0);
+
+    effect.playMaskTimeline();
+    expect(effect.getMaskTimelineState().playing).toBe(true);
+
+    effect.pauseMaskTimeline();
+    expect(effect.getMaskTimelineState().playing).toBe(false);
+
+    effect.resetMaskTimeline();
+    expect(effect.getMaskTimelineState().stepIndex).toBe(0);
+
+    engine.destroy();
+  });
 });

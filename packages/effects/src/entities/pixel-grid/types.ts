@@ -6,6 +6,7 @@ export type HoverMode = "classic" | "reactive";
 export type ReactiveHoverScope = "all" | "activeOnly" | "imageMask";
 export type InitialMask = "image" | "text";
 export type PixelGridQualityLevel = "low" | "medium" | "high";
+export type MaskTimelineTransitionMode = "morph" | "fade" | "dissolve";
 
 export interface HoverEffectsOptions {
   mode?: HoverMode;
@@ -54,6 +55,48 @@ export interface AutoMorphOptions {
   intervalMs?: number;
 }
 
+export interface MaskTimelineTransitionOptions {
+  mode?: MaskTimelineTransitionMode;
+  durationMs?: number;
+  seed?: number;
+}
+
+export interface MaskTimelineStepOptions {
+  mask: InitialMask;
+  holdMs?: number;
+  transition?: MaskTimelineTransitionOptions;
+}
+
+export interface MaskTimelineOptions {
+  enabled?: boolean;
+  autoplay?: boolean;
+  loop?: boolean;
+  initialStep?: number;
+  defaultHoldMs?: number;
+  defaultTransition?: MaskTimelineTransitionOptions;
+  steps?: MaskTimelineStepOptions[];
+}
+
+export interface ResolvedMaskTimelineTransition {
+  mode: MaskTimelineTransitionMode;
+  durationMs: number;
+  seed: number;
+}
+
+export interface ResolvedMaskTimelineStep {
+  mask: InitialMask;
+  holdMs: number;
+  transition: ResolvedMaskTimelineTransition;
+}
+
+export interface ResolvedMaskTimelineOptions {
+  enabled: boolean;
+  autoplay: boolean;
+  loop: boolean;
+  initialStep: number;
+  steps: ResolvedMaskTimelineStep[];
+}
+
 export interface PerformanceOptions {
   quality?: PixelGridQualityLevel;
   viewportCulling?: boolean;
@@ -96,6 +139,7 @@ export interface PixelGridConfig {
   rippleEffects?: RippleEffectsOptions;
   breathing?: BreathingOptions;
   autoMorph?: AutoMorphOptions;
+  maskTimeline?: MaskTimelineOptions;
   performance?: PerformanceOptions;
 
   imageMask?: PixelGridImageMaskConfig;
@@ -114,6 +158,7 @@ export interface ResolvedPixelGridConfig {
   rippleEffects: Required<RippleEffectsOptions>;
   breathing: Required<BreathingOptions>;
   autoMorph: Required<AutoMorphOptions>;
+  maskTimeline: ResolvedMaskTimelineOptions;
   performance: ResolvedPerformanceOptions;
   initialMask: InitialMask;
 }

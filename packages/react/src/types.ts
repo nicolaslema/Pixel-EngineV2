@@ -72,6 +72,7 @@ export interface HybridMaskInput {
   image: Omit<ImageMaskInput, "type">;
   initialMask?: InitialMask;
   autoMorph?: PixelGridConfig["autoMorph"];
+  maskTimeline?: PixelGridConfig["maskTimeline"];
 }
 
 export type PixelGridMaskInput = TextMaskInput | ImageMaskInput | HybridMaskInput;

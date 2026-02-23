@@ -104,6 +104,7 @@ function toMaskConfig(mask?: PixelGridMaskInput): Partial<PixelGridConfig> {
       blurRadius: hybrid.text.blurRadius
     },
     autoMorph: hybrid.autoMorph,
+    maskTimeline: hybrid.maskTimeline,
     initialMask: hybrid.initialMask
   };
 }

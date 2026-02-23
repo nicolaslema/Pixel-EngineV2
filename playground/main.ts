@@ -9,6 +9,18 @@ interface PlaygroundState {
   config: PixelGridConfig;
   influenceOptions: PixelGridInfluenceOptions;
   pageColor: string;
+  timelineAssets: {
+    text1: string;
+    text2: string;
+    image1: string;
+    image2: string;
+    image1Scale: number;
+    image2Scale: number;
+    image1SampleMode: "alpha" | "luminance" | "threshold" | "invert";
+    image2SampleMode: "alpha" | "luminance" | "threshold" | "invert";
+    image1ObjectUrl: string | null;
+    image2ObjectUrl: string | null;
+  };
 }
 
 interface EffectDebugState {
@@ -184,11 +196,42 @@ function createPresetConfig(preset: PlaygroundPreset): PixelGridConfig {
         affectText: true
       },
       autoMorph: {
-        enabled: true,
+        enabled: false,
         holdImageMs: 1400,
         holdTextMs: 1400,
         morphDurationMs: 900,
         intervalMs: 140
+      },
+      maskTimeline: {
+        enabled: true,
+        autoplay: true,
+        loop: true,
+        initialStep: 0,
+        defaultTransition: {
+          mode: "morph",
+          durationMs: 900,
+          seed: 1337
+        },
+        steps: [
+          {
+            mask: "image",
+            holdMs: 1400,
+            transition: {
+              mode: "morph",
+              durationMs: 900,
+              seed: 1401
+            }
+          },
+          {
+            mask: "text",
+            holdMs: 1400,
+            transition: {
+              mode: "dissolve",
+              durationMs: 900,
+              seed: 4201
+            }
+          }
+        ]
       },
       initialMask: "image",
       imageMask: {
@@ -259,6 +302,37 @@ function createPresetConfig(preset: PlaygroundPreset): PixelGridConfig {
       morphDurationMs: 100,
       intervalMs: 1050
     },
+    maskTimeline: {
+      enabled: true,
+      autoplay: true,
+      loop: true,
+      initialStep: 0,
+      defaultTransition: {
+        mode: "fade",
+        durationMs: 900,
+        seed: 1337
+      },
+      steps: [
+        {
+          mask: "image",
+          holdMs: 1100,
+          transition: {
+            mode: "fade",
+            durationMs: 850,
+            seed: 1101
+          }
+        },
+        {
+          mask: "text",
+          holdMs: 1100,
+          transition: {
+            mode: "dissolve",
+            durationMs: 850,
+            seed: 2201
+          }
+        }
+      ]
+    },
     initialMask: "image",
     imageMask: {
       src: "/src/assets/cat.png",
@@ -290,10 +364,35 @@ const state: PlaygroundState = {
     hover: true,
     organic: false
   },
-  pageColor: "#0b1020"
+  pageColor: "#0b1020",
+  timelineAssets: {
+    text1: createPresetConfig("card-soft").textMask?.text ?? "TEXT 1",
+    text2: "TEXT 2",
+    image1: createPresetConfig("card-soft").imageMask?.src ?? "/src/assets/cat.png",
+    image2: createPresetConfig("card-soft").imageMask?.src ?? "/src/assets/cat.png",
+    image1Scale: createPresetConfig("card-soft").imageMask?.scale ?? 2,
+    image2Scale: createPresetConfig("card-soft").imageMask?.scale ?? 2,
+    image1SampleMode: createPresetConfig("card-soft").imageMask?.sampleMode ?? "threshold",
+    image2SampleMode: createPresetConfig("card-soft").imageMask?.sampleMode ?? "threshold",
+    image1ObjectUrl: null,
+    image2ObjectUrl: null
+  }
 };
 
 document.body.style.backgroundColor = state.pageColor;
+document.body.style.margin = "0";
+document.body.style.minHeight = "100vh";
+document.body.style.display = "flex";
+document.body.style.alignItems = "center";
+document.body.style.justifyContent = "center";
+document.body.style.boxSizing = "border-box";
+document.body.style.paddingLeft = "396px";
+document.body.style.paddingRight = "396px";
+canvas.style.display = "block";
+canvas.style.maxWidth = "min(62vw, 800px)";
+canvas.style.maxHeight = "90vh";
+canvas.style.borderRadius = "10px";
+canvas.style.boxShadow = "0 12px 30px rgba(0, 0, 0, 0.35)";
 
 let effect = new PixelGridEffect(
   engine,
@@ -314,32 +413,212 @@ function rebuildEffect(): void {
     { ...state.influenceOptions }
   );
   engine.addEntity(effect);
+  lastAppliedTimelineStep = -1;
+  applyTimelineStepAssets(true);
 }
 
-const panel = document.createElement("div");
-panel.style.position = "fixed";
-panel.style.top = "12px";
-panel.style.right = "12px";
-panel.style.zIndex = "9999";
-panel.style.padding = "12px";
-panel.style.borderRadius = "10px";
-panel.style.background = "rgba(15, 23, 42, 0.92)";
-panel.style.color = "#e2e8f0";
-panel.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, monospace";
-panel.style.fontSize = "12px";
-panel.style.display = "grid";
-panel.style.gap = "10px";
-panel.style.minWidth = "320px";
-panel.style.maxWidth = "360px";
-panel.style.maxHeight = "94vh";
-panel.style.overflow = "auto";
-panel.style.boxShadow = "0 8px 24px rgba(0, 0, 0, 0.35)";
+type TimelineStep = {
+  mask: "image" | "text";
+  holdMs: number;
+  transition: {
+    mode: "morph" | "fade" | "dissolve";
+    durationMs: number;
+    seed: number;
+  };
+};
 
-const header = document.createElement("div");
-header.textContent = "Pixel Playground";
-header.style.fontWeight = "700";
-header.style.fontSize = "13px";
-panel.appendChild(header);
+function createDefaultTimelineStep(mask: "image" | "text", seed: number): TimelineStep {
+  return {
+    mask,
+    holdMs: 1200,
+    transition: {
+      mode: "morph",
+      durationMs: 900,
+      seed
+    }
+  };
+}
+
+function ensureTimelineConfig(): NonNullable<PixelGridConfig["maskTimeline"]> {
+  if (!state.config.maskTimeline) {
+    state.config.maskTimeline = {
+      enabled: true,
+      autoplay: true,
+      loop: true,
+      initialStep: 0,
+      defaultTransition: {
+        mode: "morph",
+        durationMs: 900,
+        seed: 1337
+      },
+      steps: [
+        createDefaultTimelineStep("text", 1401),
+        createDefaultTimelineStep("image", 2401),
+        createDefaultTimelineStep("text", 3401),
+        createDefaultTimelineStep("image", 4401)
+      ]
+    };
+  }
+
+  if (!state.config.maskTimeline.defaultTransition) {
+    state.config.maskTimeline.defaultTransition = {
+      mode: "morph",
+      durationMs: 900,
+      seed: 1337
+    };
+  }
+
+  if (!state.config.maskTimeline.steps || state.config.maskTimeline.steps.length === 0) {
+    state.config.maskTimeline.steps = [
+      createDefaultTimelineStep("text", 1401),
+      createDefaultTimelineStep("image", 2401),
+      createDefaultTimelineStep("text", 3401),
+      createDefaultTimelineStep("image", 4401)
+    ];
+  }
+
+  while (state.config.maskTimeline.steps.length < 4) {
+    state.config.maskTimeline.steps.push(
+      createDefaultTimelineStep(
+        state.config.maskTimeline.steps.length % 2 === 0 ? "text" : "image",
+        2401 + state.config.maskTimeline.steps.length * 97
+      )
+    );
+  }
+  if (state.config.maskTimeline.steps.length > 4) {
+    state.config.maskTimeline.steps = state.config.maskTimeline.steps.slice(0, 4);
+  }
+
+  state.config.maskTimeline.steps[0].mask = "text";
+  state.config.maskTimeline.steps[1].mask = "image";
+  state.config.maskTimeline.steps[2].mask = "text";
+  state.config.maskTimeline.steps[3].mask = "image";
+
+  return state.config.maskTimeline;
+}
+
+let lastAppliedTimelineStep = -1;
+
+function applyTimelineStepAssets(force = false): void {
+  const timeline = ensureTimelineConfig();
+  if (!timeline.enabled) return;
+  const timelineState = effect.getMaskTimelineState();
+  const stepIndex = timelineState.stepIndex;
+  if (stepIndex < 0) return;
+  if (!force && stepIndex === lastAppliedTimelineStep) return;
+
+  const step = timeline.steps?.[stepIndex];
+  if (!step) return;
+
+  const internal = effect as unknown as {
+    maskState?: {
+      textMask?: { generateMask?: () => void; text?: string };
+      imageMask?: { image?: HTMLImageElement };
+    };
+  };
+  const maskState = internal.maskState;
+  if (!maskState) return;
+
+  if (step.mask === "text") {
+    const nextText = stepIndex === 0 ? state.timelineAssets.text1 : state.timelineAssets.text2;
+    const textMask = maskState.textMask;
+    if (textMask && nextText && textMask.text !== nextText) {
+      textMask.text = nextText;
+      textMask.generateMask?.();
+    }
+    const currentTextMask = state.config.textMask;
+    state.config.textMask = {
+      ...(currentTextMask ?? {}),
+      font: currentTextMask?.font ?? "bold 140px Arial",
+      text: nextText
+    };
+  }
+
+  if (step.mask === "image") {
+    const useFirstImageSlot = stepIndex === 1;
+    const nextImage = useFirstImageSlot ? state.timelineAssets.image1 : state.timelineAssets.image2;
+    const nextScale = useFirstImageSlot ? state.timelineAssets.image1Scale : state.timelineAssets.image2Scale;
+    const nextSampleMode = useFirstImageSlot
+      ? state.timelineAssets.image1SampleMode
+      : state.timelineAssets.image2SampleMode;
+
+    const imageMaskInternal = maskState.imageMask as unknown as {
+      image?: HTMLImageElement;
+      generateMask?: () => void;
+      scale?: number;
+      sampleMode?: "alpha" | "luminance" | "threshold" | "invert";
+    };
+
+    imageMaskInternal.scale = nextScale;
+    imageMaskInternal.sampleMode = nextSampleMode;
+
+    if (imageMaskInternal.image && nextImage && imageMaskInternal.image.src !== nextImage) {
+      imageMaskInternal.image.src = nextImage;
+    } else {
+      imageMaskInternal.generateMask?.();
+    }
+
+    state.config.imageMask = {
+      ...(state.config.imageMask ?? {}),
+      src: nextImage,
+      scale: nextScale,
+      sampleMode: nextSampleMode
+    };
+  }
+
+  lastAppliedTimelineStep = stepIndex;
+}
+
+function replaceTimelineImage(slot: 1 | 2, file: File): void {
+  const objectUrl = URL.createObjectURL(file);
+  if (slot === 1) {
+    if (state.timelineAssets.image1ObjectUrl) {
+      URL.revokeObjectURL(state.timelineAssets.image1ObjectUrl);
+    }
+    state.timelineAssets.image1ObjectUrl = objectUrl;
+    state.timelineAssets.image1 = objectUrl;
+  } else {
+    if (state.timelineAssets.image2ObjectUrl) {
+      URL.revokeObjectURL(state.timelineAssets.image2ObjectUrl);
+    }
+    state.timelineAssets.image2ObjectUrl = objectUrl;
+    state.timelineAssets.image2 = objectUrl;
+  }
+
+  applyTimelineStepAssets(true);
+  updateTimelinePreview();
+}
+
+function createPanel(side: "left" | "right", title: string): HTMLDivElement {
+  const panel = document.createElement("div");
+  panel.style.position = "fixed";
+  panel.style.top = "12px";
+  panel.style[side] = "12px";
+  panel.style.zIndex = "9999";
+  panel.style.padding = "12px";
+  panel.style.borderRadius = "10px";
+  panel.style.background = "rgba(15, 23, 42, 0.92)";
+  panel.style.color = "#e2e8f0";
+  panel.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, monospace";
+  panel.style.fontSize = "12px";
+  panel.style.display = "grid";
+  panel.style.gap = "10px";
+  panel.style.minWidth = "320px";
+  panel.style.maxWidth = "360px";
+  panel.style.maxHeight = "94vh";
+  panel.style.overflow = "auto";
+  panel.style.boxShadow = "0 8px 24px rgba(0, 0, 0, 0.35)";
+
+  const header = document.createElement("div");
+  header.textContent = title;
+  header.style.fontWeight = "700";
+  header.style.fontSize = "13px";
+  panel.appendChild(header);
+  return panel;
+}
+
+const controlsPanel = createPanel("right", "Controls");
+const utilityPanel = createPanel("left", "Runtime / I/O");
 
 const refreshers: Array<() => void> = [];
 
@@ -499,8 +778,16 @@ function addColorControl(
   const row = createRow(label);
   const input = document.createElement("input");
   input.type = "color";
+  const normalizeColor = (value: string): string => {
+    if (/^#[0-9a-fA-F]{6}$/.test(value)) return value;
+    if (/^#[0-9a-fA-F]{3}$/.test(value)) {
+      const hex = value.slice(1);
+      return `#${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}`;
+    }
+    return "#000000";
+  };
   const sync = () => {
-    const value = getValue();
+    const value = normalizeColor(getValue());
     input.value = value;
     row.value.textContent = value;
   };
@@ -510,6 +797,86 @@ function addColorControl(
     setValue(input.value);
     row.value.textContent = input.value;
     onApply();
+  });
+  row.row.appendChild(input);
+  section.appendChild(row.row);
+}
+
+const DEFAULT_PIXEL_COLORS = ["#334155", "#475569", "#64748b"];
+const DEFAULT_HOVER_TINTS = ["#94a3b8", "#cbd5e1", "#ffffff"];
+const DEFAULT_RIPPLE_TINTS = ["#f8fafc", "#cbd5e1", "#94a3b8"];
+
+function readPaletteColor(
+  palette: string[] | undefined,
+  index: number,
+  fallbacks: string[]
+): string {
+  return palette?.[index] ?? fallbacks[index] ?? "#ffffff";
+}
+
+function writePaletteColor(
+  palette: string[] | undefined,
+  index: number,
+  value: string,
+  fallbacks: string[]
+): string[] {
+  const next = [...(palette ?? [])];
+  for (let i = next.length; i <= index; i++) {
+    next[i] = fallbacks[i] ?? "#ffffff";
+  }
+  next[index] = value;
+  return next;
+}
+
+function addTextControl(
+  section: HTMLElement,
+  label: string,
+  getValue: () => string,
+  setValue: (value: string) => void,
+  onApply: () => void
+): void {
+  const row = createRow(label);
+  const input = document.createElement("input");
+  input.type = "text";
+  input.style.gridColumn = "1 / -1";
+  input.style.background = "#111827";
+  input.style.color = "#e5e7eb";
+  input.style.border = "1px solid rgba(148, 163, 184, 0.4)";
+  input.style.borderRadius = "6px";
+  input.style.padding = "4px 6px";
+
+  const sync = () => {
+    const value = getValue();
+    input.value = value;
+    row.value.textContent = value.length > 18 ? `${value.slice(0, 18)}…` : value;
+  };
+  sync();
+  refreshers.push(sync);
+  input.addEventListener("change", () => {
+    setValue(input.value);
+    onApply();
+    sync();
+  });
+  row.row.appendChild(input);
+  section.appendChild(row.row);
+}
+
+function addFileUploadControl(
+  section: HTMLElement,
+  label: string,
+  onFile: (file: File) => void
+): void {
+  const row = createRow(label);
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/*";
+  input.style.gridColumn = "1 / -1";
+  input.style.color = "#cbd5e1";
+  input.addEventListener("change", () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    row.value.textContent = file.name;
+    onFile(file);
   });
   row.row.appendChild(input);
   section.appendChild(row.row);
@@ -525,6 +892,21 @@ addSelectControl(
   (value) => {
     state.preset = value as PlaygroundPreset;
     state.config = createPresetConfig(state.preset);
+    if (state.config.textMask?.text) {
+      state.timelineAssets.text1 = state.config.textMask.text;
+    }
+    state.timelineAssets.image1Scale = state.config.imageMask?.scale ?? state.timelineAssets.image1Scale;
+    state.timelineAssets.image2Scale = state.config.imageMask?.scale ?? state.timelineAssets.image2Scale;
+    state.timelineAssets.image1SampleMode =
+      state.config.imageMask?.sampleMode ?? state.timelineAssets.image1SampleMode;
+    state.timelineAssets.image2SampleMode =
+      state.config.imageMask?.sampleMode ?? state.timelineAssets.image2SampleMode;
+    if (!state.timelineAssets.image1ObjectUrl && state.config.imageMask?.src) {
+      state.timelineAssets.image1 = state.config.imageMask.src;
+    }
+    if (!state.timelineAssets.image2ObjectUrl && state.config.imageMask?.src) {
+      state.timelineAssets.image2 = state.config.imageMask.src;
+    }
     renderAllControls();
   }
 );
@@ -600,7 +982,149 @@ addCheckboxControl(
   }
 );
 
-panel.appendChild(setupSection);
+controlsPanel.appendChild(setupSection);
+
+const palettesSection = createSection("Palettes");
+
+addColorControl(
+  palettesSection,
+  "pixel color 1",
+  () => readPaletteColor(state.config.colors, 0, DEFAULT_PIXEL_COLORS),
+  (value) => {
+    state.config.colors = writePaletteColor(state.config.colors, 0, value, DEFAULT_PIXEL_COLORS);
+  },
+  () => rebuildEffect()
+);
+
+addColorControl(
+  palettesSection,
+  "pixel color 2",
+  () => readPaletteColor(state.config.colors, 1, DEFAULT_PIXEL_COLORS),
+  (value) => {
+    state.config.colors = writePaletteColor(state.config.colors, 1, value, DEFAULT_PIXEL_COLORS);
+  },
+  () => rebuildEffect()
+);
+
+addColorControl(
+  palettesSection,
+  "pixel color 3",
+  () => readPaletteColor(state.config.colors, 2, DEFAULT_PIXEL_COLORS),
+  (value) => {
+    state.config.colors = writePaletteColor(state.config.colors, 2, value, DEFAULT_PIXEL_COLORS);
+  },
+  () => rebuildEffect()
+);
+
+addColorControl(
+  palettesSection,
+  "hover tint 1",
+  () => readPaletteColor(state.config.hoverEffects?.tintPalette, 0, DEFAULT_HOVER_TINTS),
+  (value) => {
+    state.config.hoverEffects = {
+      ...state.config.hoverEffects,
+      tintPalette: writePaletteColor(
+        state.config.hoverEffects?.tintPalette,
+        0,
+        value,
+        DEFAULT_HOVER_TINTS
+      )
+    };
+  },
+  () => rebuildEffect()
+);
+
+addColorControl(
+  palettesSection,
+  "hover tint 2",
+  () => readPaletteColor(state.config.hoverEffects?.tintPalette, 1, DEFAULT_HOVER_TINTS),
+  (value) => {
+    state.config.hoverEffects = {
+      ...state.config.hoverEffects,
+      tintPalette: writePaletteColor(
+        state.config.hoverEffects?.tintPalette,
+        1,
+        value,
+        DEFAULT_HOVER_TINTS
+      )
+    };
+  },
+  () => rebuildEffect()
+);
+
+addColorControl(
+  palettesSection,
+  "hover tint 3",
+  () => readPaletteColor(state.config.hoverEffects?.tintPalette, 2, DEFAULT_HOVER_TINTS),
+  (value) => {
+    state.config.hoverEffects = {
+      ...state.config.hoverEffects,
+      tintPalette: writePaletteColor(
+        state.config.hoverEffects?.tintPalette,
+        2,
+        value,
+        DEFAULT_HOVER_TINTS
+      )
+    };
+  },
+  () => rebuildEffect()
+);
+
+addColorControl(
+  palettesSection,
+  "ripple tint 1",
+  () => readPaletteColor(state.config.rippleEffects?.tintPalette, 0, DEFAULT_RIPPLE_TINTS),
+  (value) => {
+    state.config.rippleEffects = {
+      ...state.config.rippleEffects,
+      tintPalette: writePaletteColor(
+        state.config.rippleEffects?.tintPalette,
+        0,
+        value,
+        DEFAULT_RIPPLE_TINTS
+      )
+    };
+  },
+  () => rebuildEffect()
+);
+
+addColorControl(
+  palettesSection,
+  "ripple tint 2",
+  () => readPaletteColor(state.config.rippleEffects?.tintPalette, 1, DEFAULT_RIPPLE_TINTS),
+  (value) => {
+    state.config.rippleEffects = {
+      ...state.config.rippleEffects,
+      tintPalette: writePaletteColor(
+        state.config.rippleEffects?.tintPalette,
+        1,
+        value,
+        DEFAULT_RIPPLE_TINTS
+      )
+    };
+  },
+  () => rebuildEffect()
+);
+
+addColorControl(
+  palettesSection,
+  "ripple tint 3",
+  () => readPaletteColor(state.config.rippleEffects?.tintPalette, 2, DEFAULT_RIPPLE_TINTS),
+  (value) => {
+    state.config.rippleEffects = {
+      ...state.config.rippleEffects,
+      tintPalette: writePaletteColor(
+        state.config.rippleEffects?.tintPalette,
+        2,
+        value,
+        DEFAULT_RIPPLE_TINTS
+      )
+    };
+  },
+  () => rebuildEffect()
+);
+
+controlsPanel.appendChild(palettesSection);
 
 const interactionSection = createSection("Interaction");
 addCheckboxControl(
@@ -694,80 +1218,140 @@ addRangeControl(
     };
   }
 );
-panel.appendChild(interactionSection);
+controlsPanel.appendChild(interactionSection);
 
 const timelineSection = createSection("Mask Timeline");
 addCheckboxControl(
   timelineSection,
-  "autoMorph",
-  () => !!state.config.autoMorph?.enabled,
+  "enabled",
+  () => !!state.config.maskTimeline?.enabled,
   (value) => {
-    state.config.autoMorph = {
-      ...state.config.autoMorph,
-      enabled: value
-    };
+    const timeline = ensureTimelineConfig();
+    timeline.enabled = value;
   }
 );
 
 addRangeControl(
   timelineSection,
-  "holdImageMs",
-  100,
+  "hold (all steps)",
+  0,
   5000,
-  50,
-  () => state.config.autoMorph?.holdImageMs ?? 1200,
+  25,
+  () => ensureTimelineConfig().steps?.[0]?.holdMs ?? 1200,
   (value) => {
-    state.config.autoMorph = {
-      ...state.config.autoMorph,
-      holdImageMs: value
-    };
+    const timeline = ensureTimelineConfig();
+    for (const step of timeline.steps ?? []) {
+      step.holdMs = value;
+    }
   }
 );
 
 addRangeControl(
   timelineSection,
-  "morphDurationMs",
+  "duration (all transitions)",
   100,
   2500,
   50,
-  () => state.config.autoMorph?.morphDurationMs ?? 900,
+  () => ensureTimelineConfig().steps?.[0]?.transition?.durationMs ?? 900,
   (value) => {
-    state.config.autoMorph = {
-      ...state.config.autoMorph,
-      morphDurationMs: value
-    };
+    const timeline = ensureTimelineConfig();
+    for (const step of timeline.steps ?? []) {
+      if (!step.transition) {
+        step.transition = {
+          mode: "morph",
+          durationMs: value,
+          seed: 1337
+        };
+      } else {
+        step.transition.durationMs = value;
+      }
+    }
+  }
+);
+
+addSelectControl(
+  timelineSection,
+  "transition mode",
+  ["morph", "fade", "dissolve"],
+  () => ensureTimelineConfig().steps?.[0]?.transition?.mode ?? "morph",
+  (value) => {
+    const timeline = ensureTimelineConfig();
+    for (const step of timeline.steps ?? []) {
+      if (!step.transition) {
+        step.transition = {
+          mode: value as "morph" | "fade" | "dissolve",
+          durationMs: 900,
+          seed: 1337
+        };
+      } else {
+        step.transition.mode = value as "morph" | "fade" | "dissolve";
+      }
+    }
+  }
+);
+
+addCheckboxControl(
+  timelineSection,
+  "autoplay",
+  () => ensureTimelineConfig().autoplay ?? true,
+  (value) => {
+    const timeline = ensureTimelineConfig();
+    timeline.autoplay = value;
+  }
+);
+
+addCheckboxControl(
+  timelineSection,
+  "loop",
+  () => ensureTimelineConfig().loop ?? true,
+  (value) => {
+    const timeline = ensureTimelineConfig();
+    timeline.loop = value;
   }
 );
 
 addRangeControl(
   timelineSection,
-  "holdTextMs",
-  100,
-  5000,
-  50,
-  () => state.config.autoMorph?.holdTextMs ?? 1200,
-  (value) => {
-    state.config.autoMorph = {
-      ...state.config.autoMorph,
-      holdTextMs: value
-    };
-  }
-);
-
-addRangeControl(
-  timelineSection,
-  "intervalMs",
+  "initialStep",
   0,
-  2000,
-  25,
-  () => state.config.autoMorph?.intervalMs ?? 120,
+  3,
+  1,
+  () => ensureTimelineConfig().initialStep ?? 0,
   (value) => {
-    state.config.autoMorph = {
-      ...state.config.autoMorph,
-      intervalMs: value
-    };
+    const timeline = ensureTimelineConfig();
+    timeline.initialStep = Math.min(3, Math.max(0, value));
   }
 );
+
+const timelineRuntimeButtons = document.createElement("div");
+timelineRuntimeButtons.style.display = "flex";
+timelineRuntimeButtons.style.gap = "8px";
+
+timelineRuntimeButtons.appendChild(
+  createButton("Play", () => {
+    effect.playMaskTimeline();
+    updateTimelinePreview();
+    updateRuntimeStats();
+  })
+);
+
+timelineRuntimeButtons.appendChild(
+  createButton("Pause", () => {
+    effect.pauseMaskTimeline();
+    updateTimelinePreview();
+    updateRuntimeStats();
+  })
+);
+
+timelineRuntimeButtons.appendChild(
+  createButton("Reset", () => {
+    effect.resetMaskTimeline();
+    updateTimelinePreview();
+    updateRuntimeStats();
+  })
+);
+
+timelineSection.appendChild(timelineRuntimeButtons);
 
 const timelinePreview = document.createElement("pre");
 timelinePreview.style.margin = "0";
@@ -778,28 +1362,159 @@ timelinePreview.style.whiteSpace = "pre-wrap";
 timelinePreview.style.color = "#cbd5e1";
 timelinePreview.style.fontSize = "11px";
 timelineSection.appendChild(timelinePreview);
-panel.appendChild(timelineSection);
+controlsPanel.appendChild(timelineSection);
+
+const assetsSection = createSection("Timeline Assets");
+
+addTextControl(
+  assetsSection,
+  "Text 1",
+  () => state.timelineAssets.text1,
+  (value) => {
+    state.timelineAssets.text1 = value;
+  },
+  () => {
+    applyTimelineStepAssets(true);
+    updateTimelinePreview();
+  }
+);
+
+addTextControl(
+  assetsSection,
+  "Text 2",
+  () => state.timelineAssets.text2,
+  (value) => {
+    state.timelineAssets.text2 = value;
+  },
+  () => {
+    applyTimelineStepAssets(true);
+    updateTimelinePreview();
+  }
+);
+
+addFileUploadControl(
+  assetsSection,
+  "Image 1 upload",
+  (file) => replaceTimelineImage(1, file)
+);
+
+addFileUploadControl(
+  assetsSection,
+  "Image 2 upload",
+  (file) => replaceTimelineImage(2, file)
+);
+
+addSelectControl(
+  assetsSection,
+  "Image 1 mode",
+  ["threshold", "luminance", "alpha", "invert"],
+  () => state.timelineAssets.image1SampleMode,
+  (value) => {
+    state.timelineAssets.image1SampleMode = value as "threshold" | "luminance" | "alpha" | "invert";
+  }
+);
+
+addRangeControl(
+  assetsSection,
+  "Image 1 scale",
+  0.2,
+  5,
+  0.1,
+  () => state.timelineAssets.image1Scale,
+  (value) => {
+    state.timelineAssets.image1Scale = value;
+  }
+);
+
+addSelectControl(
+  assetsSection,
+  "Image 2 mode",
+  ["threshold", "luminance", "alpha", "invert"],
+  () => state.timelineAssets.image2SampleMode,
+  (value) => {
+    state.timelineAssets.image2SampleMode = value as "threshold" | "luminance" | "alpha" | "invert";
+  }
+);
+
+addRangeControl(
+  assetsSection,
+  "Image 2 scale",
+  0.2,
+  5,
+  0.1,
+  () => state.timelineAssets.image2Scale,
+  (value) => {
+    state.timelineAssets.image2Scale = value;
+  }
+);
+
+const loopMap = document.createElement("pre");
+loopMap.style.margin = "0";
+loopMap.style.padding = "8px";
+loopMap.style.borderRadius = "6px";
+loopMap.style.background = "rgba(2, 6, 23, 0.7)";
+loopMap.style.whiteSpace = "pre-wrap";
+loopMap.style.color = "#cbd5e1";
+loopMap.style.fontSize = "11px";
+loopMap.textContent = [
+  "Fixed 4-step loop:",
+  "step0 -> Text 1",
+  "step1 -> Image 1",
+  "step2 -> Text 2",
+  "step3 -> Image 2"
+].join("\n");
+assetsSection.appendChild(loopMap);
+
+controlsPanel.appendChild(assetsSection);
 
 function updateTimelinePreview(): void {
-  const autoMorph = state.config.autoMorph;
-  if (!autoMorph?.enabled) {
-    timelinePreview.textContent = "autoMorph disabled";
+  const timeline = state.config.maskTimeline;
+  const timelineState = effect.getMaskTimelineState();
+
+  if (!timeline?.enabled) {
+    timelinePreview.textContent = [
+      "maskTimeline disabled",
+      `runtime: ${timelineState.playing ? "playing" : "paused"} step=${timelineState.stepIndex}`
+    ].join("\n");
     return;
   }
 
-  const holdImage = (autoMorph.holdImageMs ?? 1200) + (autoMorph.intervalMs ?? 0);
-  const morph = autoMorph.morphDurationMs ?? 900;
-  const holdText = (autoMorph.holdTextMs ?? 1200) + (autoMorph.intervalMs ?? 0);
-  const cycle = holdImage + morph + holdText + morph;
+  const steps = timeline.steps ?? [];
+  if (steps.length === 0) {
+    timelinePreview.textContent = "maskTimeline has no steps";
+    return;
+  }
 
-  timelinePreview.textContent = [
-    "Loop preview:",
-    `0ms -> image hold (${holdImage}ms)`,
-    `${holdImage}ms -> morph image->text (${morph}ms)`,
-    `${holdImage + morph}ms -> text hold (${holdText}ms)`,
-    `${holdImage + morph + holdText}ms -> morph text->image (${morph}ms)`,
-    `cycle = ${cycle}ms`
-  ].join("\n");
+  let cursor = 0;
+  const lines: string[] = [
+    `runtime: ${timelineState.playing ? "playing" : "paused"} step=${timelineState.stepIndex}`,
+    `enabled=${timeline.enabled} autoplay=${timeline.autoplay ?? true} loop=${timeline.loop ?? true}`,
+    `steps=${steps.length}`
+  ];
+
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    const holdMs = step.holdMs ?? 0;
+    const mode = step.transition?.mode ?? timeline.defaultTransition?.mode ?? "morph";
+    const durationMs = step.transition?.durationMs ?? timeline.defaultTransition?.durationMs ?? 900;
+    const nextStep = i + 1 < steps.length ? i + 1 : (timeline.loop ? 0 : -1);
+    const sourceLabel =
+      i === 0 ? "text1"
+        : i === 1 ? "image1"
+          : i === 2 ? "text2"
+            : "image2";
+
+    lines.push(`${cursor}ms -> step${i} [${step.mask}:${sourceLabel}] hold (${holdMs}ms)`);
+    cursor += holdMs;
+
+    if (nextStep >= 0) {
+      lines.push(`${cursor}ms -> transition ${mode} step${i}->step${nextStep} (${durationMs}ms)`);
+      cursor += durationMs;
+    }
+  }
+
+  lines.push(`cycle ≈ ${cursor}ms`);
+  timelinePreview.textContent = lines.join("\n");
 }
 
 const runtimeSection = createSection("Runtime");
@@ -812,19 +1527,22 @@ runtimeStats.style.whiteSpace = "pre-wrap";
 runtimeStats.style.color = "#cbd5e1";
 runtimeStats.style.fontSize = "11px";
 runtimeSection.appendChild(runtimeStats);
-panel.appendChild(runtimeSection);
+utilityPanel.appendChild(runtimeSection);
 
 function updateRuntimeStats(): void {
+  applyTimelineStepAssets();
   const debugState = effect as unknown as EffectDebugState;
   const activeCells = debugState.cells
     ? debugState.cells.reduce((count, cell) => count + (cell.targetSize > 0.01 ? 1 : 0), 0)
     : 0;
   const totalCells = debugState.cells?.length ?? 0;
   const activeRipples = debugState.runtime?.activeRipples?.length ?? 0;
+  const timelineState = effect.getMaskTimelineState();
   runtimeStats.textContent = [
     `fps: ${engine.getFPS().toFixed(1)}`,
     `active cells: ${activeCells}/${totalCells}`,
     `active ripples: ${activeRipples}`,
+    `timeline: ${timelineState.playing ? "playing" : "paused"} step=${timelineState.stepIndex}`,
     `preset: ${state.preset}`
   ].join("\n");
 }
@@ -868,7 +1586,17 @@ buttonsRow.appendChild(
         preset: state.preset,
         pageColor: state.pageColor,
         config: state.config,
-        influenceOptions: state.influenceOptions
+        influenceOptions: state.influenceOptions,
+        timelineAssets: {
+          text1: state.timelineAssets.text1,
+          text2: state.timelineAssets.text2,
+          image1: state.timelineAssets.image1,
+          image2: state.timelineAssets.image2,
+          image1Scale: state.timelineAssets.image1Scale,
+          image2Scale: state.timelineAssets.image2Scale,
+          image1SampleMode: state.timelineAssets.image1SampleMode,
+          image2SampleMode: state.timelineAssets.image2SampleMode
+        }
       },
       null,
       2
@@ -884,6 +1612,16 @@ buttonsRow.appendChild(
         pageColor?: string;
         config?: Partial<PixelGridConfig>;
         influenceOptions?: PixelGridInfluenceOptions;
+        timelineAssets?: {
+          text1?: string;
+          text2?: string;
+          image1?: string;
+          image2?: string;
+          image1Scale?: number;
+          image2Scale?: number;
+          image1SampleMode?: "alpha" | "luminance" | "threshold" | "invert";
+          image2SampleMode?: "alpha" | "luminance" | "threshold" | "invert";
+        };
       };
 
       if (parsed.preset) {
@@ -912,9 +1650,32 @@ buttonsRow.appendChild(
             ...presetBase.breathing,
             ...parsed.config.breathing
           },
+          performance: {
+            ...presetBase.performance,
+            ...parsed.config.performance
+          },
           autoMorph: {
             ...presetBase.autoMorph,
             ...parsed.config.autoMorph
+          },
+          maskTimeline: {
+            ...presetBase.maskTimeline,
+            ...parsed.config.maskTimeline,
+            defaultTransition: {
+              ...presetBase.maskTimeline?.defaultTransition,
+              ...parsed.config.maskTimeline?.defaultTransition
+            },
+            steps: parsed.config.maskTimeline?.steps
+              ? parsed.config.maskTimeline.steps.map((step, index) => ({
+                ...(presetBase.maskTimeline?.steps?.[index] ?? {}),
+                ...step,
+                transition: {
+                  ...(presetBase.maskTimeline?.steps?.[index]?.transition ??
+                    presetBase.maskTimeline?.defaultTransition),
+                  ...step.transition
+                }
+              }))
+              : presetBase.maskTimeline?.steps
           }
         };
       }
@@ -923,6 +1684,13 @@ buttonsRow.appendChild(
         state.influenceOptions = {
           ...state.influenceOptions,
           ...parsed.influenceOptions
+        };
+      }
+
+      if (parsed.timelineAssets) {
+        state.timelineAssets = {
+          ...state.timelineAssets,
+          ...parsed.timelineAssets
         };
       }
 
@@ -947,18 +1715,20 @@ buttonsRow.appendChild(
 );
 
 ioSection.appendChild(buttonsRow);
-panel.appendChild(ioSection);
+utilityPanel.appendChild(ioSection);
 
 function renderAllControls(): void {
   for (const refresh of refreshers) {
     refresh();
   }
   rebuildEffect();
+  applyTimelineStepAssets(true);
   updateTimelinePreview();
   updateRuntimeStats();
 }
 
-document.body.appendChild(panel);
+document.body.appendChild(controlsPanel);
+document.body.appendChild(utilityPanel);
 
 canvas.addEventListener("click", (event) => {
   const rect = canvas.getBoundingClientRect();
@@ -971,4 +1741,14 @@ canvas.addEventListener("click", (event) => {
 window.setInterval(updateRuntimeStats, 250);
 updateTimelinePreview();
 updateRuntimeStats();
+
+window.addEventListener("beforeunload", () => {
+  if (state.timelineAssets.image1ObjectUrl) {
+    URL.revokeObjectURL(state.timelineAssets.image1ObjectUrl);
+  }
+  if (state.timelineAssets.image2ObjectUrl) {
+    URL.revokeObjectURL(state.timelineAssets.image2ObjectUrl);
+  }
+});
+
 engine.start();

@@ -134,6 +134,7 @@ export class PixelGridEffect extends Entity {
     this.maskState = createMaskStateMachine({
       influenceManager: this.influenceManager,
       autoMorph: this.autoMorph,
+      maskTimeline: resolved.maskTimeline,
       initialMask: resolved.initialMask,
       imageMask,
       textMask
@@ -377,5 +378,24 @@ export class PixelGridEffect extends Entity {
 
   setCanvasBackground(background: string | null): void {
     this.engine.setClearColor?.(background);
+  }
+
+  playMaskTimeline(): void {
+    this.maskState.play();
+  }
+
+  pauseMaskTimeline(): void {
+    this.maskState.pause();
+  }
+
+  resetMaskTimeline(): void {
+    this.maskState.reset();
+  }
+
+  getMaskTimelineState(): { playing: boolean; stepIndex: number } {
+    return {
+      playing: this.maskState.isPlaying(),
+      stepIndex: this.maskState.getCurrentStepIndex()
+    };
   }
 }

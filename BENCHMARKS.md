@@ -58,6 +58,78 @@ Notes:
 - CPU scheduling and garbage collection can move single-run results noticeably.
 - Prefer at least 5 runs for release-level comparisons.
 
+## PixelGrid transition benchmark suites
+
+Run:
+
+```bash
+npm run bench:transition
+```
+
+Additional commands:
+
+```bash
+npm run bench:transition:all
+npm run bench:transition:morph
+npm run bench:transition:fade
+npm run bench:transition:dissolve
+```
+
+What transition benchmark runner does:
+- builds aggregate + split packages
+- packs and installs local `@pixel-engine/core` + `@pixel-engine/effects` tarballs in a temporary benchmark app
+- runs text/image timeline transition scenarios with `maskTimeline` autoplay
+- tests transition modes: `morph`, `fade`, `dissolve`
+- reports:
+  - update/render time means
+  - frame-time median + mean + p95
+  - estimated FPS median + mean
+  - heap delta mean
+  - number of timeline transitions sampled
+
+## Transition snapshot (2026-02-23)
+
+Measurement command:
+
+```bash
+node scripts/bench/pixelgrid-transition-bench.cjs --mode=all --runs=2 --frames=120 --warmup=30
+```
+
+Scenario:
+- Viewport: `1000x700`
+- Effect area: `1000x700`
+- Gap: `6`
+- Runs: `2`
+- Frames: `120` (warmup `30`)
+- Timeline: text/image loop with autoplay enabled
+
+Results:
+
+- `morph`
+  - Avg update ms (mean): `1.149`
+  - Avg render ms (mean): `0.084`
+  - Avg frame ms (median): `1.233`
+  - Frame p95 ms: `1.409`
+  - Est. FPS (median): `828.0`
+
+- `fade`
+  - Avg update ms (mean): `1.375`
+  - Avg render ms (mean): `0.095`
+  - Avg frame ms (median): `1.470`
+  - Frame p95 ms: `1.521`
+  - Est. FPS (median): `681.0`
+
+- `dissolve`
+  - Avg update ms (mean): `1.557`
+  - Avg render ms (mean): `0.108`
+  - Avg frame ms (median): `1.665`
+  - Frame p95 ms: `1.764`
+  - Est. FPS (median): `602.8`
+
+Notes:
+- These values are from a short smoke run intended to validate benchmark wiring.
+- For release comparisons, use `npm run bench:transition:all` (5 runs) and keep hardware/load conditions stable.
+
 ## Official baseline snapshot (2026-02-22)
 
 Measurement command set:

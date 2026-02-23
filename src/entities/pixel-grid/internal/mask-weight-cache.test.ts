@@ -17,7 +17,12 @@ describe("mask-weight-cache", () => {
         } as any,
         textMask: null,
         morphMask: null,
-        update: () => {}
+        update: () => {},
+        play: () => {},
+        pause: () => {},
+        reset: () => {},
+        isPlaying: () => false,
+        getCurrentStepIndex: () => 0
       },
       hoverEffects: {
         mode: "reactive",
@@ -58,7 +63,12 @@ describe("mask-weight-cache", () => {
       },
       textMask: null,
       morphMask: null,
-      update: () => {}
+      update: () => {},
+      play: () => {},
+      pause: () => {},
+      reset: () => {},
+      isPlaying: () => false,
+      getCurrentStepIndex: () => 0
     };
 
     const coordinator = createMaskWeightCacheCoordinator({

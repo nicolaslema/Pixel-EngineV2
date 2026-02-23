@@ -236,4 +236,67 @@ describe("PixelCard", () => {
 
     cleanupHost(container, root);
   });
+
+  it("passes declarative timeline mask config through PixelCard grid mode", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const createEngine = vi.fn(() => ({
+      addEntity: vi.fn(),
+      removeEntity: vi.fn(),
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    })) as never;
+    const createGridEffect = vi.fn(() => ({
+      triggerRipple: vi.fn()
+    })) as never;
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelCard
+          width={320}
+          height={180}
+          preset="hero-image"
+          mask={{
+            type: "hybrid",
+            initialMask: "text",
+            text: { text: "CARD", centerX: 160, centerY: 90 },
+            image: { src: "/cat.png", centerX: 160, centerY: 90, scale: 1.8 },
+            maskTimeline: {
+              enabled: true,
+              autoplay: true,
+              loop: true,
+              initialStep: 1,
+              steps: [
+                {
+                  mask: "text",
+                  holdMs: 260,
+                  transition: { mode: "morph", durationMs: 110, seed: 3 }
+                },
+                {
+                  mask: "image",
+                  holdMs: 420,
+                  transition: { mode: "fade", durationMs: 130, seed: 4 }
+                }
+              ]
+            }
+          }}
+          createEngine={createEngine}
+          createGridEffect={createGridEffect}
+        >
+          <span>Timeline card</span>
+        </PixelCard>
+      );
+    });
+
+    expect(createGridEffect).toHaveBeenCalledTimes(1);
+    const configArg = createGridEffect.mock.calls[0][3];
+    expect(configArg.initialMask).toBe("text");
+    expect(configArg.maskTimeline?.initialStep).toBe(1);
+    expect(configArg.maskTimeline?.steps?.[0]?.transition?.durationMs).toBe(110);
+    expect(configArg.maskTimeline?.steps?.[1]?.holdMs).toBe(420);
+    expect(container.textContent).toContain("Timeline card");
+
+    cleanupHost(container, root);
+  });
 });
