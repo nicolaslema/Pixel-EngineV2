@@ -44,12 +44,18 @@ function parseOptions(args) {
   if (!["all", "morph", "fade", "dissolve"].includes(mode)) {
     throw new Error(`Invalid --mode value "${mode}". Expected all|morph|fade|dissolve.`);
   }
+  const scenario = entries.get("scenario") ?? "all";
+  if (!["all", "text-image", "multi-mask"].includes(scenario)) {
+    throw new Error(
+      `Invalid --scenario value "${scenario}". Expected all|text-image|multi-mask.`
+    );
+  }
 
   const runs = Math.max(1, Number.parseInt(entries.get("runs") ?? "5", 10) || 5);
   const frames = Math.max(60, Number.parseInt(entries.get("frames") ?? "240", 10) || 240);
   const warmupFrames = Math.max(20, Number.parseInt(entries.get("warmup") ?? "60", 10) || 60);
 
-  return { mode, runs, frames, warmupFrames };
+  return { mode, scenario, runs, frames, warmupFrames };
 }
 
 const runnerCode = `
@@ -185,28 +191,158 @@ function createFakeRenderer() {
   };
 }
 
-function runSinglePass(mode) {
-  const width = 1000;
-  const height = 700;
-  const gap = 6;
-  const frames = benchmarkOptions.frames;
-  const warmupFrames = benchmarkOptions.warmupFrames;
+function createScenarioConfig(scenarioKey, mode, width, height) {
+  if (scenarioKey === "multi-mask") {
+    return {
+      key: "multi-mask",
+      label: "multi-mask-4step",
+      config: {
+        colors: ["#334155", "#475569", "#64748b"],
+        gap: 6,
+        expandEase: 0.08,
+        breathSpeed: 1,
+        hoverEffects: {
+          mode: "classic",
+          radius: 110,
+          radiusY: 110,
+          shape: "circle",
+          strength: 1,
+          interactionScope: "all",
+          deactivate: 0.8,
+          displace: 0,
+          jitter: 0,
+          tintPalette: []
+        },
+        rippleEffects: {
+          enabled: false,
+          speed: 0.5,
+          thickness: 44,
+          strength: 24,
+          maxRipples: 8,
+          deactivateMultiplier: 1,
+          displaceMultiplier: 1,
+          jitterMultiplier: 1,
+          tintPalette: []
+        },
+        breathing: {
+          enabled: false,
+          speed: 1,
+          radius: 120,
+          radiusY: 120,
+          shape: "circle",
+          strength: 0.5,
+          minOpacity: 0.5,
+          maxOpacity: 1,
+          affectHover: false,
+          affectImage: false,
+          affectText: false
+        },
+        performance: {
+          quality: "medium",
+          viewportCulling: false
+        },
+        initialMask: "text",
+        textMasks: [
+          {
+            id: "title",
+            text: "PIXEL",
+            centerX: width * 0.5,
+            centerY: height * 0.48,
+            font: "bold 140px Arial",
+            strength: 1
+          },
+          {
+            id: "subtitle",
+            text: "ENGINE",
+            centerX: width * 0.5,
+            centerY: height * 0.58,
+            font: "bold 112px Arial",
+            strength: 1
+          }
+        ],
+        imageMasks: [
+          {
+            id: "img-a",
+            src: "/fake/mask-a.png",
+            centerX: width * 0.5,
+            centerY: height * 0.5,
+            scale: 1,
+            sampleMode: "threshold",
+            strength: 1
+          },
+          {
+            id: "img-b",
+            src: "/fake/mask-b.png",
+            centerX: width * 0.5,
+            centerY: height * 0.5,
+            scale: 0.85,
+            sampleMode: "luminance",
+            strength: 1
+          }
+        ],
+        maskTimeline: {
+          enabled: true,
+          autoplay: true,
+          loop: true,
+          initialStep: 0,
+          defaultTransition: {
+            mode,
+            durationMs: 360,
+            seed: 1337
+          },
+          steps: [
+            {
+              mask: "text",
+              assetId: "title",
+              holdMs: 120,
+              transition: {
+                mode,
+                durationMs: 360,
+                seed: 1401
+              }
+            },
+            {
+              mask: "image",
+              assetId: "img-a",
+              holdMs: 120,
+              transition: {
+                mode,
+                durationMs: 360,
+                seed: 2401
+              }
+            },
+            {
+              mask: "text",
+              assetId: "subtitle",
+              holdMs: 120,
+              transition: {
+                mode,
+                durationMs: 360,
+                seed: 3401
+              }
+            },
+            {
+              mask: "image",
+              assetId: "img-b",
+              holdMs: 120,
+              transition: {
+                mode,
+                durationMs: 360,
+                seed: 4401
+              }
+            }
+          ]
+        }
+      }
+    };
+  }
 
-  const enginePointer = {
-    mouse: { x: width * 0.5, y: height * 0.5, inside: true, down: false },
-    setClearColor() {},
-    getSize() {
-      return { width, height };
-    }
-  };
-
-  const effect = new PixelGridEffect(
-    enginePointer,
-    width,
-    height,
-    {
+  return {
+    key: "text-image",
+    label: "text-image-2step",
+    config: {
       colors: ["#334155", "#475569", "#64748b"],
-      gap,
+      gap: 6,
       expandEase: 0.08,
       breathSpeed: 1,
       hoverEffects: {
@@ -296,7 +432,31 @@ function runSinglePass(mode) {
           }
         ]
       }
-    },
+    }
+  };
+}
+
+function runSinglePass(mode, scenarioKey) {
+  const width = 1000;
+  const height = 700;
+  const scenario = createScenarioConfig(scenarioKey, mode, width, height);
+  const gap = scenario.config.gap;
+  const frames = benchmarkOptions.frames;
+  const warmupFrames = benchmarkOptions.warmupFrames;
+
+  const enginePointer = {
+    mouse: { x: width * 0.5, y: height * 0.5, inside: true, down: false },
+    setClearColor() {},
+    getSize() {
+      return { width, height };
+    }
+  };
+
+  const effect = new PixelGridEffect(
+    enginePointer,
+    width,
+    height,
+    scenario.config,
     { ripple: false, hover: false, organic: false }
   );
 
@@ -344,6 +504,7 @@ function runSinglePass(mode) {
   const heapDeltaMb = (heapEnd - heapStart) / (1024 * 1024);
 
   return {
+    scenarioLabel: scenario.label,
     estimatedCells,
     avgUpdate,
     avgRender,
@@ -361,38 +522,49 @@ function getModes() {
   return [benchmarkOptions.mode];
 }
 
-console.log("PixelGrid text-image transition benchmark");
+function getScenarios() {
+  if (benchmarkOptions.scenario === "all") {
+    return ["text-image", "multi-mask"];
+  }
+  return [benchmarkOptions.scenario];
+}
+
+console.log("PixelGrid timeline transition benchmark");
 console.log("- mode: " + benchmarkOptions.mode);
+console.log("- scenario: " + benchmarkOptions.scenario);
 console.log("- runs: " + benchmarkOptions.runs);
 console.log("- frames: " + benchmarkOptions.frames + " (warmup " + benchmarkOptions.warmupFrames + ")");
 console.log("");
 
-for (const mode of getModes()) {
-  const passResults = [];
-  for (let runIndex = 0; runIndex < benchmarkOptions.runs; runIndex++) {
-    passResults.push(runSinglePass(mode));
+for (const scenarioKey of getScenarios()) {
+  for (const mode of getModes()) {
+    const passResults = [];
+    for (let runIndex = 0; runIndex < benchmarkOptions.runs; runIndex++) {
+      passResults.push(runSinglePass(mode, scenarioKey));
+    }
+
+    const frameSeries = passResults.map((r) => r.avgFrame);
+    const fpsSeries = passResults.map((r) => r.fps);
+    const updateSeries = passResults.map((r) => r.avgUpdate);
+    const renderSeries = passResults.map((r) => r.avgRender);
+    const heapSeries = passResults.map((r) => r.heapDeltaMb);
+    const transitionSeries = passResults.map((r) => r.transitions);
+    const estimatedCells = passResults[0]?.estimatedCells ?? 0;
+    const scenarioLabel = passResults[0]?.scenarioLabel ?? scenarioKey;
+
+    console.log("Scenario: " + scenarioLabel + " | Transition mode: " + mode);
+    console.log("- Cells (estimated): " + estimatedCells);
+    console.log("- Avg update ms (mean): " + average(updateSeries).toFixed(3));
+    console.log("- Avg render ms (mean): " + average(renderSeries).toFixed(3));
+    console.log("- Avg frame ms (median): " + median(frameSeries).toFixed(3));
+    console.log("- Avg frame ms (mean): " + average(frameSeries).toFixed(3));
+    console.log("- Frame p95 ms: " + percentile(frameSeries, 0.95).toFixed(3));
+    console.log("- Est. FPS (median): " + median(fpsSeries).toFixed(1));
+    console.log("- Est. FPS (mean): " + average(fpsSeries).toFixed(1));
+    console.log("- Heap delta MB (mean): " + average(heapSeries).toFixed(3));
+    console.log("- Timeline transitions sampled (mean): " + average(transitionSeries).toFixed(1));
+    console.log("");
   }
-
-  const frameSeries = passResults.map((r) => r.avgFrame);
-  const fpsSeries = passResults.map((r) => r.fps);
-  const updateSeries = passResults.map((r) => r.avgUpdate);
-  const renderSeries = passResults.map((r) => r.avgRender);
-  const heapSeries = passResults.map((r) => r.heapDeltaMb);
-  const transitionSeries = passResults.map((r) => r.transitions);
-  const estimatedCells = passResults[0]?.estimatedCells ?? 0;
-
-  console.log("Transition mode: " + mode);
-  console.log("- Cells (estimated): " + estimatedCells);
-  console.log("- Avg update ms (mean): " + average(updateSeries).toFixed(3));
-  console.log("- Avg render ms (mean): " + average(renderSeries).toFixed(3));
-  console.log("- Avg frame ms (median): " + median(frameSeries).toFixed(3));
-  console.log("- Avg frame ms (mean): " + average(frameSeries).toFixed(3));
-  console.log("- Frame p95 ms: " + percentile(frameSeries, 0.95).toFixed(3));
-  console.log("- Est. FPS (median): " + median(fpsSeries).toFixed(1));
-  console.log("- Est. FPS (mean): " + average(fpsSeries).toFixed(1));
-  console.log("- Heap delta MB (mean): " + average(heapSeries).toFixed(3));
-  console.log("- Timeline transitions sampled (mean): " + average(transitionSeries).toFixed(1));
-  console.log("");
 }
 `;
 

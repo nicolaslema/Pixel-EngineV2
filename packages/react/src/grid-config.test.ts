@@ -56,6 +56,80 @@ describe("grid config helpers", () => {
     expect(mask.imageMask?.src).toBe("/cat.png");
   });
 
+  it("supports hybrid multi-item timeline using items + assetId steps", () => {
+    const mask = createMaskConfig({
+      type: "hybrid",
+      items: [
+        {
+          type: "text",
+          id: "headline",
+          text: "HELLO",
+          fontSize: 96,
+          fontFamily: "Arial",
+          fontWeight: 700
+        },
+        {
+          type: "image",
+          id: "logo",
+          src: "/logo.png",
+          scale: 1.6
+        }
+      ],
+      steps: [
+        {
+          assetId: "headline",
+          holdMs: 260,
+          mode: "fade",
+          durationMs: 130
+        },
+        {
+          assetId: "logo",
+          holdMs: 320,
+          transition: {
+            mode: "dissolve",
+            durationMs: 180,
+            seed: 5
+          }
+        }
+      ]
+    });
+
+    expect(mask.maskTimeline?.items?.length).toBe(2);
+    expect(mask.maskTimeline?.steps?.[0]?.assetId).toBe("headline");
+    expect(mask.maskTimeline?.steps?.[0]?.mode).toBe("fade");
+    expect(mask.maskTimeline?.steps?.[0]?.durationMs).toBe(130);
+    expect(mask.maskTimeline?.steps?.[1]?.assetId).toBe("logo");
+  });
+
+  it("warns for duplicate ids and invalid timeline refs in hybrid mask config", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    resolveGridConfigInput({
+      preset: "minimal",
+      mask: {
+        type: "hybrid",
+        texts: [
+          { id: "shared", text: "A" },
+          { id: "shared", text: "B" }
+        ],
+        images: [{ id: "shared", src: "/img.png" }],
+        steps: [
+          { assetId: "missing-id", mask: "image", holdMs: 100, durationMs: 80, mode: "fade" },
+          { assetId: "shared", mask: "image", holdMs: 100, durationMs: 80, mode: "fade" },
+          { assetId: "shared", maskId: "another", holdMs: 100, durationMs: 80, mode: "fade" },
+          { maskId: "   ", holdMs: 100, durationMs: 80, mode: "fade" }
+        ]
+      }
+    });
+
+    const messages = warnSpy.mock.calls.map((call) => String(call[0])).join("\n");
+    expect(messages).toContain("duplicate id");
+    expect(messages).toContain("unknown asset id");
+    expect(messages).toContain("assetId and maskId");
+    expect(messages).toContain("maskId is empty");
+    warnSpy.mockRestore();
+  });
+
   it("falls back to safe defaults and warns in dev when required values are invalid", () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const resolved = resolveGridConfigInput({
@@ -126,6 +200,32 @@ describe("grid config helpers", () => {
         centerX: 300,
         centerY: 220,
         scale: 2
+      }
+    });
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it("does not warn for hero-image preset when image is provided through hybrid items", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    resolveGridConfigInput({
+      preset: "hero-image",
+      mask: {
+        type: "hybrid",
+        items: [
+          {
+            type: "image",
+            id: "hero",
+            src: "/hero.png",
+            scale: 1.8
+          },
+          {
+            type: "text",
+            id: "title",
+            text: "HERO"
+          }
+        ]
       }
     });
 

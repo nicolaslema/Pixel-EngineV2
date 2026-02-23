@@ -225,4 +225,75 @@ describe("usePixelGridEffect", () => {
 
     cleanupHost(container, root);
   });
+
+  it("forwards hybrid multi-mask items/steps with assetId refs to effect config", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+    const engine = {
+      addEntity: vi.fn(),
+      removeEntity: vi.fn(),
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    };
+    const createEngine = vi.fn(() => engine);
+    const createGridEffect = vi.fn(() => ({
+      triggerRipple: vi.fn()
+    }));
+
+    function TestComponent() {
+      const { canvasRef } = usePixelGridEffect({
+        width: 320,
+        height: 180,
+        preset: "hero-image",
+        mask: {
+          type: "hybrid",
+          texts: [
+            { id: "title", text: "PIXEL", centerX: 160, centerY: 90 },
+            { id: "subtitle", text: "ENGINE", centerX: 160, centerY: 104 }
+          ],
+          images: [
+            { id: "imgA", src: "/a.png", centerX: 160, centerY: 88, scale: 1.8 },
+            { id: "imgB", src: "/b.png", centerX: 160, centerY: 88, scale: 1.6 }
+          ],
+          steps: [
+            { mask: "text", assetId: "title", holdMs: 300, mode: "fade", durationMs: 140 },
+            { mask: "image", assetId: "imgA", holdMs: 320, mode: "morph", durationMs: 180 },
+            {
+              mask: "text",
+              assetId: "subtitle",
+              holdMs: 340,
+              transition: { mode: "dissolve", durationMs: 160, seed: 7 }
+            },
+            { mask: "image", assetId: "imgB", holdMs: 360, mode: "fade", durationMs: 150 }
+          ],
+          maskTimeline: {
+            enabled: true,
+            autoplay: true,
+            loop: true,
+            initialStep: 0
+          }
+        },
+        createEngine: createEngine as never,
+        createGridEffect: createGridEffect as never
+      });
+      return <canvas ref={canvasRef} />;
+    }
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(<TestComponent />);
+    });
+
+    expect(createGridEffect).toHaveBeenCalledTimes(1);
+    const configArg = createGridEffect.mock.calls[0][3];
+    expect(configArg.textMasks).toHaveLength(2);
+    expect(configArg.imageMasks).toHaveLength(2);
+    expect(configArg.maskTimeline?.steps?.[0]?.assetId).toBe("title");
+    expect(configArg.maskTimeline?.steps?.[1]?.assetId).toBe("imgA");
+    expect(configArg.maskTimeline?.steps?.[2]?.assetId).toBe("subtitle");
+    expect(configArg.maskTimeline?.steps?.[3]?.assetId).toBe("imgB");
+
+    cleanupHost(container, root);
+  });
 });

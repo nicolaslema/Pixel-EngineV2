@@ -71,7 +71,10 @@ Notes:
 - `effectKey` controls explicit effect recreation (prevents accidental remounts from inline objects).
 - for `mask.type="hybrid"`, you can provide:
   - `autoMorph`
-  - `maskTimeline` (full timeline schema: `enabled`, `autoplay`, `loop`, `initialStep`, `steps[]`)
+  - `texts[]` / `images[]` for multiple assets
+  - `items[]` for explicit timeline asset declarations
+  - `steps[]` with `assetId` references
+  - `maskTimeline` controls (`enabled`, `autoplay`, `loop`, `initialStep`, `defaultTransition`)
 
 ## `PixelGridConfig` essentials
 
@@ -131,7 +134,7 @@ export function SimpleConfig() {
 }
 ```
 
-### 3) Advanced config
+### 3) Advanced config (timeline items + assetId)
 
 ```tsx
 import catPngUrl from "./assets/cat.png";
@@ -147,32 +150,38 @@ export function Advanced() {
       mask={{
         type: "hybrid",
         initialMask: "image",
-        image: { src: catPngUrl, centerX: 450, centerY: 240, scale: 2 },
-        text: { text: "PIXEL", centerX: 450, centerY: 280 },
+        items: [
+          { type: "text", id: "headline", text: "PIXEL", centerX: 450, centerY: 275, fontSize: 132, fontFamily: "Arial", fontWeight: 700 },
+          { type: "image", id: "catA", src: catPngUrl, centerX: 450, centerY: 250, scale: 2.05, sampleMode: "threshold" },
+          { type: "text", id: "subline", text: "ENGINE", centerX: 450, centerY: 275, fontSize: 112, fontFamily: "Arial", fontWeight: 700 },
+          { type: "image", id: "catB", src: catPngUrl, centerX: 450, centerY: 250, scale: 1.65, sampleMode: "luminance" }
+        ],
+        steps: [
+          { mask: "text", assetId: "headline", holdMs: 1100, mode: "morph", durationMs: 700 },
+          { mask: "image", assetId: "catA", holdMs: 1000, mode: "fade", durationMs: 450 },
+          { mask: "text", assetId: "subline", holdMs: 1100, mode: "dissolve", durationMs: 620 },
+          { mask: "image", assetId: "catB", holdMs: 1000, mode: "fade", durationMs: 450 }
+        ],
         maskTimeline: {
           enabled: true,
           autoplay: true,
           loop: true,
           initialStep: 0,
-          steps: [
-            {
-              mask: "image",
-              holdMs: 1200,
-              transition: { mode: "fade", durationMs: 400, seed: 11 }
-            },
-            {
-              mask: "text",
-              holdMs: 1400,
-              transition: { mode: "dissolve", durationMs: 550, seed: 22 }
-            }
-          ]
+          defaultTransition: { mode: "morph", durationMs: 700, seed: 1337 }
         }
       }}
-      effectKey="advanced-v1"
+      effectKey="advanced-v2"
     />
   );
 }
 ```
+
+Timeline authoring rules:
+- `items[]`: declare named assets (`id`) of type `text` or `image`.
+- `steps[].assetId`: choose which asset is active in each step.
+- `steps[].mode` and `steps[].durationMs`: aliases for transition setup.
+- `steps[].transition`: optional explicit override (includes `seed`).
+- If `steps[]` is omitted and `items[]` exists, steps are generated in item order.
 
 ### 4) Custom config with helpers
 
@@ -264,6 +273,14 @@ Preset matrix:
 - Effect remount behavior:
   - stable `effectKey` keeps the same effect instance
   - changing `effectKey` forces intentional recreation
+- Timeline compatibility:
+  - `assetId` is the preferred field in `steps[]`
+  - `maskId` remains accepted as legacy alias
+  - React layer emits dev warnings for invalid timeline refs:
+    - unknown `assetId`/`maskId`
+    - empty ids
+    - conflicting `assetId` vs `maskId`
+    - duplicate ids within same declaration group
 
 ## Asset path note
 

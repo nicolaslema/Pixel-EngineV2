@@ -68,8 +68,12 @@ export interface ImageMaskInput extends PixelGridImageMaskConfig {
 
 export interface HybridMaskInput {
   type: "hybrid";
-  text: Omit<TextMaskInput, "type">;
-  image: Omit<ImageMaskInput, "type">;
+  text?: Omit<TextMaskInput, "type">;
+  image?: Omit<ImageMaskInput, "type">;
+  texts?: Array<Omit<TextMaskInput, "type">>;
+  images?: Array<Omit<ImageMaskInput, "type">>;
+  items?: NonNullable<PixelGridConfig["maskTimeline"]>["items"];
+  steps?: NonNullable<PixelGridConfig["maskTimeline"]>["steps"];
   initialMask?: InitialMask;
   autoMorph?: PixelGridConfig["autoMorph"];
   maskTimeline?: PixelGridConfig["maskTimeline"];

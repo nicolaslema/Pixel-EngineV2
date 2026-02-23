@@ -10,8 +10,16 @@ interface PlaygroundState {
   influenceOptions: PixelGridInfluenceOptions;
   pageColor: string;
   timelineAssets: {
+    text1Id: string;
+    text2Id: string;
+    image1Id: string;
+    image2Id: string;
     text1: string;
     text2: string;
+    text1FontFamily: string;
+    text2FontFamily: string;
+    text1FontSize: number;
+    text2FontSize: number;
     image1: string;
     image2: string;
     image1Scale: number;
@@ -207,14 +215,57 @@ function createPresetConfig(preset: PlaygroundPreset): PixelGridConfig {
         autoplay: true,
         loop: true,
         initialStep: 0,
-        defaultTransition: {
+      defaultTransition: {
           mode: "morph",
           durationMs: 900,
           seed: 1337
         },
+        items: [
+          {
+            type: "text",
+            id: "text-1",
+            text: "PIXEL",
+            centerX: 400,
+            centerY: 300,
+            font: "bold 120px Arial",
+            strength: 0.95,
+            blurRadius: 2
+          },
+          {
+            type: "image",
+            id: "image-1",
+            src: "/src/assets/cat.png",
+            centerX: 400,
+            centerY: 280,
+            scale: 2,
+            sampleMode: "threshold",
+            strength: 1.35
+          },
+          {
+            type: "text",
+            id: "text-2",
+            text: "ENGINE",
+            centerX: 400,
+            centerY: 300,
+            font: "bold 110px Arial",
+            strength: 0.95,
+            blurRadius: 2
+          },
+          {
+            type: "image",
+            id: "image-2",
+            src: "/src/assets/cat.png",
+            centerX: 400,
+            centerY: 280,
+            scale: 1.6,
+            sampleMode: "luminance",
+            strength: 1.25
+          }
+        ],
         steps: [
           {
-            mask: "image",
+            mask: "text",
+            assetId: "text-1",
             holdMs: 1400,
             transition: {
               mode: "morph",
@@ -223,17 +274,78 @@ function createPresetConfig(preset: PlaygroundPreset): PixelGridConfig {
             }
           },
           {
+            mask: "image",
+            assetId: "image-1",
+            holdMs: 1400,
+            transition: {
+              mode: "morph",
+              durationMs: 900,
+              seed: 2401
+            }
+          },
+          {
             mask: "text",
+            assetId: "text-2",
             holdMs: 1400,
             transition: {
               mode: "dissolve",
               durationMs: 900,
               seed: 4201
             }
+          },
+          {
+            mask: "image",
+            assetId: "image-2",
+            holdMs: 1400,
+            transition: {
+              mode: "fade",
+              durationMs: 900,
+              seed: 5201
+            }
           }
         ]
       },
-      initialMask: "image",
+      initialMask: "text",
+      imageMasks: [
+        {
+          id: "image-1",
+          src: "/src/assets/cat.png",
+          centerX: 400,
+          centerY: 280,
+          scale: 2,
+          sampleMode: "threshold",
+          strength: 1.35
+        },
+        {
+          id: "image-2",
+          src: "/src/assets/cat.png",
+          centerX: 400,
+          centerY: 280,
+          scale: 1.6,
+          sampleMode: "luminance",
+          strength: 1.25
+        }
+      ],
+      textMasks: [
+        {
+          id: "text-1",
+          text: "PIXEL",
+          centerX: 400,
+          centerY: 300,
+          font: "bold 120px Arial",
+          strength: 0.95,
+          blurRadius: 2
+        },
+        {
+          id: "text-2",
+          text: "ENGINE",
+          centerX: 400,
+          centerY: 300,
+          font: "bold 110px Arial",
+          strength: 0.95,
+          blurRadius: 2
+        }
+      ],
       imageMask: {
         src: "/src/assets/cat.png",
         centerX: 400,
@@ -302,41 +414,145 @@ function createPresetConfig(preset: PlaygroundPreset): PixelGridConfig {
       morphDurationMs: 100,
       intervalMs: 1050
     },
-    maskTimeline: {
-      enabled: true,
-      autoplay: true,
-      loop: true,
-      initialStep: 0,
+      maskTimeline: {
+        enabled: true,
+        autoplay: true,
+        loop: true,
+        initialStep: 0,
       defaultTransition: {
         mode: "fade",
         durationMs: 900,
         seed: 1337
       },
-      steps: [
-        {
-          mask: "image",
-          holdMs: 1100,
-          transition: {
-            mode: "fade",
-            durationMs: 850,
-            seed: 1101
+        items: [
+          {
+            type: "text",
+            id: "text-1",
+            text: "HERZA",
+            centerX: 400,
+            centerY: 300,
+            font: "bold 140px Arial",
+            strength: 0.9,
+            blurRadius: 2
+          },
+          {
+            type: "image",
+            id: "image-1",
+            src: "/src/assets/cat.png",
+            centerX: 400,
+            centerY: 300,
+            scale: 2,
+            sampleMode: "threshold",
+            strength: 1.4
+          },
+          {
+            type: "text",
+            id: "text-2",
+            text: "GRID",
+            centerX: 400,
+            centerY: 300,
+            font: "bold 130px Arial",
+            strength: 0.9,
+            blurRadius: 2
+          },
+          {
+            type: "image",
+            id: "image-2",
+            src: "/src/assets/cat.png",
+            centerX: 400,
+            centerY: 300,
+            scale: 1.8,
+            sampleMode: "invert",
+            strength: 1.2
           }
+        ],
+        steps: [
+          {
+            mask: "text",
+            assetId: "text-1",
+            holdMs: 1100,
+            transition: {
+              mode: "fade",
+              durationMs: 850,
+              seed: 1101
+            }
+          },
+          {
+            mask: "image",
+            assetId: "image-1",
+            holdMs: 1100,
+            transition: {
+              mode: "fade",
+              durationMs: 850,
+              seed: 2201
+            }
+          },
+          {
+            mask: "text",
+            assetId: "text-2",
+            holdMs: 1100,
+            transition: {
+              mode: "dissolve",
+              durationMs: 850,
+              seed: 3301
+            }
+          },
+          {
+            mask: "image",
+            assetId: "image-2",
+            holdMs: 1100,
+            transition: {
+              mode: "morph",
+              durationMs: 850,
+              seed: 4401
+            }
+          }
+        ]
+      },
+      initialMask: "text",
+      imageMasks: [
+        {
+          id: "image-1",
+          src: "/src/assets/cat.png",
+          centerX: 400,
+          centerY: 300,
+          scale: 2,
+          sampleMode: "threshold",
+          strength: 1.4
         },
         {
-          mask: "text",
-          holdMs: 1100,
-          transition: {
-            mode: "dissolve",
-            durationMs: 850,
-            seed: 2201
-          }
+          id: "image-2",
+          src: "/src/assets/cat.png",
+          centerX: 400,
+          centerY: 300,
+          scale: 1.8,
+          sampleMode: "invert",
+          strength: 1.2
         }
-      ]
-    },
-    initialMask: "image",
-    imageMask: {
-      src: "/src/assets/cat.png",
-      centerX: 400,
+      ],
+      textMasks: [
+        {
+          id: "text-1",
+          text: "HERZA",
+          centerX: 400,
+          centerY: 300,
+          font: "bold 140px Arial",
+          strength: 0.9,
+          blurRadius: 2
+        },
+        {
+          id: "text-2",
+          text: "GRID",
+          centerX: 400,
+          centerY: 300,
+          font: "bold 130px Arial",
+          strength: 0.9,
+          blurRadius: 2
+        }
+      ],
+      imageMask: {
+        src: "/src/assets/cat.png",
+        centerX: 400,
       centerY: 300,
       scale: 2,
       sampleMode: "threshold",
@@ -366,8 +582,16 @@ const state: PlaygroundState = {
   },
   pageColor: "#0b1020",
   timelineAssets: {
+    text1Id: "text-1",
+    text2Id: "text-2",
+    image1Id: "image-1",
+    image2Id: "image-2",
     text1: createPresetConfig("card-soft").textMask?.text ?? "TEXT 1",
     text2: "TEXT 2",
+    text1FontFamily: "Arial",
+    text2FontFamily: "Arial",
+    text1FontSize: 140,
+    text2FontSize: 130,
     image1: createPresetConfig("card-soft").imageMask?.src ?? "/src/assets/cat.png",
     image2: createPresetConfig("card-soft").imageMask?.src ?? "/src/assets/cat.png",
     image1Scale: createPresetConfig("card-soft").imageMask?.scale ?? 2,
@@ -394,6 +618,8 @@ canvas.style.maxHeight = "90vh";
 canvas.style.borderRadius = "10px";
 canvas.style.boxShadow = "0 12px 30px rgba(0, 0, 0, 0.35)";
 
+syncTimelineMasksIntoConfig();
+
 let effect = new PixelGridEffect(
   engine,
   width,
@@ -404,6 +630,10 @@ let effect = new PixelGridEffect(
 engine.addEntity(effect);
 
 function rebuildEffect(): void {
+  syncTimelineMasksIntoConfig();
+  if (state.config.maskTimeline) {
+    ensureTimelineConfig();
+  }
   engine.removeEntity(effect);
   effect = new PixelGridEffect(
     engine,
@@ -413,13 +643,18 @@ function rebuildEffect(): void {
     { ...state.influenceOptions }
   );
   engine.addEntity(effect);
-  lastAppliedTimelineStep = -1;
-  applyTimelineStepAssets(true);
 }
 
+type TimelineMaskType = "image" | "text";
+
 type TimelineStep = {
-  mask: "image" | "text";
+  mask: TimelineMaskType;
+  maskType?: TimelineMaskType;
+  assetId?: string;
+  maskId?: string;
   holdMs: number;
+  mode?: "morph" | "fade" | "dissolve";
+  durationMs?: number;
   transition: {
     mode: "morph" | "fade" | "dissolve";
     durationMs: number;
@@ -427,9 +662,47 @@ type TimelineStep = {
   };
 };
 
-function createDefaultTimelineStep(mask: "image" | "text", seed: number): TimelineStep {
+function sanitizeMaskId(raw: string, fallback: string): string {
+  const next = raw.trim();
+  return next.length > 0 ? next : fallback;
+}
+
+function parseFontDefinition(
+  font: string | undefined,
+  fallbackSize: number,
+  fallbackFamily: string
+): { size: number; family: string; weight: string } {
+  if (!font || !font.trim()) {
+    return {
+      size: fallbackSize,
+      family: fallbackFamily,
+      weight: "bold"
+    };
+  }
+
+  const trimmed = font.trim();
+  const sizeMatch = trimmed.match(/(\d+(?:\.\d+)?)px/);
+  const size = sizeMatch ? Math.max(8, Number(sizeMatch[1])) : fallbackSize;
+  const family = sizeMatch
+    ? trimmed.slice(sizeMatch.index! + sizeMatch[0].length).trim() || fallbackFamily
+    : fallbackFamily;
+  const prefix = sizeMatch
+    ? trimmed.slice(0, sizeMatch.index).trim()
+    : "";
+  const weight = prefix.length > 0 ? prefix : "bold";
+
+  return { size, family, weight };
+}
+
+function composeFont(weight: string, size: number, family: string): string {
+  return `${weight} ${Math.max(8, Math.round(size))}px ${family.trim() || "Arial"}`;
+}
+
+function createDefaultTimelineStep(mask: TimelineMaskType, seed: number, assetId: string): TimelineStep {
   return {
     mask,
+    maskType: mask,
+    assetId,
     holdMs: 1200,
     transition: {
       mode: "morph",
@@ -439,7 +712,135 @@ function createDefaultTimelineStep(mask: "image" | "text", seed: number): Timeli
   };
 }
 
+function syncTimelineMasksIntoConfig(): void {
+  const centerX = state.config.imageMask?.centerX ?? state.config.textMask?.centerX ?? width * 0.5;
+  const centerY = state.config.imageMask?.centerY ?? state.config.textMask?.centerY ?? height * 0.5;
+  const fallbackTextFont = parseFontDefinition(state.config.textMask?.font, 140, "Arial");
+
+  const text1Id = sanitizeMaskId(state.timelineAssets.text1Id, "text-1");
+  const text2Id = sanitizeMaskId(state.timelineAssets.text2Id, "text-2");
+  const image1Id = sanitizeMaskId(state.timelineAssets.image1Id, "image-1");
+  const image2Id = sanitizeMaskId(state.timelineAssets.image2Id, "image-2");
+
+  state.timelineAssets.text1Id = text1Id;
+  state.timelineAssets.text2Id = text2Id;
+  state.timelineAssets.image1Id = image1Id;
+  state.timelineAssets.image2Id = image2Id;
+
+  const text1FontFamily = state.timelineAssets.text1FontFamily?.trim() || fallbackTextFont.family;
+  const text2FontFamily = state.timelineAssets.text2FontFamily?.trim() || fallbackTextFont.family;
+  const text1FontSize = Number.isFinite(state.timelineAssets.text1FontSize)
+    ? Math.max(8, state.timelineAssets.text1FontSize)
+    : fallbackTextFont.size;
+  const text2FontSize = Number.isFinite(state.timelineAssets.text2FontSize)
+    ? Math.max(8, state.timelineAssets.text2FontSize)
+    : fallbackTextFont.size;
+
+  state.timelineAssets.text1FontFamily = text1FontFamily;
+  state.timelineAssets.text2FontFamily = text2FontFamily;
+  state.timelineAssets.text1FontSize = text1FontSize;
+  state.timelineAssets.text2FontSize = text2FontSize;
+
+  state.config.textMasks = [
+    {
+      id: text1Id,
+      text: state.timelineAssets.text1 || "TEXT 1",
+      centerX,
+      centerY,
+      font: composeFont(fallbackTextFont.weight, text1FontSize, text1FontFamily),
+      strength: state.config.textMask?.strength ?? 0.9,
+      blurRadius: state.config.textMask?.blurRadius ?? 2
+    },
+    {
+      id: text2Id,
+      text: state.timelineAssets.text2 || "TEXT 2",
+      centerX,
+      centerY,
+      font: composeFont(fallbackTextFont.weight, text2FontSize, text2FontFamily),
+      strength: state.config.textMask?.strength ?? 0.9,
+      blurRadius: state.config.textMask?.blurRadius ?? 2
+    }
+  ];
+
+  state.config.imageMasks = [
+    {
+      id: image1Id,
+      src: state.timelineAssets.image1,
+      centerX,
+      centerY,
+      scale: state.timelineAssets.image1Scale,
+      sampleMode: state.timelineAssets.image1SampleMode,
+      strength: state.config.imageMask?.strength ?? 1.4
+    },
+    {
+      id: image2Id,
+      src: state.timelineAssets.image2,
+      centerX,
+      centerY,
+      scale: state.timelineAssets.image2Scale,
+      sampleMode: state.timelineAssets.image2SampleMode,
+      strength: state.config.imageMask?.strength ?? 1.4
+    }
+  ];
+
+  // Keep legacy singles for compatibility in export/tests and preset fallback behavior.
+  state.config.textMask = {
+    ...(state.config.textMask ?? {}),
+    ...state.config.textMasks[0]
+  };
+  state.config.imageMask = {
+    ...(state.config.imageMask ?? {}),
+    ...state.config.imageMasks[0]
+  };
+}
+
+function buildTimelineItemsFromAssets(): NonNullable<NonNullable<PixelGridConfig["maskTimeline"]>["items"]> {
+  const text1Id = sanitizeMaskId(state.timelineAssets.text1Id, "text-1");
+  const text2Id = sanitizeMaskId(state.timelineAssets.text2Id, "text-2");
+  const image1Id = sanitizeMaskId(state.timelineAssets.image1Id, "image-1");
+  const image2Id = sanitizeMaskId(state.timelineAssets.image2Id, "image-2");
+
+  const textMasks = state.config.textMasks ?? [];
+  const imageMasks = state.config.imageMasks ?? [];
+
+  const textById = new Map(textMasks.map((mask) => [mask.id, mask]));
+  const imageById = new Map(imageMasks.map((mask) => [mask.id, mask]));
+
+  const orderedItems: NonNullable<NonNullable<PixelGridConfig["maskTimeline"]>["items"]> = [];
+
+  const text1 = textById.get(text1Id);
+  const image1 = imageById.get(image1Id);
+  const text2 = textById.get(text2Id);
+  const image2 = imageById.get(image2Id);
+
+  if (text1) orderedItems.push({ type: "text", ...text1 });
+  if (image1) orderedItems.push({ type: "image", ...image1 });
+  if (text2) orderedItems.push({ type: "text", ...text2 });
+  if (image2) orderedItems.push({ type: "image", ...image2 });
+
+  return orderedItems;
+}
+
+function getDefaultAssetIdForStep(mask: TimelineMaskType, stepIndex: number): string {
+  if (mask === "text") {
+    return stepIndex === 0 || stepIndex === 2
+      ? sanitizeMaskId(state.timelineAssets.text1Id, "text-1")
+      : sanitizeMaskId(state.timelineAssets.text2Id, "text-2");
+  }
+
+  return stepIndex === 1 || stepIndex === 3
+    ? sanitizeMaskId(state.timelineAssets.image1Id, "image-1")
+    : sanitizeMaskId(state.timelineAssets.image2Id, "image-2");
+}
+
 function ensureTimelineConfig(): NonNullable<PixelGridConfig["maskTimeline"]> {
+  const text1Id = sanitizeMaskId(state.timelineAssets.text1Id, "text-1");
+  const text2Id = sanitizeMaskId(state.timelineAssets.text2Id, "text-2");
+  const image1Id = sanitizeMaskId(state.timelineAssets.image1Id, "image-1");
+  const image2Id = sanitizeMaskId(state.timelineAssets.image2Id, "image-2");
+
+  syncTimelineMasksIntoConfig();
+
   if (!state.config.maskTimeline) {
     state.config.maskTimeline = {
       enabled: true,
@@ -451,11 +852,12 @@ function ensureTimelineConfig(): NonNullable<PixelGridConfig["maskTimeline"]> {
         durationMs: 900,
         seed: 1337
       },
+      items: buildTimelineItemsFromAssets(),
       steps: [
-        createDefaultTimelineStep("text", 1401),
-        createDefaultTimelineStep("image", 2401),
-        createDefaultTimelineStep("text", 3401),
-        createDefaultTimelineStep("image", 4401)
+        createDefaultTimelineStep("text", 1401, text1Id),
+        createDefaultTimelineStep("image", 2401, image1Id),
+        createDefaultTimelineStep("text", 3401, text2Id),
+        createDefaultTimelineStep("image", 4401, image2Id)
       ]
     };
   }
@@ -467,21 +869,28 @@ function ensureTimelineConfig(): NonNullable<PixelGridConfig["maskTimeline"]> {
       seed: 1337
     };
   }
+  state.config.maskTimeline.items = buildTimelineItemsFromAssets();
 
   if (!state.config.maskTimeline.steps || state.config.maskTimeline.steps.length === 0) {
     state.config.maskTimeline.steps = [
-      createDefaultTimelineStep("text", 1401),
-      createDefaultTimelineStep("image", 2401),
-      createDefaultTimelineStep("text", 3401),
-      createDefaultTimelineStep("image", 4401)
+      createDefaultTimelineStep("text", 1401, text1Id),
+      createDefaultTimelineStep("image", 2401, image1Id),
+      createDefaultTimelineStep("text", 3401, text2Id),
+      createDefaultTimelineStep("image", 4401, image2Id)
     ];
   }
 
+  const defaultIds: string[] = [text1Id, image1Id, text2Id, image2Id];
+  const defaultTypes: TimelineMaskType[] = ["text", "image", "text", "image"];
+
   while (state.config.maskTimeline.steps.length < 4) {
+    const nextIndex = state.config.maskTimeline.steps.length;
+    const nextType = defaultTypes[nextIndex] ?? (nextIndex % 2 === 0 ? "text" : "image");
     state.config.maskTimeline.steps.push(
       createDefaultTimelineStep(
-        state.config.maskTimeline.steps.length % 2 === 0 ? "text" : "image",
-        2401 + state.config.maskTimeline.steps.length * 97
+        nextType,
+        2401 + nextIndex * 97,
+        defaultIds[nextIndex] ?? (nextType === "text" ? text1Id : image1Id)
       )
     );
   }
@@ -489,84 +898,63 @@ function ensureTimelineConfig(): NonNullable<PixelGridConfig["maskTimeline"]> {
     state.config.maskTimeline.steps = state.config.maskTimeline.steps.slice(0, 4);
   }
 
-  state.config.maskTimeline.steps[0].mask = "text";
-  state.config.maskTimeline.steps[1].mask = "image";
-  state.config.maskTimeline.steps[2].mask = "text";
-  state.config.maskTimeline.steps[3].mask = "image";
+  for (let i = 0; i < state.config.maskTimeline.steps.length; i++) {
+    const step = state.config.maskTimeline.steps[i] as TimelineStep;
+    const fallbackType = defaultTypes[i] ?? "text";
+    const resolvedType = (step.maskType ?? step.mask ?? fallbackType) as TimelineMaskType;
+
+    step.mask = resolvedType;
+    step.maskType = resolvedType;
+
+    const resolvedAssetId = typeof step.assetId === "string" && step.assetId.trim()
+      ? step.assetId.trim()
+      : typeof step.maskId === "string" && step.maskId.trim()
+        ? step.maskId.trim()
+        : defaultIds[i] ?? (resolvedType === "text" ? text1Id : image1Id);
+
+    step.assetId = resolvedAssetId;
+    step.maskId = resolvedAssetId;
+
+    if (!step.transition) {
+      step.transition = {
+        mode: step.mode ?? state.config.maskTimeline.defaultTransition?.mode ?? "morph",
+        durationMs: step.durationMs ?? state.config.maskTimeline.defaultTransition?.durationMs ?? 900,
+        seed: (state.config.maskTimeline.defaultTransition?.seed ?? 1337) + i * 97
+      };
+    }
+  }
 
   return state.config.maskTimeline;
 }
 
-let lastAppliedTimelineStep = -1;
+function applyTimelineV2Demo(): void {
+  const text1Id = sanitizeMaskId(state.timelineAssets.text1Id, "text-1");
+  const text2Id = sanitizeMaskId(state.timelineAssets.text2Id, "text-2");
+  const image1Id = sanitizeMaskId(state.timelineAssets.image1Id, "image-1");
+  const image2Id = sanitizeMaskId(state.timelineAssets.image2Id, "image-2");
 
-function applyTimelineStepAssets(force = false): void {
   const timeline = ensureTimelineConfig();
-  if (!timeline.enabled) return;
-  const timelineState = effect.getMaskTimelineState();
-  const stepIndex = timelineState.stepIndex;
-  if (stepIndex < 0) return;
-  if (!force && stepIndex === lastAppliedTimelineStep) return;
-
-  const step = timeline.steps?.[stepIndex];
-  if (!step) return;
-
-  const internal = effect as unknown as {
-    maskState?: {
-      textMask?: { generateMask?: () => void; text?: string };
-      imageMask?: { image?: HTMLImageElement };
-    };
+  timeline.enabled = true;
+  timeline.autoplay = true;
+  timeline.loop = true;
+  timeline.initialStep = 0;
+  timeline.defaultTransition = {
+    mode: "morph",
+    durationMs: 700,
+    seed: 1337
   };
-  const maskState = internal.maskState;
-  if (!maskState) return;
+  timeline.items = buildTimelineItemsFromAssets();
+  timeline.steps = [
+    { mask: "text", assetId: text1Id, holdMs: 1100, mode: "morph", durationMs: 700 },
+    { mask: "image", assetId: image1Id, holdMs: 1000, mode: "fade", durationMs: 450 },
+    { mask: "text", assetId: text2Id, holdMs: 1100, mode: "dissolve", durationMs: 620 },
+    { mask: "image", assetId: image2Id, holdMs: 1000, mode: "fade", durationMs: 450 }
+  ] as TimelineStep[];
 
-  if (step.mask === "text") {
-    const nextText = stepIndex === 0 ? state.timelineAssets.text1 : state.timelineAssets.text2;
-    const textMask = maskState.textMask;
-    if (textMask && nextText && textMask.text !== nextText) {
-      textMask.text = nextText;
-      textMask.generateMask?.();
-    }
-    const currentTextMask = state.config.textMask;
-    state.config.textMask = {
-      ...(currentTextMask ?? {}),
-      font: currentTextMask?.font ?? "bold 140px Arial",
-      text: nextText
-    };
-  }
-
-  if (step.mask === "image") {
-    const useFirstImageSlot = stepIndex === 1;
-    const nextImage = useFirstImageSlot ? state.timelineAssets.image1 : state.timelineAssets.image2;
-    const nextScale = useFirstImageSlot ? state.timelineAssets.image1Scale : state.timelineAssets.image2Scale;
-    const nextSampleMode = useFirstImageSlot
-      ? state.timelineAssets.image1SampleMode
-      : state.timelineAssets.image2SampleMode;
-
-    const imageMaskInternal = maskState.imageMask as unknown as {
-      image?: HTMLImageElement;
-      generateMask?: () => void;
-      scale?: number;
-      sampleMode?: "alpha" | "luminance" | "threshold" | "invert";
-    };
-
-    imageMaskInternal.scale = nextScale;
-    imageMaskInternal.sampleMode = nextSampleMode;
-
-    if (imageMaskInternal.image && nextImage && imageMaskInternal.image.src !== nextImage) {
-      imageMaskInternal.image.src = nextImage;
-    } else {
-      imageMaskInternal.generateMask?.();
-    }
-
-    state.config.imageMask = {
-      ...(state.config.imageMask ?? {}),
-      src: nextImage,
-      scale: nextScale,
-      sampleMode: nextSampleMode
-    };
-  }
-
-  lastAppliedTimelineStep = stepIndex;
+  rebuildEffect();
+  renderTimelineStepEditors();
+  updateTimelinePreview();
+  updateRuntimeStats();
 }
 
 function replaceTimelineImage(slot: 1 | 2, file: File): void {
@@ -585,7 +973,8 @@ function replaceTimelineImage(slot: 1 | 2, file: File): void {
     state.timelineAssets.image2 = objectUrl;
   }
 
-  applyTimelineStepAssets(true);
+  syncTimelineMasksIntoConfig();
+  rebuildEffect();
   updateTimelinePreview();
 }
 
@@ -861,27 +1250,6 @@ function addTextControl(
   section.appendChild(row.row);
 }
 
-function addFileUploadControl(
-  section: HTMLElement,
-  label: string,
-  onFile: (file: File) => void
-): void {
-  const row = createRow(label);
-  const input = document.createElement("input");
-  input.type = "file";
-  input.accept = "image/*";
-  input.style.gridColumn = "1 / -1";
-  input.style.color = "#cbd5e1";
-  input.addEventListener("change", () => {
-    const file = input.files?.[0];
-    if (!file) return;
-    row.value.textContent = file.name;
-    onFile(file);
-  });
-  row.row.appendChild(input);
-  section.appendChild(row.row);
-}
-
 const setupSection = createSection("Setup");
 
 addSelectControl(
@@ -892,20 +1260,37 @@ addSelectControl(
   (value) => {
     state.preset = value as PlaygroundPreset;
     state.config = createPresetConfig(state.preset);
-    if (state.config.textMask?.text) {
-      state.timelineAssets.text1 = state.config.textMask.text;
-    }
-    state.timelineAssets.image1Scale = state.config.imageMask?.scale ?? state.timelineAssets.image1Scale;
-    state.timelineAssets.image2Scale = state.config.imageMask?.scale ?? state.timelineAssets.image2Scale;
+    const firstText = state.config.textMasks?.[0] ?? state.config.textMask;
+    const secondText = state.config.textMasks?.[1];
+    const firstImage = state.config.imageMasks?.[0] ?? state.config.imageMask;
+    const secondImage = state.config.imageMasks?.[1];
+
+    state.timelineAssets.text1Id = firstText?.id ?? "text-1";
+    state.timelineAssets.text2Id = secondText?.id ?? state.timelineAssets.text2Id;
+    state.timelineAssets.image1Id = firstImage?.id ?? "image-1";
+    state.timelineAssets.image2Id = secondImage?.id ?? state.timelineAssets.image2Id;
+
+    if (firstText?.text) state.timelineAssets.text1 = firstText.text;
+    if (secondText?.text) state.timelineAssets.text2 = secondText.text;
+    const firstTextFont = parseFontDefinition(firstText?.font, 140, "Arial");
+    const secondTextFont = parseFontDefinition(secondText?.font, 130, "Arial");
+    state.timelineAssets.text1FontFamily = firstTextFont.family;
+    state.timelineAssets.text2FontFamily = secondTextFont.family;
+    state.timelineAssets.text1FontSize = firstTextFont.size;
+    state.timelineAssets.text2FontSize = secondTextFont.size;
+
+    state.timelineAssets.image1Scale = firstImage?.scale ?? state.timelineAssets.image1Scale;
+    state.timelineAssets.image2Scale = secondImage?.scale ?? firstImage?.scale ?? state.timelineAssets.image2Scale;
     state.timelineAssets.image1SampleMode =
-      state.config.imageMask?.sampleMode ?? state.timelineAssets.image1SampleMode;
+      firstImage?.sampleMode ?? state.timelineAssets.image1SampleMode;
     state.timelineAssets.image2SampleMode =
-      state.config.imageMask?.sampleMode ?? state.timelineAssets.image2SampleMode;
-    if (!state.timelineAssets.image1ObjectUrl && state.config.imageMask?.src) {
-      state.timelineAssets.image1 = state.config.imageMask.src;
+      secondImage?.sampleMode ?? firstImage?.sampleMode ?? state.timelineAssets.image2SampleMode;
+
+    if (!state.timelineAssets.image1ObjectUrl && firstImage?.src) {
+      state.timelineAssets.image1 = firstImage.src;
     }
-    if (!state.timelineAssets.image2ObjectUrl && state.config.imageMask?.src) {
-      state.timelineAssets.image2 = state.config.imageMask.src;
+    if (!state.timelineAssets.image2ObjectUrl && (secondImage?.src ?? firstImage?.src)) {
+      state.timelineAssets.image2 = secondImage?.src ?? firstImage!.src;
     }
     renderAllControls();
   }
@@ -1221,6 +1606,344 @@ addRangeControl(
 controlsPanel.appendChild(interactionSection);
 
 const timelineSection = createSection("Mask Timeline");
+const timelineStepExpanded = [true, false, false, false];
+
+function getTextSlotFromAssetId(assetId: string | undefined): 1 | 2 {
+  if (assetId === sanitizeMaskId(state.timelineAssets.text2Id, "text-2")) return 2;
+  return 1;
+}
+
+function getImageSlotFromAssetId(assetId: string | undefined): 1 | 2 {
+  if (assetId === sanitizeMaskId(state.timelineAssets.image2Id, "image-2")) return 2;
+  return 1;
+}
+
+function getDefaultSlotForStep(stepIndex: number, type: TimelineMaskType): 1 | 2 {
+  if (type === "text") return stepIndex >= 2 ? 2 : 1;
+  return stepIndex >= 2 ? 2 : 1;
+}
+
+function getAssetIdFromSlot(type: TimelineMaskType, slot: 1 | 2): string {
+  if (type === "text") {
+    return slot === 1
+      ? sanitizeMaskId(state.timelineAssets.text1Id, "text-1")
+      : sanitizeMaskId(state.timelineAssets.text2Id, "text-2");
+  }
+  return slot === 1
+    ? sanitizeMaskId(state.timelineAssets.image1Id, "image-1")
+    : sanitizeMaskId(state.timelineAssets.image2Id, "image-2");
+}
+
+function applyTimelinePanelChanges(renderSteps = true): void {
+  rebuildEffect();
+  if (renderSteps) {
+    renderTimelineStepEditors();
+  }
+  updateTimelinePreview();
+  updateRuntimeStats();
+}
+
+function createStepField(label: string, control: HTMLElement): HTMLDivElement {
+  const row = document.createElement("div");
+  row.style.display = "grid";
+  row.style.gap = "4px";
+
+  const caption = document.createElement("div");
+  caption.textContent = label;
+  caption.style.color = "#cbd5e1";
+  caption.style.fontSize = "11px";
+  row.appendChild(caption);
+
+  control.style.width = "100%";
+  control.style.boxSizing = "border-box";
+  control.style.background = "#111827";
+  control.style.color = "#e5e7eb";
+  control.style.border = "1px solid rgba(148, 163, 184, 0.4)";
+  control.style.borderRadius = "6px";
+  control.style.padding = "4px 6px";
+  row.appendChild(control);
+
+  return row;
+}
+
+const timelineStepsContainer = document.createElement("div");
+timelineStepsContainer.style.display = "grid";
+timelineStepsContainer.style.gap = "8px";
+
+function renderTimelineStepEditors(): void {
+  const timeline = ensureTimelineConfig();
+  timelineStepsContainer.innerHTML = "";
+
+  for (let stepIndex = 0; stepIndex < 4; stepIndex++) {
+    const step = timeline.steps?.[stepIndex] as TimelineStep | undefined;
+    if (!step) continue;
+
+    const card = document.createElement("div");
+    card.style.border = "1px solid rgba(148, 163, 184, 0.3)";
+    card.style.borderRadius = "8px";
+    card.style.background = "rgba(2, 6, 23, 0.45)";
+    card.style.overflow = "hidden";
+
+    const header = document.createElement("button");
+    const stepType = (step.maskType ?? step.mask ?? "text") as TimelineMaskType;
+    const stepAsset = step.assetId ?? step.maskId ?? getDefaultAssetIdForStep(stepType, stepIndex);
+    header.textContent = `Step${stepIndex} | ${stepType} | ${stepAsset}`;
+    header.style.width = "100%";
+    header.style.textAlign = "left";
+    header.style.background = "rgba(30, 41, 59, 0.9)";
+    header.style.color = "#e2e8f0";
+    header.style.border = "none";
+    header.style.padding = "8px 10px";
+    header.style.cursor = "pointer";
+    header.addEventListener("click", () => {
+      timelineStepExpanded[stepIndex] = !timelineStepExpanded[stepIndex];
+      renderTimelineStepEditors();
+    });
+    card.appendChild(header);
+
+    const body = document.createElement("div");
+    body.style.display = timelineStepExpanded[stepIndex] ? "grid" : "none";
+    body.style.gap = "8px";
+    body.style.padding = "10px";
+    if (!timelineStepExpanded[stepIndex]) {
+      timelineStepsContainer.appendChild(card);
+      continue;
+    }
+
+    const typeSelect = document.createElement("select");
+    for (const optionValue of ["text", "image"]) {
+      const option = document.createElement("option");
+      option.value = optionValue;
+      option.textContent = optionValue;
+      typeSelect.appendChild(option);
+    }
+    typeSelect.value = stepType;
+    typeSelect.addEventListener("change", () => {
+      const nextType = typeSelect.value as TimelineMaskType;
+      const nextSlot = getDefaultSlotForStep(stepIndex, nextType);
+      step.mask = nextType;
+      step.maskType = nextType;
+      const nextAssetId = getAssetIdFromSlot(nextType, nextSlot);
+      step.assetId = nextAssetId;
+      step.maskId = nextAssetId;
+      applyTimelinePanelChanges();
+    });
+    body.appendChild(createStepField("type", typeSelect));
+
+    const holdInput = document.createElement("input");
+    holdInput.type = "number";
+    holdInput.min = "0";
+    holdInput.max = "5000";
+    holdInput.step = "25";
+    holdInput.value = String(step.holdMs ?? 1200);
+    holdInput.addEventListener("change", () => {
+      step.holdMs = Math.max(0, Number(holdInput.value) || 0);
+      applyTimelinePanelChanges(false);
+    });
+    body.appendChild(createStepField("holdMs", holdInput));
+
+    const modeSelect = document.createElement("select");
+    for (const optionValue of ["morph", "fade", "dissolve"]) {
+      const option = document.createElement("option");
+      option.value = optionValue;
+      option.textContent = optionValue;
+      modeSelect.appendChild(option);
+    }
+    modeSelect.value = step.transition?.mode ?? "morph";
+    modeSelect.addEventListener("change", () => {
+      if (!step.transition) {
+        step.transition = { mode: "morph", durationMs: 900, seed: 1337 + stepIndex * 97 };
+      }
+      step.transition.mode = modeSelect.value as "morph" | "fade" | "dissolve";
+      applyTimelinePanelChanges(false);
+    });
+    body.appendChild(createStepField("transition mode", modeSelect));
+
+    const durationInput = document.createElement("input");
+    durationInput.type = "number";
+    durationInput.min = "100";
+    durationInput.max = "2500";
+    durationInput.step = "25";
+    durationInput.value = String(step.transition?.durationMs ?? 900);
+    durationInput.addEventListener("change", () => {
+      if (!step.transition) {
+        step.transition = { mode: "morph", durationMs: 900, seed: 1337 + stepIndex * 97 };
+      }
+      step.transition.durationMs = Math.max(1, Number(durationInput.value) || 900);
+      applyTimelinePanelChanges(false);
+    });
+    body.appendChild(createStepField("transition durationMs", durationInput));
+
+    if (stepType === "text") {
+      const currentSlot = getTextSlotFromAssetId(step.assetId ?? step.maskId);
+
+      const textSlotSelect = document.createElement("select");
+      const textSlotOptions = [
+        { slot: 1 as const, label: `Text 1 (${sanitizeMaskId(state.timelineAssets.text1Id, "text-1")})` },
+        { slot: 2 as const, label: `Text 2 (${sanitizeMaskId(state.timelineAssets.text2Id, "text-2")})` }
+      ];
+      for (const optionMeta of textSlotOptions) {
+        const option = document.createElement("option");
+        option.value = String(optionMeta.slot);
+        option.textContent = optionMeta.label;
+        textSlotSelect.appendChild(option);
+      }
+      textSlotSelect.value = String(currentSlot);
+      textSlotSelect.addEventListener("change", () => {
+        const slot = Number(textSlotSelect.value) === 2 ? 2 : 1;
+        const nextAssetId = getAssetIdFromSlot("text", slot);
+        step.assetId = nextAssetId;
+        step.maskId = nextAssetId;
+        applyTimelinePanelChanges();
+      });
+      body.appendChild(createStepField("text asset", textSlotSelect));
+
+      const selectedSlot = Number(textSlotSelect.value) === 2 ? 2 : 1;
+      const textInput = document.createElement("input");
+      textInput.type = "text";
+      textInput.value = selectedSlot === 1 ? state.timelineAssets.text1 : state.timelineAssets.text2;
+      textInput.addEventListener("change", () => {
+        if (selectedSlot === 1) {
+          state.timelineAssets.text1 = textInput.value;
+        } else {
+          state.timelineAssets.text2 = textInput.value;
+        }
+        applyTimelinePanelChanges();
+      });
+      body.appendChild(createStepField("text", textInput));
+
+      const fontFamilyInput = document.createElement("input");
+      fontFamilyInput.type = "text";
+      fontFamilyInput.value =
+        selectedSlot === 1
+          ? state.timelineAssets.text1FontFamily
+          : state.timelineAssets.text2FontFamily;
+      fontFamilyInput.addEventListener("change", () => {
+        if (selectedSlot === 1) {
+          state.timelineAssets.text1FontFamily = fontFamilyInput.value.trim() || "Arial";
+        } else {
+          state.timelineAssets.text2FontFamily = fontFamilyInput.value.trim() || "Arial";
+        }
+        applyTimelinePanelChanges();
+      });
+      body.appendChild(createStepField("font family", fontFamilyInput));
+
+      const fontSizeInput = document.createElement("input");
+      fontSizeInput.type = "number";
+      fontSizeInput.min = "8";
+      fontSizeInput.max = "260";
+      fontSizeInput.step = "1";
+      fontSizeInput.value = String(
+        selectedSlot === 1 ? state.timelineAssets.text1FontSize : state.timelineAssets.text2FontSize
+      );
+      fontSizeInput.addEventListener("change", () => {
+        const size = Math.max(8, Number(fontSizeInput.value) || 120);
+        if (selectedSlot === 1) {
+          state.timelineAssets.text1FontSize = size;
+        } else {
+          state.timelineAssets.text2FontSize = size;
+        }
+        applyTimelinePanelChanges();
+      });
+      body.appendChild(createStepField("font size", fontSizeInput));
+    } else {
+      const currentSlot = getImageSlotFromAssetId(step.assetId ?? step.maskId);
+
+      const imageSlotSelect = document.createElement("select");
+      const imageSlotOptions = [
+        { slot: 1 as const, label: `Image 1 (${sanitizeMaskId(state.timelineAssets.image1Id, "image-1")})` },
+        { slot: 2 as const, label: `Image 2 (${sanitizeMaskId(state.timelineAssets.image2Id, "image-2")})` }
+      ];
+      for (const optionMeta of imageSlotOptions) {
+        const option = document.createElement("option");
+        option.value = String(optionMeta.slot);
+        option.textContent = optionMeta.label;
+        imageSlotSelect.appendChild(option);
+      }
+      imageSlotSelect.value = String(currentSlot);
+      imageSlotSelect.addEventListener("change", () => {
+        const slot = Number(imageSlotSelect.value) === 2 ? 2 : 1;
+        const nextAssetId = getAssetIdFromSlot("image", slot);
+        step.assetId = nextAssetId;
+        step.maskId = nextAssetId;
+        applyTimelinePanelChanges();
+      });
+      body.appendChild(createStepField("image asset", imageSlotSelect));
+
+      const selectedSlot = Number(imageSlotSelect.value) === 2 ? 2 : 1;
+
+      const srcInput = document.createElement("input");
+      srcInput.type = "text";
+      srcInput.placeholder = "/assets/your-image.png";
+      srcInput.value = selectedSlot === 1 ? state.timelineAssets.image1 : state.timelineAssets.image2;
+      srcInput.addEventListener("change", () => {
+        if (selectedSlot === 1) {
+          state.timelineAssets.image1 = srcInput.value.trim();
+        } else {
+          state.timelineAssets.image2 = srcInput.value.trim();
+        }
+        applyTimelinePanelChanges();
+      });
+      body.appendChild(createStepField("image src", srcInput));
+
+      const uploadInput = document.createElement("input");
+      uploadInput.type = "file";
+      uploadInput.accept = "image/*";
+      uploadInput.style.color = "#e2e8f0";
+      uploadInput.addEventListener("change", () => {
+        const file = uploadInput.files?.[0];
+        if (!file) return;
+        replaceTimelineImage(selectedSlot, file);
+        renderTimelineStepEditors();
+      });
+      body.appendChild(createStepField("upload image", uploadInput));
+
+      const scaleInput = document.createElement("input");
+      scaleInput.type = "number";
+      scaleInput.min = "0.2";
+      scaleInput.max = "5";
+      scaleInput.step = "0.1";
+      scaleInput.value = String(
+        selectedSlot === 1 ? state.timelineAssets.image1Scale : state.timelineAssets.image2Scale
+      );
+      scaleInput.addEventListener("change", () => {
+        const scale = Math.max(0.2, Number(scaleInput.value) || 1);
+        if (selectedSlot === 1) {
+          state.timelineAssets.image1Scale = scale;
+        } else {
+          state.timelineAssets.image2Scale = scale;
+        }
+        applyTimelinePanelChanges();
+      });
+      body.appendChild(createStepField("image scale", scaleInput));
+
+      const modeSelect = document.createElement("select");
+      for (const optionValue of ["threshold", "luminance", "alpha", "invert"]) {
+        const option = document.createElement("option");
+        option.value = optionValue;
+        option.textContent = optionValue;
+        modeSelect.appendChild(option);
+      }
+      modeSelect.value = selectedSlot === 1
+        ? state.timelineAssets.image1SampleMode
+        : state.timelineAssets.image2SampleMode;
+      modeSelect.addEventListener("change", () => {
+        const mode = modeSelect.value as "threshold" | "luminance" | "alpha" | "invert";
+        if (selectedSlot === 1) {
+          state.timelineAssets.image1SampleMode = mode;
+        } else {
+          state.timelineAssets.image2SampleMode = mode;
+        }
+        applyTimelinePanelChanges();
+      });
+      body.appendChild(createStepField("sample mode", modeSelect));
+    }
+
+    card.appendChild(body);
+    timelineStepsContainer.appendChild(card);
+  }
+}
+
 addCheckboxControl(
   timelineSection,
   "enabled",
@@ -1228,65 +1951,6 @@ addCheckboxControl(
   (value) => {
     const timeline = ensureTimelineConfig();
     timeline.enabled = value;
-  }
-);
-
-addRangeControl(
-  timelineSection,
-  "hold (all steps)",
-  0,
-  5000,
-  25,
-  () => ensureTimelineConfig().steps?.[0]?.holdMs ?? 1200,
-  (value) => {
-    const timeline = ensureTimelineConfig();
-    for (const step of timeline.steps ?? []) {
-      step.holdMs = value;
-    }
-  }
-);
-
-addRangeControl(
-  timelineSection,
-  "duration (all transitions)",
-  100,
-  2500,
-  50,
-  () => ensureTimelineConfig().steps?.[0]?.transition?.durationMs ?? 900,
-  (value) => {
-    const timeline = ensureTimelineConfig();
-    for (const step of timeline.steps ?? []) {
-      if (!step.transition) {
-        step.transition = {
-          mode: "morph",
-          durationMs: value,
-          seed: 1337
-        };
-      } else {
-        step.transition.durationMs = value;
-      }
-    }
-  }
-);
-
-addSelectControl(
-  timelineSection,
-  "transition mode",
-  ["morph", "fade", "dissolve"],
-  () => ensureTimelineConfig().steps?.[0]?.transition?.mode ?? "morph",
-  (value) => {
-    const timeline = ensureTimelineConfig();
-    for (const step of timeline.steps ?? []) {
-      if (!step.transition) {
-        step.transition = {
-          mode: value as "morph" | "fade" | "dissolve",
-          durationMs: 900,
-          seed: 1337
-        };
-      } else {
-        step.transition.mode = value as "morph" | "fade" | "dissolve";
-      }
-    }
   }
 );
 
@@ -1323,6 +1987,9 @@ addRangeControl(
   }
 );
 
+timelineSection.appendChild(timelineStepsContainer);
+renderTimelineStepEditors();
+
 const timelineRuntimeButtons = document.createElement("div");
 timelineRuntimeButtons.style.display = "flex";
 timelineRuntimeButtons.style.gap = "8px";
@@ -1351,6 +2018,12 @@ timelineRuntimeButtons.appendChild(
   })
 );
 
+timelineRuntimeButtons.appendChild(
+  createButton("Apply v2 demo", () => {
+    applyTimelineV2Demo();
+  })
+);
+
 timelineSection.appendChild(timelineRuntimeButtons);
 
 const timelinePreview = document.createElement("pre");
@@ -1363,109 +2036,6 @@ timelinePreview.style.color = "#cbd5e1";
 timelinePreview.style.fontSize = "11px";
 timelineSection.appendChild(timelinePreview);
 controlsPanel.appendChild(timelineSection);
-
-const assetsSection = createSection("Timeline Assets");
-
-addTextControl(
-  assetsSection,
-  "Text 1",
-  () => state.timelineAssets.text1,
-  (value) => {
-    state.timelineAssets.text1 = value;
-  },
-  () => {
-    applyTimelineStepAssets(true);
-    updateTimelinePreview();
-  }
-);
-
-addTextControl(
-  assetsSection,
-  "Text 2",
-  () => state.timelineAssets.text2,
-  (value) => {
-    state.timelineAssets.text2 = value;
-  },
-  () => {
-    applyTimelineStepAssets(true);
-    updateTimelinePreview();
-  }
-);
-
-addFileUploadControl(
-  assetsSection,
-  "Image 1 upload",
-  (file) => replaceTimelineImage(1, file)
-);
-
-addFileUploadControl(
-  assetsSection,
-  "Image 2 upload",
-  (file) => replaceTimelineImage(2, file)
-);
-
-addSelectControl(
-  assetsSection,
-  "Image 1 mode",
-  ["threshold", "luminance", "alpha", "invert"],
-  () => state.timelineAssets.image1SampleMode,
-  (value) => {
-    state.timelineAssets.image1SampleMode = value as "threshold" | "luminance" | "alpha" | "invert";
-  }
-);
-
-addRangeControl(
-  assetsSection,
-  "Image 1 scale",
-  0.2,
-  5,
-  0.1,
-  () => state.timelineAssets.image1Scale,
-  (value) => {
-    state.timelineAssets.image1Scale = value;
-  }
-);
-
-addSelectControl(
-  assetsSection,
-  "Image 2 mode",
-  ["threshold", "luminance", "alpha", "invert"],
-  () => state.timelineAssets.image2SampleMode,
-  (value) => {
-    state.timelineAssets.image2SampleMode = value as "threshold" | "luminance" | "alpha" | "invert";
-  }
-);
-
-addRangeControl(
-  assetsSection,
-  "Image 2 scale",
-  0.2,
-  5,
-  0.1,
-  () => state.timelineAssets.image2Scale,
-  (value) => {
-    state.timelineAssets.image2Scale = value;
-  }
-);
-
-const loopMap = document.createElement("pre");
-loopMap.style.margin = "0";
-loopMap.style.padding = "8px";
-loopMap.style.borderRadius = "6px";
-loopMap.style.background = "rgba(2, 6, 23, 0.7)";
-loopMap.style.whiteSpace = "pre-wrap";
-loopMap.style.color = "#cbd5e1";
-loopMap.style.fontSize = "11px";
-loopMap.textContent = [
-  "Fixed 4-step loop:",
-  "step0 -> Text 1",
-  "step1 -> Image 1",
-  "step2 -> Text 2",
-  "step3 -> Image 2"
-].join("\n");
-assetsSection.appendChild(loopMap);
-
-controlsPanel.appendChild(assetsSection);
 
 function updateTimelinePreview(): void {
   const timeline = state.config.maskTimeline;
@@ -1489,22 +2059,20 @@ function updateTimelinePreview(): void {
   const lines: string[] = [
     `runtime: ${timelineState.playing ? "playing" : "paused"} step=${timelineState.stepIndex}`,
     `enabled=${timeline.enabled} autoplay=${timeline.autoplay ?? true} loop=${timeline.loop ?? true}`,
+    `items=${timeline.items?.length ?? 0}`,
     `steps=${steps.length}`
   ];
 
   for (let i = 0; i < steps.length; i++) {
-    const step = steps[i];
+    const step = steps[i] as TimelineStep;
     const holdMs = step.holdMs ?? 0;
     const mode = step.transition?.mode ?? timeline.defaultTransition?.mode ?? "morph";
     const durationMs = step.transition?.durationMs ?? timeline.defaultTransition?.durationMs ?? 900;
     const nextStep = i + 1 < steps.length ? i + 1 : (timeline.loop ? 0 : -1);
-    const sourceLabel =
-      i === 0 ? "text1"
-        : i === 1 ? "image1"
-          : i === 2 ? "text2"
-            : "image2";
+    const stepMaskType = step.maskType ?? step.mask ?? "text";
+    const stepMaskId = step.assetId ?? step.maskId ?? getDefaultAssetIdForStep(stepMaskType, i);
 
-    lines.push(`${cursor}ms -> step${i} [${step.mask}:${sourceLabel}] hold (${holdMs}ms)`);
+    lines.push(`${cursor}ms -> step${i} [${stepMaskType}:${stepMaskId}] hold (${holdMs}ms)`);
     cursor += holdMs;
 
     if (nextStep >= 0) {
@@ -1530,7 +2098,6 @@ runtimeSection.appendChild(runtimeStats);
 utilityPanel.appendChild(runtimeSection);
 
 function updateRuntimeStats(): void {
-  applyTimelineStepAssets();
   const debugState = effect as unknown as EffectDebugState;
   const activeCells = debugState.cells
     ? debugState.cells.reduce((count, cell) => count + (cell.targetSize > 0.01 ? 1 : 0), 0)
@@ -1588,8 +2155,16 @@ buttonsRow.appendChild(
         config: state.config,
         influenceOptions: state.influenceOptions,
         timelineAssets: {
+          text1Id: state.timelineAssets.text1Id,
+          text2Id: state.timelineAssets.text2Id,
+          image1Id: state.timelineAssets.image1Id,
+          image2Id: state.timelineAssets.image2Id,
           text1: state.timelineAssets.text1,
           text2: state.timelineAssets.text2,
+          text1FontFamily: state.timelineAssets.text1FontFamily,
+          text2FontFamily: state.timelineAssets.text2FontFamily,
+          text1FontSize: state.timelineAssets.text1FontSize,
+          text2FontSize: state.timelineAssets.text2FontSize,
           image1: state.timelineAssets.image1,
           image2: state.timelineAssets.image2,
           image1Scale: state.timelineAssets.image1Scale,
@@ -1613,8 +2188,16 @@ buttonsRow.appendChild(
         config?: Partial<PixelGridConfig>;
         influenceOptions?: PixelGridInfluenceOptions;
         timelineAssets?: {
+          text1Id?: string;
+          text2Id?: string;
+          image1Id?: string;
+          image2Id?: string;
           text1?: string;
           text2?: string;
+          text1FontFamily?: string;
+          text2FontFamily?: string;
+          text1FontSize?: number;
+          text2FontSize?: number;
           image1?: string;
           image2?: string;
           image1Scale?: number;
@@ -1721,8 +2304,8 @@ function renderAllControls(): void {
   for (const refresh of refreshers) {
     refresh();
   }
+  renderTimelineStepEditors();
   rebuildEffect();
-  applyTimelineStepAssets(true);
   updateTimelinePreview();
   updateRuntimeStats();
 }

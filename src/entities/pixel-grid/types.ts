@@ -1,5 +1,4 @@
 import { HoverShape } from "../../influences/HoverShape";
-import { TextMaskOptions } from "../../influences/Masks/TextMaskInfluence";
 import { ImageMaskOptions } from "../../influences/Masks/ImageMaskInfluence";
 
 export type HoverMode = "classic" | "reactive";
@@ -7,6 +6,7 @@ export type ReactiveHoverScope = "all" | "activeOnly" | "imageMask";
 export type InitialMask = "image" | "text";
 export type PixelGridQualityLevel = "low" | "medium" | "high";
 export type MaskTimelineTransitionMode = "morph" | "fade" | "dissolve";
+export type PixelGridMaskType = InitialMask;
 
 export interface HoverEffectsOptions {
   mode?: HoverMode;
@@ -62,10 +62,27 @@ export interface MaskTimelineTransitionOptions {
 }
 
 export interface MaskTimelineStepOptions {
-  mask: InitialMask;
+  mask?: InitialMask;
+  assetId?: string;
+  maskId?: string;
+  maskType?: InitialMask;
   holdMs?: number;
+  mode?: MaskTimelineTransitionMode;
+  durationMs?: number;
   transition?: MaskTimelineTransitionOptions;
 }
+
+export interface MaskTimelineTextItemOptions extends PixelGridTextMaskConfig {
+  type: "text";
+}
+
+export interface MaskTimelineImageItemOptions extends PixelGridImageMaskConfig {
+  type: "image";
+}
+
+export type MaskTimelineItemOptions =
+  | MaskTimelineTextItemOptions
+  | MaskTimelineImageItemOptions;
 
 export interface MaskTimelineOptions {
   enabled?: boolean;
@@ -74,6 +91,7 @@ export interface MaskTimelineOptions {
   initialStep?: number;
   defaultHoldMs?: number;
   defaultTransition?: MaskTimelineTransitionOptions;
+  items?: MaskTimelineItemOptions[];
   steps?: MaskTimelineStepOptions[];
 }
 
@@ -83,8 +101,14 @@ export interface ResolvedMaskTimelineTransition {
   seed: number;
 }
 
+export interface ResolvedMaskRef {
+  id: string;
+  type: PixelGridMaskType;
+}
+
 export interface ResolvedMaskTimelineStep {
   mask: InitialMask;
+  maskRef: ResolvedMaskRef | null;
   holdMs: number;
   transition: ResolvedMaskTimelineTransition;
 }
@@ -112,16 +136,35 @@ export interface ResolvedPerformanceOptions {
   maxRipplesCap: number;
 }
 
-export interface PixelGridTextMaskConfig extends TextMaskOptions {
+export interface PixelGridTextMaskConfig {
+  id?: string;
   text?: string;
+  centerX?: number;
+  centerY?: number;
+  font?: string;
+  fontSize?: number;
+  fontFamily?: string;
+  fontWeight?: string | number;
+  strength?: number;
+  blurRadius?: number;
+}
+
+export interface PixelGridImageMaskConfig extends ImageMaskOptions {
+  id?: string;
+  src?: string;
   centerX?: number;
   centerY?: number;
 }
 
-export interface PixelGridImageMaskConfig extends ImageMaskOptions {
-  src?: string;
-  centerX?: number;
-  centerY?: number;
+export interface ResolvedPixelGridTextMaskConfig extends PixelGridTextMaskConfig {
+  id: string;
+  text: string;
+  font: string;
+}
+
+export interface ResolvedPixelGridImageMaskConfig extends PixelGridImageMaskConfig {
+  id: string;
+  src: string;
 }
 
 export interface PixelGridConfig {
@@ -144,6 +187,8 @@ export interface PixelGridConfig {
 
   imageMask?: PixelGridImageMaskConfig;
   textMask?: PixelGridTextMaskConfig;
+  imageMasks?: PixelGridImageMaskConfig[];
+  textMasks?: PixelGridTextMaskConfig[];
   initialMask?: InitialMask;
 }
 
@@ -161,4 +206,7 @@ export interface ResolvedPixelGridConfig {
   maskTimeline: ResolvedMaskTimelineOptions;
   performance: ResolvedPerformanceOptions;
   initialMask: InitialMask;
+  imageMasks: ResolvedPixelGridImageMaskConfig[];
+  textMasks: ResolvedPixelGridTextMaskConfig[];
+  warnings: string[];
 }

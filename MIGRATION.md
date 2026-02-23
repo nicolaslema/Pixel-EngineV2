@@ -2,6 +2,32 @@
 
 This guide covers migration to the formal v1 stable baseline and the new package split.
 
+## Update: v1.0.16 Phase 4 Multi-Mask Timeline Hardening (2026-02-23)
+
+- React hybrid mask (`mask.type="hybrid"`) now has production-hardened validation for multi-mask timelines:
+  - actionable warnings for unknown `assetId`/`maskId`
+  - warnings for empty ids and conflicting `assetId` vs `maskId`
+  - warnings for duplicate ids in the same declaration scope
+- Multi-mask declarative pass-through is covered end-to-end in React wrappers:
+  - `usePixelGridEffect`
+  - `PixelGridCanvas`
+  - `PixelCard`
+- Runtime timeline hardening expanded with long-loop stability tests and invalid-ref fallback coverage.
+- Transition benchmark runner now supports scenario dimension:
+  - `text-image` (legacy 2-step)
+  - `multi-mask` (native 4-step id-based timeline)
+
+New benchmark commands:
+
+```bash
+npm run bench:transition:legacy
+npm run bench:transition:multi
+```
+
+Maintainer note:
+- Use `bench:transition:legacy` to compare against pre-multi-mask behavior.
+- Use `bench:transition:multi` as the default tracking target for Phase 4+ timeline regressions.
+
 ## Update: v1.0.15 Phase 2 Runtime Tuning + Culling (2026-02-22)
 
 - `PixelGridConfig` now supports `performance` tuning:

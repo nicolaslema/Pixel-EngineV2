@@ -22,6 +22,9 @@ describe("resolvePixelGridConfig", () => {
     expect(resolved.performance.minRenderableSize).toBe(0.75);
     expect(resolved.performance.maxRipplesCap).toBe(48);
     expect(resolved.initialMask).toBe("image");
+    expect(resolved.imageMasks).toHaveLength(0);
+    expect(resolved.textMasks).toHaveLength(0);
+    expect(resolved.warnings).toHaveLength(0);
   });
 
   it("maps nested overrides and shared morph interval", () => {
@@ -66,6 +69,7 @@ describe("resolvePixelGridConfig", () => {
     expect(resolved.maskTimeline.enabled).toBe(true);
     expect(resolved.maskTimeline.steps.length).toBe(2);
     expect(resolved.maskTimeline.steps[0].mask).toBe("image");
+    expect(resolved.maskTimeline.steps[0].maskRef).toBeNull();
     expect(resolved.maskTimeline.steps[0].holdMs).toBe(1400);
     expect(resolved.maskTimeline.steps[0].transition.mode).toBe("morph");
     expect(resolved.performance.quality).toBe("low");
@@ -118,5 +122,171 @@ describe("resolvePixelGridConfig", () => {
     expect(resolved.maskTimeline.steps[1].transition.mode).toBe("dissolve");
     expect(resolved.maskTimeline.steps[1].transition.durationMs).toBe(1);
     expect(resolved.maskTimeline.steps[1].transition.seed).toBe(109);
+  });
+
+  it("normalizes multi-mask arrays and resolves timeline ids with warnings", () => {
+    const resolved = resolvePixelGridConfig({
+      colors: ["#fff"],
+      gap: 5,
+      expandEase: 0.1,
+      breathSpeed: 1,
+      imageMasks: [
+        {
+          id: "hero",
+          src: "/hero.png"
+        },
+        {
+          id: "hero",
+          src: "/duplicate.png"
+        }
+      ],
+      imageMask: {
+        src: "/legacy.png"
+      },
+      textMasks: [
+        {
+          id: "title",
+          text: "Title",
+          font: "bold 40px Arial"
+        },
+        {
+          id: "   ",
+          text: "Ignored",
+          font: "bold 40px Arial"
+        }
+      ],
+      textMask: {
+        text: "Legacy",
+        font: "bold 40px Arial"
+      },
+      maskTimeline: {
+        enabled: true,
+        steps: [
+          {
+            maskId: "hero"
+          },
+          {
+            maskId: "missing",
+            mask: "text"
+          },
+          {
+            holdMs: 10
+          }
+        ]
+      }
+    });
+
+    expect(resolved.imageMasks).toHaveLength(2);
+    expect(resolved.imageMasks[0].id).toBe("hero");
+    expect(resolved.imageMasks[1].id).toBe("image-1");
+    expect(resolved.textMasks).toHaveLength(2);
+    expect(resolved.textMasks[0].id).toBe("title");
+    expect(resolved.textMasks[1].id).toBe("text-1");
+
+    expect(resolved.maskTimeline.steps[0].maskRef?.id).toBe("hero");
+    expect(resolved.maskTimeline.steps[1].mask).toBe("text");
+    expect(resolved.maskTimeline.steps[1].maskRef?.id).toBe("title");
+    expect(resolved.maskTimeline.steps[2].maskRef?.id).toBe("hero");
+
+    expect(
+      resolved.warnings.some((warning) =>
+        warning.includes("duplicate mask id")
+      )
+    ).toBe(true);
+    expect(
+      resolved.warnings.some((warning) =>
+        warning.includes("unknown asset id")
+      )
+    ).toBe(true);
+    expect(
+      resolved.warnings.some((warning) =>
+        warning.includes("missing mask reference")
+      )
+    ).toBe(true);
+  });
+
+  it("builds timeline steps from maskTimeline.items automatically", () => {
+    const resolved = resolvePixelGridConfig({
+      colors: ["#fff"],
+      gap: 5,
+      expandEase: 0.1,
+      breathSpeed: 1,
+      maskTimeline: {
+        enabled: true,
+        items: [
+          {
+            type: "text",
+            id: "headline",
+            text: "HELLO",
+            fontSize: 96,
+            fontWeight: 700,
+            fontFamily: "Arial"
+          },
+          {
+            type: "image",
+            id: "logo",
+            src: "/logo.png",
+            scale: 1.8
+          },
+          {
+            type: "text",
+            id: "sub",
+            text: "WORLD",
+            font: "bold 72px Arial"
+          }
+        ]
+      }
+    });
+
+    expect(resolved.maskTimeline.steps).toHaveLength(3);
+    expect(resolved.maskTimeline.steps[0].maskRef?.id).toBe("headline");
+    expect(resolved.maskTimeline.steps[1].maskRef?.id).toBe("logo");
+    expect(resolved.maskTimeline.steps[2].maskRef?.id).toBe("sub");
+    expect(resolved.textMasks[0].font).toContain("96px");
+    expect(resolved.imageMasks[0].scale).toBe(1.8);
+  });
+
+  it("supports assetId + mode/duration aliases per timeline step", () => {
+    const resolved = resolvePixelGridConfig({
+      colors: ["#fff"],
+      gap: 5,
+      expandEase: 0.1,
+      breathSpeed: 1,
+      maskTimeline: {
+        enabled: true,
+        defaultTransition: {
+          mode: "morph",
+          durationMs: 800,
+          seed: 10
+        },
+        items: [
+          { type: "text", id: "t1", text: "A" },
+          { type: "image", id: "i1", src: "/a.png" }
+        ],
+        steps: [
+          {
+            assetId: "t1",
+            holdMs: 120,
+            mode: "fade",
+            durationMs: 320
+          },
+          {
+            assetId: "i1",
+            holdMs: 80,
+            transition: {
+              mode: "dissolve",
+              durationMs: 0
+            }
+          }
+        ]
+      }
+    });
+
+    expect(resolved.maskTimeline.steps[0].maskRef?.id).toBe("t1");
+    expect(resolved.maskTimeline.steps[0].transition.mode).toBe("fade");
+    expect(resolved.maskTimeline.steps[0].transition.durationMs).toBe(320);
+    expect(resolved.maskTimeline.steps[1].maskRef?.id).toBe("i1");
+    expect(resolved.maskTimeline.steps[1].transition.mode).toBe("dissolve");
+    expect(resolved.maskTimeline.steps[1].transition.durationMs).toBe(1);
   });
 });

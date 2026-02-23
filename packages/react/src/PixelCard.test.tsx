@@ -299,4 +299,65 @@ describe("PixelCard", () => {
 
     cleanupHost(container, root);
   });
+
+  it("passes hybrid multi-mask timeline with assetId refs through PixelCard", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const createEngine = vi.fn(() => ({
+      addEntity: vi.fn(),
+      removeEntity: vi.fn(),
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    })) as never;
+    const createGridEffect = vi.fn(() => ({
+      triggerRipple: vi.fn()
+    })) as never;
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelCard
+          width={320}
+          height={180}
+          preset="hero-image"
+          mask={{
+            type: "hybrid",
+            texts: [
+              { id: "card-title", text: "CARD", centerX: 160, centerY: 90 },
+              { id: "card-sub", text: "PIXEL", centerX: 160, centerY: 104 }
+            ],
+            images: [
+              { id: "card-img-a", src: "/card-a.png", centerX: 160, centerY: 90, scale: 1.7 },
+              { id: "card-img-b", src: "/card-b.png", centerX: 160, centerY: 90, scale: 1.5 }
+            ],
+            maskTimeline: {
+              enabled: true,
+              autoplay: true,
+              loop: true,
+              steps: [
+                { mask: "text", assetId: "card-title", holdMs: 240, mode: "fade", durationMs: 130 },
+                { mask: "image", assetId: "card-img-a", holdMs: 260, mode: "morph", durationMs: 150 },
+                { mask: "text", assetId: "card-sub", holdMs: 280, mode: "dissolve", durationMs: 140 },
+                { mask: "image", assetId: "card-img-b", holdMs: 300, mode: "fade", durationMs: 120 }
+              ]
+            }
+          }}
+          createEngine={createEngine}
+          createGridEffect={createGridEffect}
+        >
+          <span>Multi mask card</span>
+        </PixelCard>
+      );
+    });
+
+    expect(createGridEffect).toHaveBeenCalledTimes(1);
+    const configArg = createGridEffect.mock.calls[0][3];
+    expect(configArg.textMasks).toHaveLength(2);
+    expect(configArg.imageMasks).toHaveLength(2);
+    expect(configArg.maskTimeline?.steps?.[0]?.assetId).toBe("card-title");
+    expect(configArg.maskTimeline?.steps?.[3]?.assetId).toBe("card-img-b");
+    expect(container.textContent).toContain("Multi mask card");
+
+    cleanupHost(container, root);
+  });
 });

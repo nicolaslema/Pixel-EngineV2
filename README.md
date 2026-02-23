@@ -108,7 +108,7 @@ export function PresetWithOverrides() {
 }
 ```
 
-### 3) Advanced config (callbacks + declarative mask)
+### 3) Advanced config (callbacks + timeline items)
 
 Use interaction callbacks and declarative `mask`:
 
@@ -128,15 +128,44 @@ export function AdvancedMask() {
       mask={{
         type: "hybrid",
         initialMask: "image",
-        image: { src: catPngUrl, centerX: 450, centerY: 240, scale: 2 },
-        text: { text: "PIXEL", centerX: 450, centerY: 280 },
-        autoMorph: { enabled: true, intervalMs: 900 }
+        texts: [
+          { id: "title", text: "PIXEL", centerX: 450, centerY: 275, fontSize: 132, fontFamily: "Arial", fontWeight: 700 },
+          { id: "subtitle", text: "ENGINE", centerX: 450, centerY: 275, fontSize: 112, fontFamily: "Arial", fontWeight: 700 }
+        ],
+        images: [
+          { id: "catA", src: catPngUrl, centerX: 450, centerY: 250, scale: 2.1, sampleMode: "threshold" },
+          { id: "catB", src: catPngUrl, centerX: 450, centerY: 250, scale: 1.6, sampleMode: "luminance" }
+        ],
+        items: [
+          { type: "text", id: "title", text: "PIXEL", centerX: 450, centerY: 275, fontSize: 132, fontFamily: "Arial", fontWeight: 700 },
+          { type: "image", id: "catA", src: catPngUrl, centerX: 450, centerY: 250, scale: 2.1, sampleMode: "threshold" },
+          { type: "text", id: "subtitle", text: "ENGINE", centerX: 450, centerY: 275, fontSize: 112, fontFamily: "Arial", fontWeight: 700 },
+          { type: "image", id: "catB", src: catPngUrl, centerX: 450, centerY: 250, scale: 1.6, sampleMode: "luminance" }
+        ],
+        steps: [
+          { mask: "text", assetId: "title", holdMs: 1100, mode: "morph", durationMs: 700 },
+          { mask: "image", assetId: "catA", holdMs: 1000, mode: "fade", durationMs: 450 },
+          { mask: "text", assetId: "subtitle", holdMs: 1100, mode: "dissolve", durationMs: 620 },
+          { mask: "image", assetId: "catB", holdMs: 1000, mode: "fade", durationMs: 450 }
+        ],
+        maskTimeline: {
+          enabled: true,
+          autoplay: true,
+          loop: true,
+          initialStep: 0
+        }
       }}
-      effectKey="hero-v1"
+      effectKey="hero-timeline-v2"
     />
   );
 }
 ```
+
+Timeline model notes:
+- `maskTimeline.items`: declares timeline assets (text/image masks).
+- `steps[].assetId`: points to an asset declared in `items`.
+- `steps[].mode` and `steps[].durationMs`: transition aliases for fast authoring.
+- `steps[].transition`: still supported for full control (`seed`, explicit fields).
 
 ### 4) Custom config (public helpers)
 
@@ -232,7 +261,10 @@ Preset matrix:
 - Mask guidance:
   - `hero-image` should be paired with an image mask.
   - `mask.type = "hybrid"` is recommended for text+image morph flows.
-  - `mask.type = "hybrid"` also supports declarative `maskTimeline` for per-step hold/transition control.
+  - `mask.type = "hybrid"` supports declarative timeline assets + sequencing:
+    - `items[]` for asset definitions
+    - `steps[].assetId` for step-to-asset mapping
+    - `mode`/`durationMs` aliases or full `transition` per step
 - Runtime quality:
   - `PixelGridEffect` supports `performance.quality` (`low` | `medium` | `high`).
   - `performance.viewportCulling` can reduce render cost when effect area is larger than viewport.
@@ -274,6 +306,8 @@ Validated in an external React project (Vite + TypeScript) with local package in
 - `npm run bench:pixelgrid:all`
 - `npm run bench:transition`
 - `npm run bench:transition:all`
+- `npm run bench:transition:legacy`
+- `npm run bench:transition:multi`
 - `npm run bench:transition:morph`
 - `npm run bench:transition:fade`
 - `npm run bench:transition:dissolve`
@@ -299,11 +333,13 @@ Detailed scripts:
 - `npm run bench:pixelgrid:classic`: comparable regression baseline (5 runs).
 - `npm run bench:pixelgrid:stress`: heavy overdraw + quality tiers (5 runs).
 - `npm run bench:pixelgrid:all`: full benchmark pack (classic + stress, 5 runs).
-- `npm run bench:transition`: runs text/image transition benchmark (`morph + fade + dissolve`, 3 runs).
-- `npm run bench:transition:all`: full transition benchmark pack (`morph + fade + dissolve`, 5 runs).
-- `npm run bench:transition:morph`: transition benchmark only for `morph` mode.
-- `npm run bench:transition:fade`: transition benchmark only for `fade` mode.
-- `npm run bench:transition:dissolve`: transition benchmark only for `dissolve` mode.
+- `npm run bench:transition`: runs transition benchmark across both scenarios (`text-image` + `multi-mask`) and all modes (`morph + fade + dissolve`), 3 runs.
+- `npm run bench:transition:all`: full transition benchmark pack across both scenarios and all modes, 5 runs.
+- `npm run bench:transition:legacy`: transition benchmark only for legacy `text-image` scenario (all modes, 5 runs).
+- `npm run bench:transition:multi`: transition benchmark only for `multi-mask` scenario (all modes, 5 runs).
+- `npm run bench:transition:morph`: transition benchmark only for `morph` mode (all scenarios).
+- `npm run bench:transition:fade`: transition benchmark only for `fade` mode (all scenarios).
+- `npm run bench:transition:dissolve`: transition benchmark only for `dissolve` mode (all scenarios).
 - `npm run smoke:consumer`: validates package consumption from local tarballs.
 - `npm run release:check`: verify + pack dry-runs + consumer smoke test.
 - `npm run release:docs:prepare`: scaffold release entries in `CHANGELOG.md` and `MIGRATION.md`.

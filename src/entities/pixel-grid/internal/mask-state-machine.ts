@@ -1,15 +1,13 @@
 import { InfluenceManager } from "../../../influences/InfluenceManager";
-import { ImageMaskInfluence } from "../../../influences/Masks/ImageMaskInfluence";
-import { TextMaskInfluence } from "../../../influences/Masks/TextMaskInfluence";
 import { MaskInfluence } from "../../../influences/Masks/MaskInfluence";
 import { InitialMask, ResolvedPixelGridConfig } from "../types";
+import { createMaskRegistry, RuntimeMaskRegistryEntry } from "./mask-registry";
 import { TimelineTransitionMaskInfluence } from "./timeline-transition-mask";
 type TimelinePhase = "hold" | "transition";
-type AvailableMask = InitialMask | null;
 
 export interface MaskStateMachine {
-  imageMask: ImageMaskInfluence | null;
-  textMask: TextMaskInfluence | null;
+  imageMask: MaskInfluence | null;
+  textMask: MaskInfluence | null;
   morphMask: MaskInfluence | null;
   update(delta: number): void;
   play(): void;
@@ -21,58 +19,64 @@ export interface MaskStateMachine {
 
 interface CreateMaskStateMachineParams {
   influenceManager: InfluenceManager;
-  autoMorph: ResolvedPixelGridConfig["autoMorph"];
   maskTimeline: ResolvedPixelGridConfig["maskTimeline"];
   initialMask: InitialMask;
-  imageMask: ImageMaskInfluence | null;
-  textMask: TextMaskInfluence | null;
+  imageMasks: RuntimeMaskRegistryEntry[];
+  textMasks: RuntimeMaskRegistryEntry[];
 }
 
 export function createMaskStateMachine(
   params: CreateMaskStateMachineParams
 ): MaskStateMachine {
   const { influenceManager } = params;
+  const registry = createMaskRegistry({
+    imageMasks: params.imageMasks,
+    textMasks: params.textMasks
+  });
 
-  let imageMask = params.imageMask;
-  let textMask = params.textMask;
+  let imageMask: MaskInfluence | null = null;
+  let textMask: MaskInfluence | null = null;
   let morphMask: MaskInfluence | null = null;
   let phase: TimelinePhase = "hold";
-  let currentMaskType: AvailableMask = null;
-  let transitionTargetMaskType: AvailableMask = null;
+  let currentMask: RuntimeMaskRegistryEntry | null = null;
+  let transitionTargetMask: RuntimeMaskRegistryEntry | null = null;
   let transitionTargetStepIndex = -1;
   let currentStepIndex = -1;
   let stateTimer = 0;
   let playing = false;
 
+  const setActiveTypeMasks = (...entries: Array<RuntimeMaskRegistryEntry | null>) => {
+    imageMask = null;
+    textMask = null;
+
+    for (const entry of entries) {
+      if (!entry) continue;
+      if (entry.type === "image" && imageMask === null) {
+        imageMask = entry.influence;
+      } else if (entry.type === "text" && textMask === null) {
+        textMask = entry.influence;
+      }
+    }
+  };
+
   const removeAllMaskInfluences = () => {
-    if (imageMask) influenceManager.remove(imageMask);
-    if (textMask) influenceManager.remove(textMask);
+    for (const entry of registry.getAll()) {
+      influenceManager.remove(entry.influence);
+    }
     if (morphMask) influenceManager.remove(morphMask);
+    setActiveTypeMasks();
   };
 
-  const getMaskByType = (type: AvailableMask): MaskInfluence | null => {
-    if (type === "image") return imageMask;
-    if (type === "text") return textMask;
-    return null;
-  };
-
-  const resolveAvailableType = (preferred: InitialMask): AvailableMask => {
-    if (preferred === "image") {
-      if (imageMask) return "image";
-      if (textMask) return "text";
-      return null;
+  const setActiveStaticMask = (mask: RuntimeMaskRegistryEntry | null) => {
+    for (const entry of registry.getAll()) {
+      influenceManager.remove(entry.influence);
     }
 
-    if (textMask) return "text";
-    if (imageMask) return "image";
-    return null;
-  };
+    if (mask) {
+      influenceManager.add(mask.influence);
+    }
 
-  const setActiveStaticMask = (type: AvailableMask) => {
-    if (imageMask) influenceManager.remove(imageMask);
-    if (textMask) influenceManager.remove(textMask);
-    const mask = getMaskByType(type);
-    if (mask) influenceManager.add(mask);
+    setActiveTypeMasks(mask);
   };
 
   const getCurrentStepTransition = () => {
@@ -90,17 +94,23 @@ export function createMaskStateMachine(
     return 0;
   };
 
+  const resolveMaskForStep = (stepIndex: number): RuntimeMaskRegistryEntry | null => {
+    const step = params.maskTimeline.steps[stepIndex];
+    if (!step) return null;
+    return registry.resolve(step.maskRef, step.mask);
+  };
+
   const finalizeTransition = () => {
     if (morphMask) {
       influenceManager.remove(morphMask);
     }
     morphMask = null;
 
-    currentMaskType = transitionTargetMaskType;
+    currentMask = transitionTargetMask;
     currentStepIndex = transitionTargetStepIndex;
-    setActiveStaticMask(currentMaskType);
+    setActiveStaticMask(currentMask);
     phase = "hold";
-    transitionTargetMaskType = null;
+    transitionTargetMask = null;
     transitionTargetStepIndex = -1;
     stateTimer = 0;
   };
@@ -112,41 +122,46 @@ export function createMaskStateMachine(
       return;
     }
 
-    const nextMaskType = resolveAvailableType(nextStep.mask);
-    if (!nextMaskType) {
+    const nextMask = resolveMaskForStep(nextStepIndex);
+    if (!nextMask) {
       currentStepIndex = nextStepIndex;
+      stateTimer = 0;
+      currentMask = null;
+      setActiveStaticMask(null);
+      return;
+    }
+
+    if (currentMask === null) {
+      currentMask = nextMask;
+      currentStepIndex = nextStepIndex;
+      setActiveStaticMask(currentMask);
       stateTimer = 0;
       return;
     }
 
-    if (currentMaskType === null) {
-      currentMaskType = nextMaskType;
+    if (nextMask.id === currentMask.id) {
+      currentMask = nextMask;
       currentStepIndex = nextStepIndex;
-      setActiveStaticMask(currentMaskType);
+      setActiveStaticMask(currentMask);
       stateTimer = 0;
       return;
     }
 
-    if (nextMaskType === currentMaskType) {
-      currentStepIndex = nextStepIndex;
-      stateTimer = 0;
-      return;
-    }
-
-    const fromMask = getMaskByType(currentMaskType);
-    const toMask = getMaskByType(nextMaskType);
+    const fromMask = currentMask.influence;
+    const toMask = nextMask.influence;
     const transition = getCurrentStepTransition();
 
     if (!fromMask || !toMask || !transition) {
-      currentMaskType = nextMaskType;
+      currentMask = nextMask;
       currentStepIndex = nextStepIndex;
-      setActiveStaticMask(currentMaskType);
+      setActiveStaticMask(currentMask);
       stateTimer = 0;
       return;
     }
 
-    if (imageMask) influenceManager.remove(imageMask);
-    if (textMask) influenceManager.remove(textMask);
+    for (const entry of registry.getAll()) {
+      influenceManager.remove(entry.influence);
+    }
 
     morphMask = new TimelineTransitionMaskInfluence(
       fromMask,
@@ -157,8 +172,9 @@ export function createMaskStateMachine(
     );
     influenceManager.add(morphMask);
     phase = "transition";
-    transitionTargetMaskType = nextMaskType;
+    transitionTargetMask = nextMask;
     transitionTargetStepIndex = nextStepIndex;
+    setActiveTypeMasks(currentMask, nextMask);
     stateTimer = 0;
   };
 
@@ -166,25 +182,26 @@ export function createMaskStateMachine(
     removeAllMaskInfluences();
 
     phase = "hold";
-    transitionTargetMaskType = null;
+    transitionTargetMask = null;
     transitionTargetStepIndex = -1;
     stateTimer = 0;
     currentStepIndex = -1;
-    currentMaskType = null;
+    currentMask = null;
     morphMask = null;
 
     if (params.maskTimeline.enabled && params.maskTimeline.steps.length > 0) {
       currentStepIndex = params.maskTimeline.initialStep;
-      const initialStep = params.maskTimeline.steps[currentStepIndex];
-      const preferred = initialStep?.mask ?? params.initialMask;
-      currentMaskType = resolveAvailableType(preferred);
-      setActiveStaticMask(currentMaskType);
+      currentMask = resolveMaskForStep(currentStepIndex);
+      if (!currentMask) {
+        currentMask = registry.resolve(null, params.initialMask);
+      }
+      setActiveStaticMask(currentMask);
       playing = params.maskTimeline.autoplay;
       return;
     }
 
-    currentMaskType = resolveAvailableType(params.initialMask);
-    setActiveStaticMask(currentMaskType);
+    currentMask = registry.resolve(null, params.initialMask);
+    setActiveStaticMask(currentMask);
     playing = false;
   };
 

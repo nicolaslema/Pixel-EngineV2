@@ -86,6 +86,7 @@ export class PixelGridEffect extends Entity {
     this.breathing = resolved.breathing;
     this.autoMorph = resolved.autoMorph;
     this.performance = resolved.performance;
+    this.emitConfigWarnings(resolved.warnings);
     this.applyCanvasBackgroundFromConfig();
 
     this.rippleSpeed = this.rippleEffects.speed;
@@ -102,42 +103,45 @@ export class PixelGridEffect extends Entity {
       DEFAULT_PIXEL_GRID_RUNTIME_TUNING
     );
 
-    const imageMask = config.imageMask?.src
-      ? new ImageMaskInfluence(
-        config.imageMask.src,
-        config.imageMask.centerX ?? centerX,
-        config.imageMask.centerY ?? centerY,
+    const imageMasks = resolved.imageMasks.map((mask) => ({
+      id: mask.id,
+      type: "image" as const,
+      influence: new ImageMaskInfluence(
+        mask.src,
+        mask.centerX ?? centerX,
+        mask.centerY ?? centerY,
         {
-          scale: config.imageMask.scale ?? 3,
-          sampleMode: config.imageMask.sampleMode ?? "invert",
-          strength: config.imageMask.strength ?? 1.5,
-          threshold: config.imageMask.threshold,
-          blurRadius: config.imageMask.blurRadius,
-          dithering: config.imageMask.dithering
+          scale: mask.scale ?? 3,
+          sampleMode: mask.sampleMode ?? "invert",
+          strength: mask.strength ?? 1.5,
+          threshold: mask.threshold,
+          blurRadius: mask.blurRadius,
+          dithering: mask.dithering
         }
       )
-      : null;
+    }));
 
-    const textMask = config.textMask?.text
-      ? new TextMaskInfluence(
-        config.textMask.text,
-        config.textMask.centerX ?? centerX,
-        config.textMask.centerY ?? centerY,
+    const textMasks = resolved.textMasks.map((mask) => ({
+      id: mask.id,
+      type: "text" as const,
+      influence: new TextMaskInfluence(
+        mask.text,
+        mask.centerX ?? centerX,
+        mask.centerY ?? centerY,
         {
-          font: config.textMask.font ?? "bold 160px Arial",
-          strength: config.textMask.strength ?? 0.9,
-          blurRadius: config.textMask.blurRadius ?? 2
+          font: mask.font ?? "bold 160px Arial",
+          strength: mask.strength ?? 0.9,
+          blurRadius: mask.blurRadius ?? 2
         }
       )
-      : null;
+    }));
 
     this.maskState = createMaskStateMachine({
       influenceManager: this.influenceManager,
-      autoMorph: this.autoMorph,
       maskTimeline: resolved.maskTimeline,
       initialMask: resolved.initialMask,
-      imageMask,
-      textMask
+      imageMasks,
+      textMasks
     });
 
     this.setupInfluences();
@@ -146,6 +150,15 @@ export class PixelGridEffect extends Entity {
   private applyCanvasBackgroundFromConfig(): void {
     if (this.config.canvasBackground === undefined) return;
     this.engine.setClearColor?.(this.config.canvasBackground);
+  }
+
+  private emitConfigWarnings(warnings: string[]): void {
+    if (warnings.length === 0) return;
+    if (typeof console === "undefined" || typeof console.warn !== "function") return;
+
+    for (const warning of warnings) {
+      console.warn(`[PixelGridEffect] ${warning}`);
+    }
   }
 
   private createGrid(): void {

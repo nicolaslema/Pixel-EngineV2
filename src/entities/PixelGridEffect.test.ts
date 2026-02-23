@@ -15,7 +15,13 @@ describe("PixelGridEffect", () => {
         rotate: () => {},
         clearRect: () => {},
         drawImage: () => {},
-        getImageData: () => ({ data: new Uint8ClampedArray(4) })
+        fillText: () => {},
+        getImageData: () => ({ data: new Uint8ClampedArray(4) }),
+        measureText: () => ({
+          width: 64,
+          actualBoundingBoxAscent: 24,
+          actualBoundingBoxDescent: 8
+        })
       } as unknown as CanvasRenderingContext2D);
   });
 
@@ -115,6 +121,84 @@ describe("PixelGridEffect", () => {
     effect.resetMaskTimeline();
     expect(effect.getMaskTimelineState().stepIndex).toBe(0);
 
+    engine.destroy();
+  });
+
+  it("should keep running with invalid timeline refs using fallback masks", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const canvas = document.createElement("canvas");
+    const engine = new PixelEngine({
+      canvas,
+      width: 220,
+      height: 140
+    });
+
+    const effect = new PixelGridEffect(engine, 220, 140, {
+      colors: ["#334155", "#475569", "#64748b"],
+      gap: 8,
+      expandEase: 0.08,
+      breathSpeed: 1,
+      initialMask: "text",
+      textMasks: [
+        {
+          id: "text-a",
+          text: "A",
+          centerX: 110,
+          centerY: 70,
+          font: "bold 48px Arial"
+        }
+      ],
+      imageMasks: [
+        {
+          id: "image-a",
+          src: "/fake/image.png",
+          centerX: 110,
+          centerY: 70,
+          scale: 1.2,
+          sampleMode: "threshold"
+        }
+      ],
+      maskTimeline: {
+        enabled: true,
+        autoplay: true,
+        loop: true,
+        initialStep: 0,
+        steps: [
+          {
+            mask: "text",
+            assetId: "missing-text",
+            holdMs: 12,
+            transition: {
+              mode: "fade",
+              durationMs: 12,
+              seed: 1
+            }
+          },
+          {
+            mask: "image",
+            assetId: "image-a",
+            holdMs: 12,
+            transition: {
+              mode: "dissolve",
+              durationMs: 12,
+              seed: 2
+            }
+          }
+        ]
+      }
+    });
+
+    expect(warnSpy).toHaveBeenCalled();
+    for (let i = 0; i < 90; i++) {
+      expect(() => effect.update(16)).not.toThrow();
+      expect(() => effect.render(engine.getRenderer())).not.toThrow();
+    }
+
+    const state = effect.getMaskTimelineState();
+    expect(state.stepIndex).toBeGreaterThanOrEqual(0);
+    expect(state.stepIndex).toBeLessThanOrEqual(1);
+
+    warnSpy.mockRestore();
     engine.destroy();
   });
 });

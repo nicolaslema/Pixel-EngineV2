@@ -70,6 +70,8 @@ Additional commands:
 
 ```bash
 npm run bench:transition:all
+npm run bench:transition:legacy
+npm run bench:transition:multi
 npm run bench:transition:morph
 npm run bench:transition:fade
 npm run bench:transition:dissolve
@@ -78,7 +80,9 @@ npm run bench:transition:dissolve
 What transition benchmark runner does:
 - builds aggregate + split packages
 - packs and installs local `@pixel-engine/core` + `@pixel-engine/effects` tarballs in a temporary benchmark app
-- runs text/image timeline transition scenarios with `maskTimeline` autoplay
+- runs timeline transition scenarios with `maskTimeline` autoplay:
+  - `text-image` (legacy 2-step)
+  - `multi-mask` (native 4-step with id refs)
 - tests transition modes: `morph`, `fade`, `dissolve`
 - reports:
   - update/render time means
@@ -92,7 +96,7 @@ What transition benchmark runner does:
 Measurement command:
 
 ```bash
-node scripts/bench/pixelgrid-transition-bench.cjs --mode=all --runs=2 --frames=120 --warmup=30
+node scripts/bench/pixelgrid-transition-bench.cjs --mode=all --scenario=all --runs=2 --frames=120 --warmup=30
 ```
 
 Scenario:
@@ -101,34 +105,64 @@ Scenario:
 - Gap: `6`
 - Runs: `2`
 - Frames: `120` (warmup `30`)
-- Timeline: text/image loop with autoplay enabled
+- Scenarios: `text-image` and `multi-mask`
+- Timeline: autoplay enabled
 
 Results:
 
-- `morph`
-  - Avg update ms (mean): `1.149`
-  - Avg render ms (mean): `0.084`
-  - Avg frame ms (median): `1.233`
-  - Frame p95 ms: `1.409`
-  - Est. FPS (median): `828.0`
+- `text-image` + `morph`
+  - Avg update ms (mean): `1.098`
+  - Avg render ms (mean): `0.079`
+  - Avg frame ms (median): `1.176`
+  - Frame p95 ms: `1.289`
+  - Est. FPS (median): `857.9`
+  - Timeline transitions sampled (mean): `4.0`
 
-- `fade`
-  - Avg update ms (mean): `1.375`
-  - Avg render ms (mean): `0.095`
-  - Avg frame ms (median): `1.470`
-  - Frame p95 ms: `1.521`
-  - Est. FPS (median): `681.0`
+- `text-image` + `fade`
+  - Avg update ms (mean): `1.429`
+  - Avg render ms (mean): `0.124`
+  - Avg frame ms (median): `1.553`
+  - Frame p95 ms: `1.557`
+  - Est. FPS (median): `643.9`
+  - Timeline transitions sampled (mean): `4.0`
 
-- `dissolve`
-  - Avg update ms (mean): `1.557`
+- `text-image` + `dissolve`
+  - Avg update ms (mean): `2.752`
+  - Avg render ms (mean): `0.287`
+  - Avg frame ms (median): `3.039`
+  - Frame p95 ms: `3.761`
+  - Est. FPS (median): `348.8`
+  - Timeline transitions sampled (mean): `4.0`
+
+- `multi-mask` + `morph`
+  - Avg update ms (mean): `1.754`
+  - Avg render ms (mean): `0.159`
+  - Avg frame ms (median): `1.913`
+  - Frame p95 ms: `1.944`
+  - Est. FPS (median): `522.8`
+  - Timeline transitions sampled (mean): `5.0`
+
+- `multi-mask` + `fade`
+  - Avg update ms (mean): `1.540`
+  - Avg render ms (mean): `0.132`
+  - Avg frame ms (median): `1.672`
+  - Frame p95 ms: `1.737`
+  - Est. FPS (median): `599.0`
+  - Timeline transitions sampled (mean): `5.0`
+
+- `multi-mask` + `dissolve`
+  - Avg update ms (mean): `1.457`
   - Avg render ms (mean): `0.108`
-  - Avg frame ms (median): `1.665`
-  - Frame p95 ms: `1.764`
-  - Est. FPS (median): `602.8`
+  - Avg frame ms (median): `1.566`
+  - Frame p95 ms: `1.633`
+  - Est. FPS (median): `639.9`
+  - Timeline transitions sampled (mean): `5.0`
 
 Notes:
 - These values are from a short smoke run intended to validate benchmark wiring.
 - For release comparisons, use `npm run bench:transition:all` (5 runs) and keep hardware/load conditions stable.
+- For migration/perf comparison against the old 2-step path, use `npm run bench:transition:legacy`.
+- For Phase 4 native multi-mask tracking, use `npm run bench:transition:multi`.
 
 ## Official baseline snapshot (2026-02-22)
 

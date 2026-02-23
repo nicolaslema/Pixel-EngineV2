@@ -111,6 +111,9 @@ function cloneConfig(config: PixelGridConfig): PixelGridConfig {
         defaultTransition: config.maskTimeline.defaultTransition
           ? { ...config.maskTimeline.defaultTransition }
           : undefined,
+        items: config.maskTimeline.items
+          ? config.maskTimeline.items.map((item) => ({ ...item }))
+          : undefined,
         steps: config.maskTimeline.steps
           ? config.maskTimeline.steps.map((step) => ({
             ...step,
@@ -128,7 +131,9 @@ function cloneConfig(config: PixelGridConfig): PixelGridConfig {
     autoMorph: config.autoMorph ? { ...config.autoMorph } : undefined,
     maskTimeline: clonedMaskTimeline,
     imageMask: config.imageMask ? { ...config.imageMask } : undefined,
-    textMask: config.textMask ? { ...config.textMask } : undefined
+    textMask: config.textMask ? { ...config.textMask } : undefined,
+    imageMasks: config.imageMasks ? config.imageMasks.map((mask) => ({ ...mask })) : undefined,
+    textMasks: config.textMasks ? config.textMasks.map((mask) => ({ ...mask })) : undefined
   };
 }
 
@@ -196,6 +201,11 @@ export function mergePixelOptions(
               ...(override.maskTimeline?.defaultTransition ?? {})
             }
             : undefined,
+        items: override.maskTimeline?.items
+          ? override.maskTimeline.items.map((item) => ({ ...item }))
+          : base.maskTimeline?.items
+            ? base.maskTimeline.items.map((item) => ({ ...item }))
+            : undefined,
         steps: override.maskTimeline?.steps
           ? override.maskTimeline.steps.map((step) => ({
             ...step,
@@ -216,20 +226,23 @@ export function mergePixelOptions(
         ...(override.imageMask ?? {})
       }
       : undefined;
-
-  let mergedTextMask: PixelGridConfig["textMask"] | undefined;
-  if (base.textMask || override.textMask) {
-    const nextTextMask = {
-      ...(base.textMask ?? {}),
-      ...(override.textMask ?? {})
-    };
-    if (nextTextMask.font) {
-      mergedTextMask = {
-        ...nextTextMask,
-        font: nextTextMask.font
-      };
-    }
-  }
+  const mergedTextMask =
+    base.textMask || override.textMask
+      ? {
+        ...(base.textMask ?? {}),
+        ...(override.textMask ?? {})
+      }
+      : undefined;
+  const mergedImageMasks = override.imageMasks
+    ? override.imageMasks.map((mask) => ({ ...mask }))
+    : base.imageMasks
+      ? base.imageMasks.map((mask) => ({ ...mask }))
+      : undefined;
+  const mergedTextMasks = override.textMasks
+    ? override.textMasks.map((mask) => ({ ...mask }))
+    : base.textMasks
+      ? base.textMasks.map((mask) => ({ ...mask }))
+      : undefined;
 
   return {
     ...base,
@@ -240,6 +253,8 @@ export function mergePixelOptions(
     autoMorph: mergedAutoMorph,
     maskTimeline: mergedMaskTimeline,
     imageMask: mergedImageMask,
-    textMask: mergedTextMask
+    textMask: mergedTextMask,
+    imageMasks: mergedImageMasks,
+    textMasks: mergedTextMasks
   };
 }
