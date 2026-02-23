@@ -58,4 +58,36 @@ describe("renderPixelCells", () => {
 
     expect(fillRect).toHaveBeenCalledTimes(1);
   });
+
+  it("uses interpolated state when alpha is provided", () => {
+    const fillRect = vi.fn();
+    const ctx = {
+      fillStyle: "#000000",
+      globalAlpha: 1,
+      fillRect
+    } as unknown as CanvasRenderingContext2D;
+
+    const cell = new PixelCell(10, 10, "#ffffff", 8, 1);
+    cell.previousSize = 0;
+    cell.size = 8;
+    cell.previousOffsetX = 0;
+    cell.offsetX = 4;
+    cell.previousOffsetY = 0;
+    cell.offsetY = 2;
+    cell.previousOpacity = 0.4;
+    cell.opacity = 1;
+
+    renderPixelCells(
+      {
+        getContext: () => ctx
+      } as any,
+      [cell],
+      0.5,
+      undefined,
+      0.5
+    );
+
+    expect(fillRect).toHaveBeenCalledTimes(1);
+    expect(ctx.globalAlpha).toBe(1);
+  });
 });

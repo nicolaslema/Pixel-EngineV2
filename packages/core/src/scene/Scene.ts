@@ -25,10 +25,10 @@ export class Scene {
     }
   }
 
-  render(renderer: IRenderer): void {
+  render(renderer: IRenderer, alpha = 1): void {
     for (const entity of this.entities) {
       if (entity.active) {
-        entity.render(renderer);
+        entity.render(renderer, alpha);
       }
     }
   }

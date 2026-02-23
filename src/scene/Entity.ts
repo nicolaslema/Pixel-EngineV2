@@ -17,5 +17,5 @@ export abstract class Entity {
 
   update(_deltaTime: number): void {}
 
-  render(_renderer: IRenderer): void {}
+  render(_renderer: IRenderer, _alpha = 1): void {}
 }

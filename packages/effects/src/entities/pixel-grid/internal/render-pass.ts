@@ -12,23 +12,30 @@ export function renderPixelCells(
   renderer: IRenderer,
   cells: PixelCell[],
   minRenderableSize = 0.5,
-  viewport?: PixelRenderViewport
+  viewport?: PixelRenderViewport,
+  alpha = 1
 ): void {
   const ctx = renderer.getContext();
+  const renderAlpha = Math.max(0, Math.min(1, alpha));
   let currentColor = "";
   let currentOpacity = -1;
 
   for (let i = 0; i < cells.length; i++) {
     const cell = cells[i];
-    if (cell.size <= minRenderableSize) continue;
+    const size = cell.getInterpolatedSize(renderAlpha);
+    if (size <= minRenderableSize) continue;
 
-    const offset = (cell.gap - cell.size) * 0.5;
-    const drawX = cell.x + cell.offsetX + offset;
-    const drawY = cell.y + cell.offsetY + offset;
+    const offsetX = cell.getInterpolatedOffsetX(renderAlpha);
+    const offsetY = cell.getInterpolatedOffsetY(renderAlpha);
+    const opacity = cell.getInterpolatedOpacity(renderAlpha);
+
+    const offset = (cell.gap - size) * 0.5;
+    const drawX = cell.x + offsetX + offset;
+    const drawY = cell.y + offsetY + offset;
 
     if (viewport) {
-      const drawMaxX = drawX + cell.size;
-      const drawMaxY = drawY + cell.size;
+      const drawMaxX = drawX + size;
+      const drawMaxY = drawY + size;
       if (
         drawMaxX < viewport.minX ||
         drawX > viewport.maxX ||
@@ -44,11 +51,11 @@ export function renderPixelCells(
       ctx.fillStyle = currentColor;
     }
 
-    if (cell.opacity !== currentOpacity) {
-      currentOpacity = cell.opacity;
+    if (opacity !== currentOpacity) {
+      currentOpacity = opacity;
       ctx.globalAlpha = currentOpacity;
     }
-    const drawSize = cell.size | 0;
+    const drawSize = size | 0;
     if (drawSize <= 0) continue;
 
     ctx.fillRect(

@@ -34,13 +34,31 @@ describe("GameLoop", () => {
     expect(frame).toHaveBeenCalled();
   });
   it("should clamp large delta values", () => {
-  const loop = new GameLoop(frame, { fixedTimeStep: 16 });
+    const loop = new GameLoop(frame, { fixedTimeStep: 16 });
 
-  loop.start();
+    loop.start();
 
-  now = 1000;   // simulamos salto enorme
-  rafCallback?.(1000);
+    now = 1000;   // simulamos salto enorme
+    rafCallback?.(1000);
 
-  expect(frame).toHaveBeenCalled();
-});
+    expect(frame).toHaveBeenCalled();
+  });
+
+  it("should call onRender with interpolation alpha between 0 and 1", () => {
+    const onRender = vi.fn();
+    const loop = new GameLoop(frame, {
+      fixedTimeStep: 16,
+      onRender
+    });
+
+    loop.start();
+
+    now = 20;
+    rafCallback?.(20);
+
+    expect(onRender).toHaveBeenCalled();
+    const alpha = onRender.mock.calls.at(-1)?.[0] as number;
+    expect(alpha).toBeGreaterThanOrEqual(0);
+    expect(alpha).toBeLessThanOrEqual(1);
+  });
 });

@@ -13,7 +13,7 @@ export class SpriteEntity extends Entity {
     this.color = color;
   }
 
-  render(renderer: IRenderer): void {
+  render(renderer: IRenderer, _alpha = 1): void {
     const ctx = renderer.getContext();
 
     ctx.save();

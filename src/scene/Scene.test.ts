@@ -26,9 +26,9 @@ describe("Scene", () => {
     const renderer = {} as IRenderer;
 
     scene.add(entity);
-    scene.render(renderer);
+    scene.render(renderer, 0.5);
 
-    expect(entity.render).toHaveBeenCalled();
+    expect(entity.render).toHaveBeenCalledWith(renderer, 0.5);
   });
 
   it("should remove entities", () => {

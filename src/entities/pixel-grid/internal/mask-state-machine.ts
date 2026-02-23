@@ -63,7 +63,10 @@ export function createMaskStateMachine(
     for (const entry of registry.getAll()) {
       influenceManager.remove(entry.influence);
     }
-    if (morphMask) influenceManager.remove(morphMask);
+    if (morphMask) {
+      influenceManager.remove(morphMask);
+      releaseMorphResources(morphMask);
+    }
     setActiveTypeMasks();
   };
 
@@ -103,6 +106,7 @@ export function createMaskStateMachine(
   const finalizeTransition = () => {
     if (morphMask) {
       influenceManager.remove(morphMask);
+      releaseMorphResources(morphMask);
     }
     morphMask = null;
 
@@ -263,4 +267,11 @@ export function createMaskStateMachine(
       return currentStepIndex;
     }
   };
+}
+
+function releaseMorphResources(mask: MaskInfluence): void {
+  if ("releaseResources" in mask) {
+    const releasable = mask as unknown as { releaseResources?: () => void };
+    releasable.releaseResources?.();
+  }
 }

@@ -26,7 +26,10 @@ export function runPixelGridUpdatePipeline(
   resetCells(params.cells);
 
   params.influenceManager.update(params.delta);
-  compactAliveRipples(params.runtime.activeRipples);
+  compactAliveRipples(
+    params.runtime.activeRipples,
+    params.runtime.recycledRipples
+  );
   params.maskState.update(params.delta);
 
   params.influenceManager.apply(

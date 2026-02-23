@@ -9,6 +9,7 @@ describe("pixel-grid runtime-state", () => {
     expect(state.activeMaskWeightCache.length).toBe(12);
     expect(state.imageMaskWeightCache.length).toBe(12);
     expect(state.textMaskWeightCache.length).toBe(12);
+    expect(state.recycledRipples.length).toBe(0);
   });
 
   it("compacts dead ripples in place", () => {
@@ -20,10 +21,12 @@ describe("pixel-grid runtime-state", () => {
 
     ripples[0].update(1000);
     ripples[1].update(1);
-    compactAliveRipples(ripples);
+    const recycled: RippleInfluence[] = [];
+    compactAliveRipples(ripples, recycled);
 
     expect(ripples).toBe(ref);
     expect(ripples.length).toBe(1);
+    expect(recycled.length).toBe(1);
   });
 
   it("resets visual runtime fields", () => {

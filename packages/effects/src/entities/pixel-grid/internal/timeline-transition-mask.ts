@@ -1,16 +1,60 @@
 import { MaskInfluence } from "../../../influences/Masks/MaskInfluence";
 import { MaskTimelineTransitionMode } from "../types";
 
+const transitionArrayPool = new Map<number, Float32Array[]>();
+let transitionArrayAllocations = 0;
+
+function acquireTransitionArray(size: number): Float32Array {
+  const bucket = transitionArrayPool.get(size);
+  if (bucket && bucket.length > 0) {
+    return bucket.pop() as Float32Array;
+  }
+  transitionArrayAllocations++;
+  return new Float32Array(size);
+}
+
+function releaseTransitionArray(buffer: Float32Array): void {
+  const size = buffer.length;
+  let bucket = transitionArrayPool.get(size);
+  if (!bucket) {
+    bucket = [];
+    transitionArrayPool.set(size, bucket);
+  }
+  bucket.push(buffer);
+}
+
+export function resetTimelineTransitionArrayPoolForTests(): void {
+  transitionArrayPool.clear();
+  transitionArrayAllocations = 0;
+}
+
+export function getTimelineTransitionArrayPoolStats(): {
+  allocations: number;
+  cachedArrays: number;
+  buckets: number;
+} {
+  let cachedArrays = 0;
+  for (const bucket of transitionArrayPool.values()) {
+    cachedArrays += bucket.length;
+  }
+  return {
+    allocations: transitionArrayAllocations,
+    cachedArrays,
+    buckets: transitionArrayPool.size
+  };
+}
+
 export class TimelineTransitionMaskInfluence extends MaskInfluence {
   private time = 0;
   private t = 0;
   private finished = false;
   private readonly durationMsSafe: number;
-  private readonly sourceA: Float32Array;
-  private readonly sourceB: Float32Array;
-  private readonly dissolveThresholds: Float32Array | null;
+  private sourceA: Float32Array;
+  private sourceB: Float32Array;
+  private dissolveThresholds: Float32Array | null;
   private readonly sampleOriginX: number;
   private readonly sampleOriginY: number;
+  private resourcesReleased = false;
 
   constructor(
     private readonly maskA: MaskInfluence,
@@ -34,15 +78,18 @@ export class TimelineTransitionMaskInfluence extends MaskInfluence {
     this.height = height;
     this.sampleOriginX = minX;
     this.sampleOriginY = minY;
-    this.buffer = new Float32Array(this.width * this.height);
+    this.buffer = acquireTransitionArray(this.width * this.height);
     this.durationMsSafe = Math.max(1, durationMs);
-    this.sourceA = new Float32Array(this.buffer.length);
-    this.sourceB = new Float32Array(this.buffer.length);
+    this.sourceA = acquireTransitionArray(this.buffer.length);
+    this.sourceB = acquireTransitionArray(this.buffer.length);
     this.sampleMaskInWorldSpace(this.maskA, this.sourceA);
     this.sampleMaskInWorldSpace(this.maskB, this.sourceB);
     this.dissolveThresholds = this.mode === "dissolve"
-      ? buildThresholds(this.buffer.length, this.seed)
+      ? acquireTransitionArray(this.buffer.length)
       : null;
+    if (this.dissolveThresholds) {
+      fillThresholds(this.dissolveThresholds, this.seed);
+    }
   }
 
   update(delta: number): void {
@@ -85,6 +132,18 @@ export class TimelineTransitionMaskInfluence extends MaskInfluence {
     return !this.finished;
   }
 
+  releaseResources(): void {
+    if (this.resourcesReleased) return;
+    releaseTransitionArray(this.buffer);
+    releaseTransitionArray(this.sourceA);
+    releaseTransitionArray(this.sourceB);
+    if (this.dissolveThresholds) {
+      releaseTransitionArray(this.dissolveThresholds);
+      this.dissolveThresholds = null;
+    }
+    this.resourcesReleased = true;
+  }
+
   private sampleMaskInWorldSpace(mask: MaskInfluence, target: Float32Array): void {
     const source = mask.getBuffer();
     const sourceWidth = mask.getWidth();
@@ -106,12 +165,10 @@ export class TimelineTransitionMaskInfluence extends MaskInfluence {
   }
 }
 
-function buildThresholds(size: number, seed: number): Float32Array {
-  const thresholds = new Float32Array(size);
-  for (let i = 0; i < size; i++) {
-    thresholds[i] = hash01(i, seed);
+function fillThresholds(buffer: Float32Array, seed: number): void {
+  for (let i = 0; i < buffer.length; i++) {
+    buffer[i] = hash01(i, seed);
   }
-  return thresholds;
 }
 
 function hash01(index: number, seed: number): number {

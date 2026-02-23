@@ -50,7 +50,10 @@ export class PixelEngine {
 
     this.loop = new GameLoop((deltaTime: number) => {
       this.update(deltaTime);
-      this.render();
+    }, {
+      onRender: (alpha: number) => {
+        this.render(alpha);
+      }
     });
   }
 
@@ -70,7 +73,7 @@ export class PixelEngine {
     this.scene.update(scaledDelta);
   }
 
-  private render(): void {
+  private render(alpha = 1): void {
     const ctx = this.renderer.getContext();
 
     ctx.save();
@@ -79,7 +82,7 @@ export class PixelEngine {
 
     this.camera.apply(ctx);
 
-    this.scene.render(this.renderer);
+    this.scene.render(this.renderer, alpha);
 
     ctx.restore();
   }

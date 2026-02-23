@@ -1,8 +1,10 @@
 export type FrameCallback = (deltaTime: number) => void;
+export type RenderCallback = (alpha: number) => void;
 
 export interface GameLoopConfig {
   fixedTimeStep?: number;
   maxDelta?: number;
+  onRender?: RenderCallback;
 }
 
 export class GameLoop {
@@ -14,6 +16,7 @@ export class GameLoop {
 
   private readonly fixedTimeStep: number;
   private readonly maxDelta: number;
+  private readonly onRender?: RenderCallback;
 
   private fps = 0;
   private frames = 0;
@@ -25,6 +28,7 @@ export class GameLoop {
   ) {
     this.fixedTimeStep = config?.fixedTimeStep ?? 1000 / 60;
     this.maxDelta = config?.maxDelta ?? 250;
+    this.onRender = config?.onRender;
   }
 
   start(): void {
@@ -72,6 +76,11 @@ export class GameLoop {
       this.accumulator -= this.fixedTimeStep;
       updateCount++;
     }
+
+    const alpha = this.fixedTimeStep > 0
+      ? Math.max(0, Math.min(1, this.accumulator / this.fixedTimeStep))
+      : 1;
+    this.onRender?.(alpha);
 
     this.calculateFPS(currentTime);
 

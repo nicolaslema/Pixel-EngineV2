@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { createMaskStateMachine } from "./mask-state-machine";
 import { InfluenceManager } from "../../../influences/InfluenceManager";
 import { MaskInfluence } from "../../../influences/Masks/MaskInfluence";
+import {
+  getTimelineTransitionArrayPoolStats,
+  resetTimelineTransitionArrayPoolForTests
+} from "./timeline-transition-mask";
 
 class StaticMask extends MaskInfluence {
   constructor() {
@@ -269,6 +273,7 @@ describe("pixel-grid mask-state-machine", () => {
   });
 
   it("remains stable in extended multi-mask loops without unbounded influence growth", () => {
+    resetTimelineTransitionArrayPoolForTests();
     const manager = new InfluenceManager(1, 1, 1);
 
     const machine = createMaskStateMachine({
@@ -337,6 +342,11 @@ describe("pixel-grid mask-state-machine", () => {
     expect(visited.has(3)).toBe(true);
     expect(maxInfluenceCount).toBeLessThanOrEqual(2);
     expect(machine.morphMask).toBeNull();
+    const poolStats = getTimelineTransitionArrayPoolStats();
+    expect(poolStats.cachedArrays).toBeGreaterThan(0);
+    // Three reusable arrays per transition are expected (buffer + sourceA + sourceB),
+    // plus one optional dissolve threshold buffer.
+    expect(poolStats.allocations).toBeLessThanOrEqual(4);
   });
 
   it("falls back safely when timeline step refs are invalid", () => {

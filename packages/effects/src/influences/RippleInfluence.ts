@@ -15,6 +15,23 @@ export class RippleInfluence implements Influence {
     private maxRadius: number
   ) {}
 
+  reset(
+    originX: number,
+    originY: number,
+    speed: number,
+    thickness: number,
+    strength: number,
+    maxRadius: number
+  ): void {
+    this.originX = originX;
+    this.originY = originY;
+    this.speed = speed;
+    this.thickness = thickness;
+    this.strength = strength;
+    this.maxRadius = maxRadius;
+    this.radius = 0;
+  }
+
   update(delta: number): void {
     this.radius += this.speed * delta;
   }
