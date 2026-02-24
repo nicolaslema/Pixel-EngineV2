@@ -292,6 +292,27 @@ Validated in an external React project (Vite + TypeScript) with local package in
 - `entities`: high-level effects (`PixelGridEffect`)
 - `entities/pixel-grid/internal`: private runtime modules (not part of public API)
 
+## Loop and Scheduler Semantics
+
+- Simulation uses a fixed timestep update loop.
+- `timeScale` now controls update scheduling at accumulator level.
+  - `0` pauses simulation updates.
+  - `0.5` halves simulation update frequency (slow-motion).
+  - `2` doubles simulation update frequency (fast-forward).
+- `Time` separates domains:
+  - `simulationDelta`: fixed simulation step
+  - `renderDelta`: render-frame delta
+  - `elapsed`: simulated elapsed time
+- `PixelEngine` exposes `getScheduler()` with deterministic phased execution and priority ordering.
+
+Scheduler phases:
+- `preUpdate`
+- `update`
+- `postUpdate`
+- `preRender`
+- `render`
+- `postRender`
+
 ## Scripts
 
 - `npm run test`

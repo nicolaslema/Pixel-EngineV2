@@ -32,6 +32,40 @@ engine.addEntity(grid);
 engine.start();
 ```
 
+## Core Loop and Scheduler Semantics
+
+- Simulation runs on fixed timestep updates.
+- `timeScale` is applied at loop accumulation/scheduling level (not by scaling per-step simulation delta).
+- `Time` exposes separate domains:
+  - `time.simulationDelta` (fixed-step simulation delta)
+  - `time.renderDelta` (raw frame render delta)
+  - `time.elapsed` (simulated elapsed time)
+- `PixelEngine` exposes `getScheduler()` for deterministic phased tasks.
+
+Scheduler phases:
+- `preUpdate`
+- `update`
+- `postUpdate`
+- `preRender`
+- `render`
+- `postRender`
+
+Example:
+
+```ts
+const scheduler = engine.getScheduler();
+
+scheduler.add("metrics-pre", (delta) => {
+  // fixed simulation delta
+}, { phase: "preUpdate", priority: 0 });
+
+scheduler.add("ui-render-hook", (renderDelta, alpha) => {
+  // render-domain callback
+}, { phase: "postRender", priority: 10 });
+
+engine.getTime().timeScale = 0.5; // slow-motion by reducing update scheduling rate
+```
+
 ## React Public API
 
 ### Hooks

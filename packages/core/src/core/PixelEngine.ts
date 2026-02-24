@@ -5,6 +5,7 @@ import { Scene } from "../scene/Scene";
 import { Entity } from "../scene/Entity";
 import { InputSystem } from "../input/InputSystem";
 import { Time } from "./Time";
+import { Scheduler } from "./Scheduler";
 import { Camera2D } from "../renderers/Camera2D";
 import { IRenderer } from "../renderers/IRenderer";
 
@@ -14,6 +15,7 @@ export class PixelEngine {
   private scene: Scene;
   private input: InputSystem;
   private time: Time;
+  private scheduler: Scheduler;
   private camera: Camera2D;
   private clearColor: string | null;
   private dpr: number;
@@ -45,15 +47,17 @@ export class PixelEngine {
     this.scene = new Scene();
     this.input = new InputSystem(canvas);
     this.time = new Time();
+    this.scheduler = new Scheduler();
     this.camera = new Camera2D();
     this.renderer.resize(width, height, this.dpr);
 
     this.loop = new GameLoop((deltaTime: number) => {
       this.update(deltaTime);
     }, {
-      onRender: (alpha: number) => {
-        this.render(alpha);
-      }
+      onRender: (alpha: number, renderDelta: number) => {
+        this.render(alpha, renderDelta);
+      },
+      getTimeScale: () => this.time.timeScale
     });
   }
 
@@ -61,8 +65,8 @@ export class PixelEngine {
   // Internal lifecycle
   // ==============================
 
-  private update(deltaTime: number): void {
-    const scaledDelta = this.time.update(deltaTime);
+  private update(simulationDelta: number): void {
+    const fixedSimulationDelta = this.time.updateSimulation(simulationDelta);
     const mouse = this.input.getMouse();
 
     this.mouse.x = mouse.x;
@@ -70,19 +74,26 @@ export class PixelEngine {
     this.mouse.inside = mouse.inside;
     this.mouse.down = mouse.isDown;
 
-    this.scene.update(scaledDelta);
+    this.scheduler.runPhase("preUpdate", fixedSimulationDelta, 1);
+    this.scheduler.runPhase("update", fixedSimulationDelta, 1);
+    this.scene.update(fixedSimulationDelta);
+    this.scheduler.runPhase("postUpdate", fixedSimulationDelta, 1);
   }
 
-  private render(alpha = 1): void {
+  private render(alpha = 1, renderDelta = 0): void {
+    this.time.updateRender(renderDelta);
     const ctx = this.renderer.getContext();
 
     ctx.save();
 
     this.renderer.clear(this.clearColor);
+    this.scheduler.runPhase("preRender", this.time.renderDelta, alpha);
 
     this.camera.apply(ctx);
 
+    this.scheduler.runPhase("render", this.time.renderDelta, alpha);
     this.scene.render(this.renderer, alpha);
+    this.scheduler.runPhase("postRender", this.time.renderDelta, alpha);
 
     ctx.restore();
   }
@@ -139,6 +150,10 @@ export class PixelEngine {
 
   getTime(): Time {
     return this.time;
+  }
+
+  getScheduler(): Scheduler {
+    return this.scheduler;
   }
 
   getFPS(): number {
