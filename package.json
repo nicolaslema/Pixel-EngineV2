@@ -48,6 +48,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsup",
+    "parity:check": "node scripts/release/check-package-parity.mjs",
     "typecheck": "tsc --noEmit",
     "build:packages": "npm run build -w @pixel-engine/core && npm run build -w @pixel-engine/effects && npm run build -w @pixel-engine/react",
     "build:all": "npm run build && npm run build:packages",
@@ -62,7 +63,7 @@
     "bench:transition:morph": "npm run build:all && node scripts/bench/pixelgrid-transition-bench.cjs --mode=morph --scenario=all --runs=5",
     "bench:transition:fade": "npm run build:all && node scripts/bench/pixelgrid-transition-bench.cjs --mode=fade --scenario=all --runs=5",
     "bench:transition:dissolve": "npm run build:all && node scripts/bench/pixelgrid-transition-bench.cjs --mode=dissolve --scenario=all --runs=5",
-    "verify": "npm run test && npm run build:all && npm run typecheck",
+    "verify": "npm run parity:check && npm run test && npm run build:all && npm run typecheck",
     "release:docs:prepare": "node scripts/release/prepare-release-docs.mjs",
     "release:docs:check": "node scripts/release/check-release-docs.mjs",
     "release:pack:verify": "node scripts/release/verify-packages.mjs",

@@ -325,10 +325,11 @@ Detailed scripts:
 - `npm run test:ci`: runs Vitest once (CI mode).
 - `npm run test:visual`: runs deterministic PixelGrid visual baseline snapshots.
 - `npm run build`: builds distributable library with tsup (ESM/CJS/types).
+- `npm run parity:check`: verifies drift-sensitive source parity between `packages/*` and mirrored `src/*`.
 - `npm run typecheck`: TypeScript validation (`tsc --noEmit`).
 - `npm run build:packages`: builds `@pixel-engine/core`, `@pixel-engine/effects`, and `@pixel-engine/react`.
 - `npm run build:all`: builds aggregate + split packages.
-- `npm run verify`: test + build + typecheck.
+- `npm run verify`: parity + test + build + typecheck.
 - `npm run bench:pixelgrid`: runs `classic + stress` suites (3 runs each, faster default).
 - `npm run bench:pixelgrid:classic`: comparable regression baseline (5 runs).
 - `npm run bench:pixelgrid:stress`: heavy overdraw + quality tiers (5 runs).
@@ -372,6 +373,13 @@ References:
 - `@pixel-engine/core`: runtime primitives (engine, loop, scene, renderers, input, base grid helpers).
 - `@pixel-engine/effects`: high-level effects (`PixelGridEffect`), influences, masks.
 - `@pixel-engine/react`: React hook/components (`usePixelEngine`, `usePixelGridEffect`, `PixelCanvas`, `PixelGridCanvas`, `PixelSurface`, `PixelCard`).
+
+## Source of Truth Policy
+
+- Authoritative implementation lives under `packages/*/src`.
+- Root `src/*` exists as compatibility/testing mirror for aggregate workflows.
+- Any runtime change in `packages/core/src/*` or `packages/effects/src/*` must keep mirrored `src/*` in sync.
+- `npm run parity:check` is the guardrail that fails on drift for mirrored runtime files.
 
 React component matrix:
 

@@ -9,17 +9,16 @@ import {
   createPixelGridRuntimeState
 } from "./runtime-state";
 import { createMaskStateMachine } from "./mask-state-machine";
-import {
-  applyReactiveEffectsToCell,
-  applyReactiveRipple,
-  getHoverWeight,
-  shouldAffectCell
-} from "./reactive-effects";
 import { applyBreathingSystem } from "./breathing-system";
 import { PixelRenderViewport, renderPixelCells } from "./render-pass";
 import { runPixelGridUpdatePipeline } from "./update-pipeline";
 import { setupBaseInfluences } from "./influence-setup";
 import { DEFAULT_PIXEL_GRID_RUNTIME_TUNING } from "./runtime-tuning";
+import { createMaskWeightCacheCoordinator } from "./mask-weight-cache";
+import {
+  applyReactiveHoverPass,
+  applyReactiveRipplePass
+} from "./interaction-coordinator";
 
 import { InfluenceManager } from "../../../influences/InfluenceManager";
 import { RippleInfluence } from "../../../influences/RippleInfluence";
@@ -59,7 +58,6 @@ export function createPixelGridRuntimeController(
   const runtime = createPixelGridRuntimeState(cacheSize);
   const cells: PixelCell[] = [];
   const getCellIndex = (x: number, y: number): number => x * rows + y;
-  let maskCacheIsZeroed = true;
 
   createGrid(cells, columns, rows, params.config);
 
@@ -109,6 +107,15 @@ export function createPixelGridRuntimeController(
     initialMask: params.resolvedConfig.initialMask,
     imageMasks,
     textMasks
+  });
+  const maskWeightCache = createMaskWeightCacheCoordinator({
+    cells,
+    runtime,
+    maskState,
+    hoverEffects: params.resolvedConfig.hoverEffects,
+    rippleEffects: params.resolvedConfig.rippleEffects,
+    breathing: params.resolvedConfig.breathing,
+    influenceOptions: params.influenceOptions
   });
   const renderViewport: PixelRenderViewport = {
     minX: 0,
@@ -164,140 +171,6 @@ export function createPixelGridRuntimeController(
     runtime.recycledRipples.push(ripple);
   };
 
-  const zeroMaskWeightCaches = () => {
-    if (maskCacheIsZeroed) return;
-    runtime.activeMaskWeightCache.fill(0);
-    runtime.imageMaskWeightCache.fill(0);
-    runtime.textMaskWeightCache.fill(0);
-    maskCacheIsZeroed = true;
-  };
-
-  const hasAnyMaskSources = () => {
-    return (
-      maskState.imageMask !== null ||
-      maskState.textMask !== null ||
-      maskState.morphMask !== null
-    );
-  };
-
-  const shouldRecomputeMaskWeightCache = () => {
-    const needsMaskScope =
-      params.resolvedConfig.hoverEffects.interactionScope === "imageMask" &&
-      ((params.influenceOptions.hover && params.resolvedConfig.hoverEffects.mode === "reactive") ||
-        (params.influenceOptions.ripple &&
-          params.resolvedConfig.rippleEffects.enabled &&
-          runtime.activeRipples.length > 0));
-
-    const needsBreathingMasks =
-      params.resolvedConfig.breathing.enabled &&
-      (params.resolvedConfig.breathing.affectImage || params.resolvedConfig.breathing.affectText);
-
-    const needsMaskWeights = needsMaskScope || needsBreathingMasks;
-    if (!needsMaskWeights) return false;
-
-    if (!hasAnyMaskSources()) {
-      zeroMaskWeightCaches();
-      return false;
-    }
-
-    return true;
-  };
-
-  const updateMaskWeightCache = () => {
-    const imageMask = maskState.imageMask;
-    const textMask = maskState.textMask;
-    const morphMask = maskState.morphMask;
-    const hasImage = imageMask !== null;
-    const hasText = textMask !== null;
-    const hasMorph = morphMask !== null;
-
-    if (!hasImage && !hasText && !hasMorph) {
-      zeroMaskWeightCaches();
-      return;
-    }
-
-    for (let i = 0; i < cells.length; i++) {
-      const cell = cells[i];
-      const image = hasImage
-        ? imageMask!.getInfluence(cell.x, cell.y, 1)
-        : 0;
-      const text = hasText
-        ? textMask!.getInfluence(cell.x, cell.y, 1)
-        : 0;
-      const morph = hasMorph
-        ? morphMask!.getInfluence(cell.x, cell.y, 1)
-        : 0;
-
-      const textOrMorph = Math.max(text, morph);
-
-      runtime.imageMaskWeightCache[i] = image;
-      runtime.textMaskWeightCache[i] = textOrMorph;
-      runtime.activeMaskWeightCache[i] = Math.max(image, textOrMorph);
-    }
-    maskCacheIsZeroed = false;
-  };
-
-  const applyReactiveHover = () => {
-    const hoverMode = params.resolvedConfig.hoverEffects.mode;
-    if (!params.influenceOptions.hover || hoverMode !== "reactive") return;
-
-    for (let i = 0; i < cells.length; i++) {
-      const cell = cells[i];
-      if (
-        !shouldAffectCell(
-          params.resolvedConfig.hoverEffects.interactionScope,
-          cell.targetSize,
-          runtime.activeMaskWeightCache[i]
-        )
-      ) {
-        continue;
-      }
-
-      const falloff = getHoverWeight(cell, params.engine.mouse, params.resolvedConfig.hoverEffects);
-      if (falloff <= 0) continue;
-
-      const interaction = falloff * params.resolvedConfig.hoverEffects.strength;
-
-      applyReactiveEffectsToCell({
-        cell,
-        cellIndex: i,
-        interaction,
-        originX: params.engine.mouse.x,
-        originY: params.engine.mouse.y,
-        reactiveTime: runtime.reactiveTime,
-        hoverEffects: params.resolvedConfig.hoverEffects,
-        tintPalette: params.resolvedConfig.hoverEffects.tintPalette
-      });
-    }
-  };
-
-  const applyReactiveRippleEffects = () => {
-    if (!params.influenceOptions.ripple) return;
-    applyReactiveRipple({
-      cells,
-      activeRipples: runtime.activeRipples,
-      inverseGap,
-      columns,
-      rows,
-      hoverEffects: params.resolvedConfig.hoverEffects,
-      rippleEffects: params.resolvedConfig.rippleEffects,
-      activeMaskWeightCache: runtime.activeMaskWeightCache,
-      reactiveTime: runtime.reactiveTime,
-      getCellIndex
-    });
-  };
-
-  const applyBreathing = () => {
-    applyBreathingSystem({
-      cells,
-      breathing: params.resolvedConfig.breathing,
-      mouse: params.engine.mouse,
-      imageMaskWeightCache: runtime.imageMaskWeightCache,
-      textMaskWeightCache: runtime.textMaskWeightCache,
-      reactiveTime: runtime.reactiveTime
-    });
-  };
-
   return {
     update(delta: number): void {
       runPixelGridUpdatePipeline({
@@ -308,11 +181,40 @@ export function createPixelGridRuntimeController(
         influenceManager,
         maskState,
         getCellIndex,
-        shouldRecomputeMaskWeightCache: () => shouldRecomputeMaskWeightCache(),
-        updateMaskWeightCache: () => updateMaskWeightCache(),
-        applyReactiveHover: () => applyReactiveHover(),
-        applyReactiveRippleEffects: () => applyReactiveRippleEffects(),
-        applyBreathing: () => applyBreathing()
+        shouldRecomputeMaskWeightCache: () => maskWeightCache.shouldRecompute(),
+        updateMaskWeightCache: () => maskWeightCache.recompute(),
+        applyReactiveHover: () => {
+          applyReactiveHoverPass({
+            cells,
+            runtime,
+            hoverEffects: params.resolvedConfig.hoverEffects,
+            hoverEnabled: !!params.influenceOptions.hover,
+            mouse: params.engine.mouse
+          });
+        },
+        applyReactiveRippleEffects: () => {
+          applyReactiveRipplePass({
+            cells,
+            runtime,
+            rippleEnabled: !!params.influenceOptions.ripple,
+            inverseGap,
+            columns,
+            rows,
+            hoverEffects: params.resolvedConfig.hoverEffects,
+            rippleEffects: params.resolvedConfig.rippleEffects,
+            getCellIndex
+          });
+        },
+        applyBreathing: () => {
+          applyBreathingSystem({
+            cells,
+            breathing: params.resolvedConfig.breathing,
+            mouse: params.engine.mouse,
+            imageMaskWeightCache: runtime.imageMaskWeightCache,
+            textMaskWeightCache: runtime.textMaskWeightCache,
+            reactiveTime: runtime.reactiveTime
+          });
+        }
       });
     },
 

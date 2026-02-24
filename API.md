@@ -8,6 +8,13 @@ This document focuses on the stable public API and React integration patterns (i
 - `@pixel-engine/effects`: `PixelGridEffect` + influences/masks
 - `@pixel-engine/react`: React hooks/components + presets/declarative helpers
 
+## Package Boundary Rules
+
+- Source-of-truth implementation lives in `packages/*/src`.
+- Root `src/*` is a compatibility/testing mirror for the aggregate `pixel-engine` package.
+- Keep mirror files synchronized whenever runtime logic changes.
+- Run `npm run parity:check` before merge/release (also enforced in CI and `npm run verify`).
+
 ## Core + Effects (manual)
 
 ```ts

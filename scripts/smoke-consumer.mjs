@@ -54,20 +54,30 @@ try {
   writeFileSync(
     join(appDir, "smoke.mjs"),
     [
+      'import { createRequire } from "node:module";',
       'import { PixelEngine as CoreEngine } from "@pixel-engine/core";',
       'import { PixelGridEffect as EffectsGrid } from "@pixel-engine/effects";',
       'import { PixelGridCanvas, PixelCanvas, PixelCard, usePixelGridEffect } from "@pixel-engine/react";',
       'import { PixelEngine as AggregateEngine, PixelGridEffect as AggregateGrid } from "pixel-engine";',
       "",
+      "const require = createRequire(import.meta.url);",
+      'const cjsCore = require("@pixel-engine/core");',
+      'const cjsEffects = require("@pixel-engine/effects");',
+      'const cjsAggregate = require("pixel-engine");',
+      "",
       "if (typeof CoreEngine !== 'function') throw new Error('Missing CoreEngine export');",
       "if (typeof EffectsGrid !== 'function') throw new Error('Missing EffectsGrid export');",
       "if (typeof AggregateEngine !== 'function') throw new Error('Missing aggregate CoreEngine export');",
       "if (typeof AggregateGrid !== 'function') throw new Error('Missing aggregate EffectsGrid export');",
+      "if (AggregateEngine !== CoreEngine) throw new Error('ESM boundary mismatch: pixel-engine PixelEngine differs from @pixel-engine/core');",
+      "if (AggregateGrid !== EffectsGrid) throw new Error('ESM boundary mismatch: pixel-engine PixelGridEffect differs from @pixel-engine/effects');",
+      "if (cjsAggregate.PixelEngine !== cjsCore.PixelEngine) throw new Error('CJS boundary mismatch: pixel-engine PixelEngine differs from @pixel-engine/core');",
+      "if (cjsAggregate.PixelGridEffect !== cjsEffects.PixelGridEffect) throw new Error('CJS boundary mismatch: pixel-engine PixelGridEffect differs from @pixel-engine/effects');",
       "if (typeof PixelGridCanvas !== 'function') throw new Error('Missing React PixelGridCanvas export');",
       "if (typeof PixelCanvas !== 'function') throw new Error('Missing React PixelCanvas export');",
       "if (typeof PixelCard !== 'function') throw new Error('Missing React PixelCard export');",
       "if (typeof usePixelGridEffect !== 'function') throw new Error('Missing React usePixelGridEffect export');",
-      "console.log('Smoke consumer import check passed');"
+      "console.log('Smoke consumer import + package-boundary check passed');"
     ].join("\n")
   );
 
