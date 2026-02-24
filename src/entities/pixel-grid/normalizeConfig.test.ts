@@ -21,6 +21,10 @@ describe("resolvePixelGridConfig", () => {
     expect(resolved.performance.viewportCulling).toBe(true);
     expect(resolved.performance.minRenderableSize).toBe(0.75);
     expect(resolved.performance.maxRipplesCap).toBe(48);
+    expect(resolved.effects.paletteCycle.enabled).toBe(false);
+    expect(resolved.effects.dissolve.enabled).toBe(false);
+    expect(resolved.effects.shockwaveBurst.enabled).toBe(false);
+    expect(resolved.effects.paletteCycle.palette).toEqual(["#fff"]);
     expect(resolved.initialMask).toBe("image");
     expect(resolved.imageMasks).toHaveLength(0);
     expect(resolved.textMasks).toHaveLength(0);
@@ -36,7 +40,12 @@ describe("resolvePixelGridConfig", () => {
       hoverEffects: {
         mode: "reactive",
         radius: 90,
-        shape: "vignette"
+        magnetic: {
+          enabled: true,
+          mode: "repel",
+          strength: 2,
+          radius: 80
+        }
       },
       rippleEffects: {
         speed: 2,
@@ -61,7 +70,10 @@ describe("resolvePixelGridConfig", () => {
     });
 
     expect(resolved.hoverEffects.mode).toBe("reactive");
-    expect(resolved.hoverEffects.radiusY).toBe(90);
+    expect(resolved.hoverEffects.radius).toBe(90);
+    expect(resolved.hoverEffects.magnetic.enabled).toBe(true);
+    expect(resolved.hoverEffects.magnetic.mode).toBe("repel");
+    expect(resolved.hoverEffects.magnetic.radius).toBe(80);
     expect(resolved.rippleEffects.thickness).toBe(12);
     expect(resolved.breathing.radius).toBe(90);
     expect(resolved.autoMorph.holdImageMs).toBe(700);
@@ -288,5 +300,80 @@ describe("resolvePixelGridConfig", () => {
     expect(resolved.maskTimeline.steps[1].maskRef?.id).toBe("i1");
     expect(resolved.maskTimeline.steps[1].transition.mode).toBe("dissolve");
     expect(resolved.maskTimeline.steps[1].transition.durationMs).toBe(1);
+  });
+
+  it("normalizes palette-cycle options and palette fallback", () => {
+    const resolved = resolvePixelGridConfig({
+      colors: ["#0f172a", "#1e293b"],
+      gap: 6,
+      expandEase: 0.08,
+      breathSpeed: 1,
+      effects: {
+        paletteCycle: {
+          enabled: true,
+          speed: -3,
+          scope: "all",
+          activationThreshold: -1,
+          palette: [" ", "  "]
+        },
+        dissolve: {
+          enabled: true,
+          speed: -1,
+          amount: 2,
+          scope: "all",
+          activationThreshold: -2
+        },
+        shockwaveBurst: {
+          enabled: true,
+          speed: -2,
+          strength: 5,
+          thickness: 400,
+          maxBursts: 999,
+          triggerMode: "both",
+          activationThreshold: -1
+        }
+      }
+    });
+
+    expect(resolved.effects.paletteCycle.enabled).toBe(true);
+    expect(resolved.effects.paletteCycle.speed).toBe(0);
+    expect(resolved.effects.paletteCycle.scope).toBe("all");
+    expect(resolved.effects.paletteCycle.activationThreshold).toBe(0);
+    expect(resolved.effects.paletteCycle.palette).toEqual(["#0f172a", "#1e293b"]);
+    expect(resolved.effects.dissolve.enabled).toBe(true);
+    expect(resolved.effects.dissolve.speed).toBe(0);
+    expect(resolved.effects.dissolve.amount).toBe(1);
+    expect(resolved.effects.dissolve.scope).toBe("all");
+    expect(resolved.effects.dissolve.activationThreshold).toBe(0);
+    expect(resolved.effects.shockwaveBurst.enabled).toBe(true);
+    expect(resolved.effects.shockwaveBurst.speed).toBe(0);
+    expect(resolved.effects.shockwaveBurst.strength).toBe(2);
+    expect(resolved.effects.shockwaveBurst.thickness).toBe(160);
+    expect(resolved.effects.shockwaveBurst.maxBursts).toBe(64);
+    expect(resolved.effects.shockwaveBurst.triggerMode).toBe("both");
+    expect(resolved.effects.shockwaveBurst.activationThreshold).toBe(0);
+    expect(
+      resolved.warnings.some((warning) =>
+        warning.includes("effects.paletteCycle.palette")
+      )
+    ).toBe(true);
+  });
+
+  it("emits warnings for legacy hover radiusY/shape options", () => {
+    const withLegacy = resolvePixelGridConfig({
+      colors: ["#fff"],
+      gap: 5,
+      expandEase: 0.1,
+      breathSpeed: 1,
+      hoverEffects: {
+        mode: "reactive",
+        radius: 100,
+        radiusY: 90,
+        shape: "vignette"
+      } as any
+    });
+
+    expect(withLegacy.warnings.some((warning) => warning.includes("hoverEffects.radiusY"))).toBe(true);
+    expect(withLegacy.warnings.some((warning) => warning.includes("hoverEffects.shape"))).toBe(true);
   });
 });

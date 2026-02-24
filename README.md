@@ -16,7 +16,8 @@ High-performance 2D pixel simulation engine for browser apps and UI frameworks.
 - v1.1 Phase 6 completed (PR-6A + PR-6B + PR-6C)
 - v1.1 Phase 7 completed (PR-7A + PR-7B + PR-7C)
 - v1.1 Phase 8 completed (PR-8A + PR-8B + PR-8C)
-- Current active work: v1.1 Phase 9 (effect pack)
+- v1.1 Phase 9 completed (PR-9A + PR-9B + PR-9C, PR-9D deferred)
+- Current active work: v1.1 Phase 10 (web product utilities)
 
 ## Install
 
@@ -107,7 +108,12 @@ export function PresetWithOverrides() {
       gridConfig={{
         gap: 6,
         rippleEffects: { maxRipples: 36 },
-        hoverEffects: { radius: 120 }
+        hoverEffects: { radius: 120 },
+        effects: {
+          paletteCycle: { enabled: true, speed: 0.35, scope: "activeOnly" },
+          dissolve: { enabled: true, speed: 0.9, amount: 0.28 },
+          shockwaveBurst: { enabled: true, speed: 0.9, strength: 0.45, thickness: 28, triggerMode: "pointerDown" }
+        }
       }}
     />
   );
@@ -189,7 +195,10 @@ import {
 const base = createPixelPreset("card-ripple");
 const tuned = mergePixelOptions(base, {
   gap: 6,
-  hoverEffects: { shape: "vignette", radius: 125 },
+  hoverEffects: {
+    radius: 125,
+    magnetic: { enabled: true, mode: "attract", strength: 2.6, radius: 125 }
+  },
   rippleEffects: { maxRipples: 40 }
 });
 const mask = createMaskConfig({
@@ -204,6 +213,10 @@ export function CustomConfig() {
   return <PixelGridCanvas width={900} height={520} gridConfig={{ ...tuned, ...mask }} />;
 }
 ```
+
+Hover notes:
+- `hoverEffects` now uses a single radius (`radius`) and circle profile.
+- `hoverEffects.magnetic` supports `mode: "attract" | "repel"`.
 
 ### 5) Overlay content (`PixelCard` / `PixelSurface`)
 

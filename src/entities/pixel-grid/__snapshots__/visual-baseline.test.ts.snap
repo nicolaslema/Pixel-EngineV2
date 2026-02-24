@@ -2,9 +2,9 @@
 
 exports[`PixelGrid visual baseline > breathing baseline 1`] = `
 {
-  "active": 483,
-  "avgOpacity": 0.953,
-  "avgSize": 1.634,
+  "active": 428,
+  "avgOpacity": 0.962,
+  "avgSize": 1.487,
   "sample": [
     {
       "c": "#111827",

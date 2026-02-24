@@ -82,6 +82,7 @@ export class PixelGridEffect extends Entity {
     const nextHeight = Math.max(1, Math.round(height));
     if (nextWidth === this.width && nextHeight === this.height) return;
 
+    this.runtime?.destroy();
     this.width = nextWidth;
     this.height = nextHeight;
     this.runtime = createPixelGridRuntimeController({
@@ -93,6 +94,10 @@ export class PixelGridEffect extends Entity {
       resolvedConfig: this.resolvedConfig
     });
     this.cells = this.runtime.getCellsForDebug();
+  }
+
+  onDestroy(): void {
+    this.runtime.destroy();
   }
 
   setCanvasBackground(background: string | null): void {

@@ -2,6 +2,56 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.0.19] - 2026-02-24
+
+### Changed
+- Hover API simplified:
+  - removed `hoverEffects.radiusY`
+  - removed hover `shape` variants from public hover config (circle-only)
+- Added `hoverEffects.magnetic` with:
+  - `enabled`
+  - `mode: "attract" | "repel"`
+  - `strength`
+  - `radius`
+- Reactive/classic hover runtime now supports dedicated magnetic pass.
+
+### Updated
+- Playground hover controls now include magnetic parameters and use single hover radius.
+- Playground left side now uses a single scrollable panel for `Effects / Runtime / I/O`.
+- Magnetic hover strength playground control max increased from `8` to `24`.
+- Phase 9 docs/issue tracking synchronized with hover simplification + magnetic mode.
+- Phase 9 formally closed with PR-9D optional items deferred.
+
+## [1.0.18] - 2026-02-24
+
+### Added
+- Phase 9 PR-9B effect pack additions:
+  - `effects.dissolve`
+  - `effects.shockwaveBurst`
+- New internal effect modules (root + package mirrors):
+  - `pixel-dissolve-effect`
+  - `shockwave-burst-effect`
+- Playground `Effects` panel controls for:
+  - `dissolve` (enabled/speed/amount/scope/threshold)
+  - `shockwaveBurst` (enabled/speed/strength/thickness/maxBursts/triggerMode/threshold)
+
+### Changed
+- `PixelGrid` effect pipeline now supports ordered stacking:
+  - `dissolve` -> `shockwaveBurst` -> `paletteCycle`
+
+## [1.0.17] - 2026-02-24
+
+### Changed
+- `PixelGrid` effects API simplified:
+  - removed `effects.trail`
+  - retained `effects.paletteCycle` as the only built-in post effect in v1.1 baseline
+- Playground `Effects` panel now only exposes `paletteCycle` controls.
+
+### Removed
+- Removed trail runtime modules from root and package mirrors:
+  - `src/entities/pixel-grid/internal/effects/trail-afterimage-effect.ts`
+  - `packages/effects/src/entities/pixel-grid/internal/effects/trail-afterimage-effect.ts`
+
 ## [1.0.16] - 2026-02-24
 
 ### Added

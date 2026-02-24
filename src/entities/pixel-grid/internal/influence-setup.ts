@@ -23,11 +23,7 @@ export function setupBaseInfluences(params: SetupBaseInfluencesParams): void {
         params.engine,
         params.hoverEffects.radius,
         params.config.breathSpeed,
-        params.hoverEffects.strength,
-        {
-          radiusY: params.hoverEffects.radiusY,
-          shape: params.hoverEffects.shape
-        }
+        params.hoverEffects.strength
       )
     );
   }

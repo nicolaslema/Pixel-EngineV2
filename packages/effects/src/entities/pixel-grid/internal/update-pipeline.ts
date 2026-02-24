@@ -14,8 +14,10 @@ interface UpdatePipelineParams {
   shouldRecomputeMaskWeightCache: () => boolean;
   updateMaskWeightCache: () => void;
   applyReactiveHover: () => void;
+  applyMagneticHover: () => void;
   applyReactiveRippleEffects: () => void;
   applyBreathing: () => void;
+  applyPostEffects: () => void;
 }
 
 export function runPixelGridUpdatePipeline(
@@ -42,8 +44,10 @@ export function runPixelGridUpdatePipeline(
   }
 
   params.applyReactiveHover();
+  params.applyMagneticHover();
   params.applyReactiveRippleEffects();
   params.applyBreathing();
+  params.applyPostEffects();
 
   for (let i = 0; i < params.cells.length; i++) {
     params.cells[i].update(params.expandEase);

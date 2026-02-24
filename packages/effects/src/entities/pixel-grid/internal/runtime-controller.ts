@@ -15,7 +15,9 @@ import { runPixelGridUpdatePipeline } from "./update-pipeline";
 import { setupBaseInfluences } from "./influence-setup";
 import { DEFAULT_PIXEL_GRID_RUNTIME_TUNING } from "./runtime-tuning";
 import { createMaskWeightCacheCoordinator } from "./mask-weight-cache";
+import { createPixelGridEffectsPipeline } from "./effects/pipeline";
 import {
+  applyMagneticHoverPass,
   applyReactiveHoverPass,
   applyReactiveRipplePass
 } from "./interaction-coordinator";
@@ -29,6 +31,7 @@ export interface PixelGridRuntimeController {
   update(delta: number): void;
   render(renderer: IRenderer, alpha: number): void;
   triggerRipple(x: number, y: number): void;
+  destroy(): void;
   getCellsForDebug(): PixelCell[];
   playMaskTimeline(): void;
   pauseMaskTimeline(): void;
@@ -123,6 +126,11 @@ export function createPixelGridRuntimeController(
     minY: 0,
     maxY: 0
   };
+  const effectsPipeline = createPixelGridEffectsPipeline({
+    cells,
+    pointer: params.engine.mouse,
+    effects: params.resolvedConfig.effects
+  });
 
   setupBaseInfluences({
     engine: params.engine,
@@ -192,6 +200,15 @@ export function createPixelGridRuntimeController(
             mouse: params.engine.mouse
           });
         },
+        applyMagneticHover: () => {
+          applyMagneticHoverPass({
+            cells,
+            runtime,
+            hoverEffects: params.resolvedConfig.hoverEffects,
+            hoverEnabled: !!params.influenceOptions.hover,
+            mouse: params.engine.mouse
+          });
+        },
         applyReactiveRippleEffects: () => {
           applyReactiveRipplePass({
             cells,
@@ -214,6 +231,10 @@ export function createPixelGridRuntimeController(
             textMaskWeightCache: runtime.textMaskWeightCache,
             reactiveTime: runtime.reactiveTime
           });
+        },
+        applyPostEffects: () => {
+          effectsPipeline.update(delta);
+          effectsPipeline.apply(cells);
         }
       });
     },
@@ -276,6 +297,12 @@ export function createPixelGridRuntimeController(
 
       runtime.activeRipples.push(ripple);
       influenceManager.add(ripple);
+    },
+
+    destroy(): void {
+      runtime.activeRipples.length = 0;
+      runtime.recycledRipples.length = 0;
+      effectsPipeline.dispose();
     },
 
     getCellsForDebug(): PixelCell[] {

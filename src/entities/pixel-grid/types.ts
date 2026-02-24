@@ -3,22 +3,49 @@ import { ImageMaskOptions } from "../../influences/Masks/ImageMaskInfluence";
 
 export type HoverMode = "classic" | "reactive";
 export type ReactiveHoverScope = "all" | "activeOnly" | "imageMask";
+export type MagneticHoverMode = "attract" | "repel";
 export type InitialMask = "image" | "text";
 export type PixelGridQualityLevel = "low" | "medium" | "high";
 export type MaskTimelineTransitionMode = "morph" | "fade" | "dissolve";
 export type PixelGridMaskType = InitialMask;
+export type PaletteCycleScope = "all" | "activeOnly";
+
+export interface HoverMagneticOptions {
+  enabled?: boolean;
+  mode?: MagneticHoverMode;
+  strength?: number;
+  radius?: number;
+}
 
 export interface HoverEffectsOptions {
   mode?: HoverMode;
   radius?: number;
-  radiusY?: number;
-  shape?: HoverShape;
   strength?: number;
   interactionScope?: ReactiveHoverScope;
   deactivate?: number;
   displace?: number;
   jitter?: number;
   tintPalette?: string[];
+  magnetic?: HoverMagneticOptions;
+}
+
+export interface ResolvedHoverMagneticOptions {
+  enabled: boolean;
+  mode: MagneticHoverMode;
+  strength: number;
+  radius: number;
+}
+
+export interface ResolvedHoverEffectsOptions {
+  mode: HoverMode;
+  radius: number;
+  strength: number;
+  interactionScope: ReactiveHoverScope;
+  deactivate: number;
+  displace: number;
+  jitter: number;
+  tintPalette: string[];
+  magnetic: ResolvedHoverMagneticOptions;
 }
 
 export interface RippleEffectsOptions {
@@ -128,6 +155,72 @@ export interface PerformanceOptions {
   minRenderableSize?: number;
 }
 
+export interface PaletteCycleEffectOptions {
+  enabled?: boolean;
+  speed?: number;
+  scope?: PaletteCycleScope;
+  activationThreshold?: number;
+  palette?: string[];
+}
+
+export interface PixelDissolveEffectOptions {
+  enabled?: boolean;
+  speed?: number;
+  amount?: number;
+  scope?: PaletteCycleScope;
+  activationThreshold?: number;
+}
+
+export type ShockwaveTriggerMode = "pointerDown" | "hoverEnter" | "both";
+
+export interface ShockwaveBurstEffectOptions {
+  enabled?: boolean;
+  speed?: number;
+  strength?: number;
+  thickness?: number;
+  maxBursts?: number;
+  triggerMode?: ShockwaveTriggerMode;
+  activationThreshold?: number;
+}
+
+export interface PixelGridEffectsOptions {
+  paletteCycle?: PaletteCycleEffectOptions;
+  dissolve?: PixelDissolveEffectOptions;
+  shockwaveBurst?: ShockwaveBurstEffectOptions;
+}
+
+export interface ResolvedPaletteCycleEffectOptions {
+  enabled: boolean;
+  speed: number;
+  scope: PaletteCycleScope;
+  activationThreshold: number;
+  palette: string[];
+}
+
+export interface ResolvedPixelDissolveEffectOptions {
+  enabled: boolean;
+  speed: number;
+  amount: number;
+  scope: PaletteCycleScope;
+  activationThreshold: number;
+}
+
+export interface ResolvedShockwaveBurstEffectOptions {
+  enabled: boolean;
+  speed: number;
+  strength: number;
+  thickness: number;
+  maxBursts: number;
+  triggerMode: ShockwaveTriggerMode;
+  activationThreshold: number;
+}
+
+export interface ResolvedPixelGridEffectsOptions {
+  paletteCycle: ResolvedPaletteCycleEffectOptions;
+  dissolve: ResolvedPixelDissolveEffectOptions;
+  shockwaveBurst: ResolvedShockwaveBurstEffectOptions;
+}
+
 export interface ResolvedPerformanceOptions {
   quality: PixelGridQualityLevel;
   viewportCulling: boolean;
@@ -184,6 +277,7 @@ export interface PixelGridConfig {
   autoMorph?: AutoMorphOptions;
   maskTimeline?: MaskTimelineOptions;
   performance?: PerformanceOptions;
+  effects?: PixelGridEffectsOptions;
 
   imageMask?: PixelGridImageMaskConfig;
   textMask?: PixelGridTextMaskConfig;
@@ -199,12 +293,13 @@ export interface PixelGridInfluenceOptions {
 }
 
 export interface ResolvedPixelGridConfig {
-  hoverEffects: Required<HoverEffectsOptions>;
+  hoverEffects: ResolvedHoverEffectsOptions;
   rippleEffects: Required<RippleEffectsOptions>;
   breathing: Required<BreathingOptions>;
   autoMorph: Required<AutoMorphOptions>;
   maskTimeline: ResolvedMaskTimelineOptions;
   performance: ResolvedPerformanceOptions;
+  effects: ResolvedPixelGridEffectsOptions;
   initialMask: InitialMask;
   imageMasks: ResolvedPixelGridImageMaskConfig[];
   textMasks: ResolvedPixelGridTextMaskConfig[];

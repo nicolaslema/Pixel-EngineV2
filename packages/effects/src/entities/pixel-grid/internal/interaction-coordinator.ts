@@ -1,6 +1,7 @@
 import { PixelCell } from "../../PixelCell";
 import { ResolvedPixelGridConfig } from "../types";
 import {
+  applyMagneticHoverToCell,
   applyReactiveEffectsToCell,
   applyReactiveRipple,
   getHoverWeight,
@@ -26,6 +27,14 @@ interface ReactiveRipplePassParams {
   hoverEffects: ResolvedPixelGridConfig["hoverEffects"];
   rippleEffects: ResolvedPixelGridConfig["rippleEffects"];
   getCellIndex: (x: number, y: number) => number;
+}
+
+interface MagneticHoverPassParams {
+  cells: PixelCell[];
+  runtime: Pick<PixelGridRuntimeState, "activeMaskWeightCache">;
+  hoverEffects: ResolvedPixelGridConfig["hoverEffects"];
+  hoverEnabled: boolean;
+  mouse: { x: number; y: number; inside: boolean };
 }
 
 export function applyReactiveHoverPass(
@@ -59,6 +68,36 @@ export function applyReactiveHoverPass(
       reactiveTime: params.runtime.reactiveTime,
       hoverEffects: params.hoverEffects,
       tintPalette: params.hoverEffects.tintPalette
+    });
+  }
+}
+
+export function applyMagneticHoverPass(
+  params: MagneticHoverPassParams
+): void {
+  if (!params.hoverEnabled || !params.mouse.inside || !params.hoverEffects.magnetic.enabled) return;
+
+  for (let i = 0; i < params.cells.length; i++) {
+    const cell = params.cells[i];
+    if (
+      !shouldAffectCell(
+        params.hoverEffects.interactionScope,
+        cell.targetSize,
+        params.runtime.activeMaskWeightCache[i]
+      )
+    ) {
+      continue;
+    }
+
+    const falloff = getHoverWeight(cell, params.mouse, params.hoverEffects);
+    if (falloff <= 0) continue;
+
+    applyMagneticHoverToCell({
+      cell,
+      interaction: falloff * params.hoverEffects.strength,
+      originX: params.mouse.x,
+      originY: params.mouse.y,
+      hoverEffects: params.hoverEffects
     });
   }
 }

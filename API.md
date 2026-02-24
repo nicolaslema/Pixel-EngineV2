@@ -160,9 +160,18 @@ Optional groups:
 - `hoverEffects`
 - `rippleEffects`
 - `breathing`
+- `effects` (`paletteCycle`, `dissolve`, `shockwaveBurst`)
 - `performance` (`quality`, `viewportCulling`, `cullingPadding`, `minRenderableSize`)
 - `imageMask`, `textMask`, `autoMorph`, `initialMask`
 - `canvasBackground`
+
+Hover model notes:
+- `hoverEffects.radius`: single circular radius (no `radiusY`).
+- `hoverEffects.magnetic`:
+  - `enabled`
+  - `mode: "attract" | "repel"`
+  - `strength`
+  - `radius`
 
 Example runtime tuning:
 
@@ -173,6 +182,28 @@ gridConfig: {
     viewportCulling: true,
     cullingPadding: 16,
     minRenderableSize: 1
+  },
+  effects: {
+    paletteCycle: {
+      enabled: true,
+      speed: 0.45,
+      scope: "activeOnly",
+      palette: ["#334155", "#38bdf8", "#f59e0b"]
+    },
+    dissolve: {
+      enabled: true,
+      speed: 0.9,
+      amount: 0.3,
+      scope: "activeOnly"
+    },
+    shockwaveBurst: {
+      enabled: true,
+      speed: 0.85,
+      strength: 0.45,
+      thickness: 28,
+      maxBursts: 16,
+      triggerMode: "pointerDown"
+    }
   }
 }
 ```

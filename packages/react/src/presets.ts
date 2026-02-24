@@ -14,7 +14,6 @@ const PRESET_MAP: Record<PixelGridPresetName, PixelGridConfig> = {
     ...BASE_MINIMAL,
     hoverEffects: {
       mode: "reactive",
-      shape: "vignette",
       radius: 110,
       strength: 0.75,
       displace: 2,
@@ -39,7 +38,6 @@ const PRESET_MAP: Record<PixelGridPresetName, PixelGridConfig> = {
     },
     hoverEffects: {
       mode: "reactive",
-      shape: "circle",
       radius: 115,
       displace: 3.5,
       jitter: 1.1
@@ -50,9 +48,7 @@ const PRESET_MAP: Record<PixelGridPresetName, PixelGridConfig> = {
     gap: 6,
     hoverEffects: {
       mode: "reactive",
-      shape: "vignette",
       radius: 140,
-      radiusY: 105,
       displace: 4.5,
       jitter: 1.35,
       interactionScope: "imageMask"

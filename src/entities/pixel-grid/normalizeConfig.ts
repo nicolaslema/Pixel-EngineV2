@@ -16,19 +16,31 @@ export function resolvePixelGridConfig(
   const warnings: string[] = [];
   const resolvedMasks = normalizeMaskCollections(config, warnings);
   const hoverEffects = config.hoverEffects;
+  const legacyHoverEffects = hoverEffects as (typeof hoverEffects & { radiusY?: unknown; shape?: unknown });
   const rippleEffects = config.rippleEffects;
 
-  const resolvedHover: Required<ResolvedPixelGridConfig["hoverEffects"]> = {
+  if (legacyHoverEffects?.radiusY !== undefined) {
+    warnings.push("hoverEffects.radiusY is no longer supported. Use hoverEffects.radius.");
+  }
+  if (legacyHoverEffects?.shape !== undefined && legacyHoverEffects.shape !== "circle") {
+    warnings.push("hoverEffects.shape only supports \"circle\" in the current API.");
+  }
+
+  const resolvedHover: ResolvedPixelGridConfig["hoverEffects"] = {
     mode: hoverEffects?.mode ?? "classic",
     radius: hoverEffects?.radius ?? 120,
-    radiusY: hoverEffects?.radiusY ?? hoverEffects?.radius ?? 120,
-    shape: hoverEffects?.shape ?? "circle",
     strength: hoverEffects?.strength ?? 1,
     interactionScope: hoverEffects?.interactionScope ?? "imageMask",
     deactivate: hoverEffects?.deactivate ?? 0.8,
     displace: hoverEffects?.displace ?? 3,
     jitter: hoverEffects?.jitter ?? 1.25,
-    tintPalette: hoverEffects?.tintPalette ?? []
+    tintPalette: hoverEffects?.tintPalette ?? [],
+    magnetic: {
+      enabled: hoverEffects?.magnetic?.enabled ?? false,
+      mode: hoverEffects?.magnetic?.mode ?? "attract",
+      strength: clampMin(hoverEffects?.magnetic?.strength, 0, 2.5),
+      radius: clampMin(hoverEffects?.magnetic?.radius, 0.1, hoverEffects?.radius ?? 120)
+    }
   };
 
   const resolvedRipple: Required<ResolvedPixelGridConfig["rippleEffects"]> = {
@@ -60,8 +72,8 @@ export function resolvePixelGridConfig(
     radiusY:
       config.breathing?.radiusY ??
       config.breathing?.radius ??
-      resolvedHover.radiusY,
-    shape: config.breathing?.shape ?? resolvedHover.shape,
+      resolvedHover.radius,
+    shape: config.breathing?.shape ?? "circle",
     strength: config.breathing?.strength ?? 0.9,
     minOpacity: config.breathing?.minOpacity ?? 0.55,
     maxOpacity: config.breathing?.maxOpacity ?? 1,
@@ -82,6 +94,31 @@ export function resolvePixelGridConfig(
     ),
     maxRipplesCap: qualityDefaults.maxRipplesCap
   };
+  const resolvedEffects: ResolvedPixelGridConfig["effects"] = {
+    paletteCycle: {
+      enabled: config.effects?.paletteCycle?.enabled ?? false,
+      speed: clampMin(config.effects?.paletteCycle?.speed, 0, 0.45),
+      scope: config.effects?.paletteCycle?.scope ?? "activeOnly",
+      activationThreshold: clampMin(config.effects?.paletteCycle?.activationThreshold, 0, 0.025),
+      palette: resolvePaletteCyclePalette(config, warnings)
+    },
+    dissolve: {
+      enabled: config.effects?.dissolve?.enabled ?? false,
+      speed: clampMin(config.effects?.dissolve?.speed, 0, 0.85),
+      amount: clamp(config.effects?.dissolve?.amount, 0, 1, 0.35),
+      scope: config.effects?.dissolve?.scope ?? "activeOnly",
+      activationThreshold: clampMin(config.effects?.dissolve?.activationThreshold, 0, 0.025)
+    },
+    shockwaveBurst: {
+      enabled: config.effects?.shockwaveBurst?.enabled ?? false,
+      speed: clampMin(config.effects?.shockwaveBurst?.speed, 0, 0.85),
+      strength: clamp(config.effects?.shockwaveBurst?.strength, 0, 2, 0.4),
+      thickness: clamp(config.effects?.shockwaveBurst?.thickness, 1, 160, 32),
+      maxBursts: clampInt(config.effects?.shockwaveBurst?.maxBursts, 1, 64, 16),
+      triggerMode: config.effects?.shockwaveBurst?.triggerMode ?? "pointerDown",
+      activationThreshold: clampMin(config.effects?.shockwaveBurst?.activationThreshold, 0, 0.025)
+    }
+  };
 
   return {
     hoverEffects: resolvedHover,
@@ -90,6 +127,7 @@ export function resolvePixelGridConfig(
     autoMorph,
     maskTimeline,
     performance: resolvedPerformance,
+    effects: resolvedEffects,
     initialMask: config.initialMask ?? "image",
     imageMasks: resolvedMasks.imageMasks,
     textMasks: resolvedMasks.textMasks,
@@ -536,4 +574,45 @@ function getQualityDefaults(quality: ResolvedPixelGridConfig["performance"]["qua
     minRenderableSize: 0.75,
     maxRipplesCap: 48
   };
+}
+
+function clamp(value: number | undefined, min: number, max: number, fallback: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  if (value < min) return min;
+  if (value > max) return max;
+  return value;
+}
+
+function clampInt(value: number | undefined, min: number, max: number, fallback: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  const rounded = Math.round(value);
+  if (rounded < min) return min;
+  if (rounded > max) return max;
+  return rounded;
+}
+
+function clampMin(value: number | undefined, min: number, fallback: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  return Math.max(min, value);
+}
+
+function resolvePaletteCyclePalette(
+  config: PixelGridConfig,
+  warnings: string[]
+): string[] {
+  const candidatePalette = config.effects?.paletteCycle?.palette;
+  if (!candidatePalette) {
+    return config.colors;
+  }
+
+  const sanitized = candidatePalette
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+
+  if (sanitized.length === 0) {
+    warnings.push("effects.paletteCycle.palette: no valid colors found, using grid colors.");
+    return config.colors;
+  }
+
+  return sanitized;
 }

@@ -32,8 +32,7 @@ export function applyBreathingSystem(params: BreathingParams): void {
 
       const hoverWeight = computeHoverFalloff(dx, dy, {
         radiusX: params.breathing.radius,
-        radiusY: params.breathing.radiusY,
-        shape: params.breathing.shape
+        radiusY: params.breathing.radiusY
       });
 
       influenceWeight = Math.max(influenceWeight, hoverWeight);

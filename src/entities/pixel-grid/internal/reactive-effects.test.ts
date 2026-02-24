@@ -1,18 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { applyReactiveEffectsToCell, getHoverWeight, shouldAffectCell } from "./reactive-effects";
+import {
+  applyMagneticHoverToCell,
+  applyReactiveEffectsToCell,
+  getHoverWeight,
+  shouldAffectCell
+} from "./reactive-effects";
 import { PixelCell } from "../../PixelCell";
 
 const hoverEffects = {
   mode: "reactive" as const,
   radius: 100,
-  radiusY: 100,
-  shape: "circle" as const,
   strength: 1,
   interactionScope: "imageMask" as const,
   deactivate: 0.5,
   displace: 0,
   jitter: 0,
-  tintPalette: ["#000", "#fff"]
+  tintPalette: ["#000", "#fff"],
+  magnetic: {
+    enabled: false,
+    mode: "attract" as const,
+    strength: 2.5,
+    radius: 100
+  }
 };
 
 describe("pixel-grid reactive-effects", () => {
@@ -49,5 +58,28 @@ describe("pixel-grid reactive-effects", () => {
 
     expect(cell.targetSize).toBeLessThan(1);
     expect(cell.color).toBe("#123");
+  });
+
+  it("applies magnetic hover pull when enabled", () => {
+    const cell = new PixelCell(10, 0, "#abc", 5, 1);
+    const hoverWithMagnetic = {
+      ...hoverEffects,
+      magnetic: {
+        enabled: true,
+        mode: "attract" as const,
+        strength: 3,
+        radius: 100
+      }
+    };
+
+    applyMagneticHoverToCell({
+      cell,
+      interaction: 1,
+      originX: 0,
+      originY: 0,
+      hoverEffects: hoverWithMagnetic as any
+    });
+
+    expect(cell.offsetX).toBeLessThan(0);
   });
 });

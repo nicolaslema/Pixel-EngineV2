@@ -376,15 +376,21 @@ export function resolveGridConfigInput(params: {
     validateHybridTimelineConsistency(withMask);
   }
 
+  const legacyHover = withMask.hoverEffects as (typeof withMask.hoverEffects & {
+    radiusY?: unknown;
+    shape?: unknown;
+  });
+  if (legacyHover?.radiusY !== undefined) {
+    warnDev("hoverEffects.radiusY is no longer supported. Use hoverEffects.radius.");
+  }
+  if (legacyHover?.shape !== undefined && legacyHover.shape !== "circle") {
+    warnDev("hoverEffects.shape only supports \"circle\" in the current API.");
+  }
+
   const hover = withMask.hoverEffects
     ? {
       ...withMask.hoverEffects,
       radius: ensurePositive(withMask.hoverEffects.radius, 120, "hoverEffects.radius"),
-      radiusY: ensurePositive(
-        withMask.hoverEffects.radiusY ?? withMask.hoverEffects.radius,
-        withMask.hoverEffects.radius ?? 120,
-        "hoverEffects.radiusY"
-      ),
       strength: ensureNonNegative(withMask.hoverEffects.strength, 1, "hoverEffects.strength"),
       deactivate: clamp(
         ensureNonNegative(withMask.hoverEffects.deactivate, 0.8, "hoverEffects.deactivate"),
@@ -392,7 +398,22 @@ export function resolveGridConfigInput(params: {
         1
       ),
       displace: ensureNonNegative(withMask.hoverEffects.displace, 3, "hoverEffects.displace"),
-      jitter: ensureNonNegative(withMask.hoverEffects.jitter, 1.25, "hoverEffects.jitter")
+      jitter: ensureNonNegative(withMask.hoverEffects.jitter, 1.25, "hoverEffects.jitter"),
+      magnetic: withMask.hoverEffects.magnetic
+        ? {
+          ...withMask.hoverEffects.magnetic,
+          strength: ensureNonNegative(
+            withMask.hoverEffects.magnetic.strength,
+            2.5,
+            "hoverEffects.magnetic.strength"
+          ),
+          radius: ensurePositive(
+            withMask.hoverEffects.magnetic.radius,
+            withMask.hoverEffects.radius ?? 120,
+            "hoverEffects.magnetic.radius"
+          )
+        }
+        : undefined
     }
     : undefined;
 
@@ -437,7 +458,7 @@ export function resolveGridConfigInput(params: {
       ),
       radiusY: ensurePositive(
         withMask.breathing.radiusY ?? withMask.breathing.radius,
-        hover?.radiusY ?? hover?.radius ?? 120,
+        hover?.radius ?? 120,
         "breathing.radiusY"
       ),
       strength: ensureNonNegative(withMask.breathing.strength, 0.9, "breathing.strength"),

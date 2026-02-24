@@ -72,14 +72,18 @@ function createPresetConfig(preset: PlaygroundPreset): PixelGridConfig {
       hoverEffects: {
         mode: "classic",
         radius: 95,
-        radiusY: 95,
-        shape: "circle",
         strength: 1,
         interactionScope: "all",
         deactivate: 0.7,
         displace: 0,
         jitter: 0,
-        tintPalette: []
+        tintPalette: [],
+        magnetic: {
+          enabled: false,
+          mode: "attract",
+          strength: 2.2,
+          radius: 95
+        }
       },
       rippleEffects: {
         enabled: true,
@@ -126,14 +130,18 @@ function createPresetConfig(preset: PlaygroundPreset): PixelGridConfig {
       hoverEffects: {
         mode: "reactive",
         radius: 105,
-        radiusY: 100,
-        shape: "vignette",
         strength: 1,
         interactionScope: "all",
         deactivate: 0.82,
         displace: 3.5,
         jitter: 1.1,
-        tintPalette: ["#94a3b8", "#cbd5e1"]
+        tintPalette: ["#94a3b8", "#cbd5e1"],
+        magnetic: {
+          enabled: false,
+          mode: "attract",
+          strength: 2.2,
+          radius: 105
+        }
       },
       rippleEffects: {
         enabled: true,
@@ -151,7 +159,7 @@ function createPresetConfig(preset: PlaygroundPreset): PixelGridConfig {
         speed: 1.3,
         radius: 130,
         radiusY: 110,
-        shape: "vignette",
+        shape: "circle",
         strength: 0.45,
         minOpacity: 0.55,
         maxOpacity: 1,
@@ -180,14 +188,18 @@ function createPresetConfig(preset: PlaygroundPreset): PixelGridConfig {
       hoverEffects: {
         mode: "reactive",
         radius: 120,
-        radiusY: 95,
-        shape: "vignette",
         strength: 1,
         interactionScope: "imageMask",
         deactivate: 0.85,
         displace: 4,
         jitter: 1.1,
-        tintPalette: ["#e5e7eb", "#d1d5db", "#9ca3af"]
+        tintPalette: ["#e5e7eb", "#d1d5db", "#9ca3af"],
+        magnetic: {
+          enabled: false,
+          mode: "attract",
+          strength: 2.2,
+          radius: 120
+        }
       },
       rippleEffects: {
         enabled: true,
@@ -205,7 +217,7 @@ function createPresetConfig(preset: PlaygroundPreset): PixelGridConfig {
         speed: 1.6,
         radius: 140,
         radiusY: 100,
-        shape: "vignette",
+        shape: "circle",
         strength: 0.55,
         minOpacity: 0.45,
         maxOpacity: 1,
@@ -384,14 +396,18 @@ function createPresetConfig(preset: PlaygroundPreset): PixelGridConfig {
     hoverEffects: {
       mode: "reactive",
       radius: 100,
-      radiusY: 100,
-      shape: "circle",
       strength: 1,
       interactionScope: "all",
       deactivate: 0.85,
       displace: 4,
       jitter: 1.2,
-      tintPalette: []
+      tintPalette: [],
+      magnetic: {
+        enabled: false,
+        mode: "attract",
+        strength: 2.2,
+        radius: 100
+      }
     },
     rippleEffects: {
       speed: 0.5,
@@ -988,10 +1004,10 @@ function replaceTimelineImage(slot: 1 | 2, file: File): void {
   updateTimelinePreview();
 }
 
-function createPanel(side: "left" | "right", title: string): HTMLDivElement {
+function createPanel(side: "left" | "right", title: string, topOffset = 12): HTMLDivElement {
   const panel = document.createElement("div");
   panel.style.position = "fixed";
-  panel.style.top = "12px";
+  panel.style.top = `${topOffset}px`;
   panel.style[side] = "12px";
   panel.style.zIndex = "9999";
   panel.style.padding = "12px";
@@ -1016,10 +1032,14 @@ function createPanel(side: "left" | "right", title: string): HTMLDivElement {
   return panel;
 }
 
-const controlsPanel = createPanel("right", "Controls");
-const utilityPanel = createPanel("left", "Runtime / I/O");
+const controlsPanel = createPanel("right", "Controls", 12);
+const leftPanel = createPanel("left", "Effects / Runtime / I/O", 12);
 
 const refreshers: Array<() => void> = [];
+
+function layoutLeftPanels(): void {
+  // Single left panel.
+}
 
 function createSection(title: string): HTMLDivElement {
   const section = document.createElement("div");
@@ -1204,6 +1224,7 @@ function addColorControl(
 const DEFAULT_PIXEL_COLORS = ["#334155", "#475569", "#64748b"];
 const DEFAULT_HOVER_TINTS = ["#94a3b8", "#cbd5e1", "#ffffff"];
 const DEFAULT_RIPPLE_TINTS = ["#f8fafc", "#cbd5e1", "#94a3b8"];
+const DEFAULT_EFFECT_PALETTE = ["#334155", "#38bdf8", "#f59e0b"];
 
 function readPaletteColor(
   palette: string[] | undefined,
@@ -1225,6 +1246,14 @@ function writePaletteColor(
   }
   next[index] = value;
   return next;
+}
+
+function readEffectPaletteColor(index: number): string {
+  const fallback =
+    state.config.colors[index] ??
+    DEFAULT_EFFECT_PALETTE[index] ??
+    "#ffffff";
+  return state.config.effects?.paletteCycle?.palette?.[index] ?? fallback;
 }
 
 function addTextControl(
@@ -1259,6 +1288,373 @@ function addTextControl(
   row.row.appendChild(input);
   section.appendChild(row.row);
 }
+
+const effectsSection = createSection("Effect Pack v1.1");
+
+addCheckboxControl(
+  effectsSection,
+  "paletteCycle enabled",
+  () => !!state.config.effects?.paletteCycle?.enabled,
+  (value) => {
+    const hasCustomPalette =
+      (state.config.effects?.paletteCycle?.palette?.length ?? 0) > 0;
+    const paletteDefaults = state.config.effects?.paletteCycle ?? {
+      speed: 0.7,
+      scope: "all" as const,
+      activationThreshold: 0.01,
+      palette: [...DEFAULT_EFFECT_PALETTE]
+    };
+
+    state.config.effects = {
+      ...state.config.effects,
+      paletteCycle: {
+        ...paletteDefaults,
+        ...(hasCustomPalette
+          ? {}
+          : { palette: [...DEFAULT_EFFECT_PALETTE] }),
+        scope: state.config.effects?.paletteCycle?.scope ?? "all",
+        enabled: value
+      }
+    };
+  }
+);
+
+addRangeControl(
+  effectsSection,
+  "palette speed",
+  0,
+  4,
+  0.01,
+  () => state.config.effects?.paletteCycle?.speed ?? 0.7,
+  (value) => {
+    state.config.effects = {
+      ...state.config.effects,
+      paletteCycle: {
+        ...state.config.effects?.paletteCycle,
+        speed: value
+      }
+    };
+  }
+);
+
+addSelectControl(
+  effectsSection,
+  "palette scope",
+  ["activeOnly", "all"],
+  () => state.config.effects?.paletteCycle?.scope ?? "all",
+  (value) => {
+    state.config.effects = {
+      ...state.config.effects,
+      paletteCycle: {
+        ...state.config.effects?.paletteCycle,
+        scope: value as "activeOnly" | "all"
+      }
+    };
+  }
+);
+
+addRangeControl(
+  effectsSection,
+  "palette threshold",
+  0,
+  0.2,
+  0.001,
+  () => state.config.effects?.paletteCycle?.activationThreshold ?? 0.025,
+  (value) => {
+    state.config.effects = {
+      ...state.config.effects,
+      paletteCycle: {
+        ...state.config.effects?.paletteCycle,
+        activationThreshold: value
+      }
+    };
+  }
+);
+
+addColorControl(
+  effectsSection,
+  "palette color 1",
+  () => readEffectPaletteColor(0),
+  (value) => {
+    state.config.effects = {
+      ...state.config.effects,
+      paletteCycle: {
+        ...state.config.effects?.paletteCycle,
+        palette: writePaletteColor(
+          state.config.effects?.paletteCycle?.palette,
+          0,
+          value,
+          [readEffectPaletteColor(0), readEffectPaletteColor(1), readEffectPaletteColor(2)]
+        )
+      }
+    };
+  },
+  () => rebuildEffect()
+);
+
+addColorControl(
+  effectsSection,
+  "palette color 2",
+  () => readEffectPaletteColor(1),
+  (value) => {
+    state.config.effects = {
+      ...state.config.effects,
+      paletteCycle: {
+        ...state.config.effects?.paletteCycle,
+        palette: writePaletteColor(
+          state.config.effects?.paletteCycle?.palette,
+          1,
+          value,
+          [readEffectPaletteColor(0), readEffectPaletteColor(1), readEffectPaletteColor(2)]
+        )
+      }
+    };
+  },
+  () => rebuildEffect()
+);
+
+addColorControl(
+  effectsSection,
+  "palette color 3",
+  () => readEffectPaletteColor(2),
+  (value) => {
+    state.config.effects = {
+      ...state.config.effects,
+      paletteCycle: {
+        ...state.config.effects?.paletteCycle,
+        palette: writePaletteColor(
+          state.config.effects?.paletteCycle?.palette,
+          2,
+          value,
+          [readEffectPaletteColor(0), readEffectPaletteColor(1), readEffectPaletteColor(2)]
+        )
+      }
+    };
+  },
+  () => rebuildEffect()
+);
+
+addCheckboxControl(
+  effectsSection,
+  "dissolve enabled",
+  () => !!state.config.effects?.dissolve?.enabled,
+  (value) => {
+    const dissolveDefaults = state.config.effects?.dissolve ?? {
+      speed: 0.85,
+      amount: 0.35,
+      scope: "activeOnly" as const,
+      activationThreshold: 0.025
+    };
+    state.config.effects = {
+      ...state.config.effects,
+      dissolve: {
+        ...dissolveDefaults,
+        enabled: value
+      }
+    };
+  }
+);
+
+addRangeControl(
+  effectsSection,
+  "dissolve speed",
+  0,
+  4,
+  0.01,
+  () => state.config.effects?.dissolve?.speed ?? 0.85,
+  (value) => {
+    state.config.effects = {
+      ...state.config.effects,
+      dissolve: {
+        ...state.config.effects?.dissolve,
+        speed: value
+      }
+    };
+  }
+);
+
+addRangeControl(
+  effectsSection,
+  "dissolve amount",
+  0,
+  1,
+  0.01,
+  () => state.config.effects?.dissolve?.amount ?? 0.35,
+  (value) => {
+    state.config.effects = {
+      ...state.config.effects,
+      dissolve: {
+        ...state.config.effects?.dissolve,
+        amount: value
+      }
+    };
+  }
+);
+
+addSelectControl(
+  effectsSection,
+  "dissolve scope",
+  ["activeOnly", "all"],
+  () => state.config.effects?.dissolve?.scope ?? "activeOnly",
+  (value) => {
+    state.config.effects = {
+      ...state.config.effects,
+      dissolve: {
+        ...state.config.effects?.dissolve,
+        scope: value as "activeOnly" | "all"
+      }
+    };
+  }
+);
+
+addRangeControl(
+  effectsSection,
+  "dissolve threshold",
+  0,
+  0.2,
+  0.001,
+  () => state.config.effects?.dissolve?.activationThreshold ?? 0.025,
+  (value) => {
+    state.config.effects = {
+      ...state.config.effects,
+      dissolve: {
+        ...state.config.effects?.dissolve,
+        activationThreshold: value
+      }
+    };
+  }
+);
+
+addCheckboxControl(
+  effectsSection,
+  "shockwave enabled",
+  () => !!state.config.effects?.shockwaveBurst?.enabled,
+  (value) => {
+    const shockwaveDefaults = state.config.effects?.shockwaveBurst ?? {
+      speed: 0.85,
+      strength: 0.4,
+      thickness: 32,
+      maxBursts: 16,
+      triggerMode: "pointerDown" as const,
+      activationThreshold: 0.025
+    };
+    state.config.effects = {
+      ...state.config.effects,
+      shockwaveBurst: {
+        ...shockwaveDefaults,
+        enabled: value
+      }
+    };
+  }
+);
+
+addRangeControl(
+  effectsSection,
+  "shockwave speed",
+  0,
+  4,
+  0.01,
+  () => state.config.effects?.shockwaveBurst?.speed ?? 0.85,
+  (value) => {
+    state.config.effects = {
+      ...state.config.effects,
+      shockwaveBurst: {
+        ...state.config.effects?.shockwaveBurst,
+        speed: value
+      }
+    };
+  }
+);
+
+addRangeControl(
+  effectsSection,
+  "shockwave strength",
+  0,
+  2,
+  0.01,
+  () => state.config.effects?.shockwaveBurst?.strength ?? 0.4,
+  (value) => {
+    state.config.effects = {
+      ...state.config.effects,
+      shockwaveBurst: {
+        ...state.config.effects?.shockwaveBurst,
+        strength: value
+      }
+    };
+  }
+);
+
+addRangeControl(
+  effectsSection,
+  "shockwave thickness",
+  1,
+  160,
+  1,
+  () => state.config.effects?.shockwaveBurst?.thickness ?? 32,
+  (value) => {
+    state.config.effects = {
+      ...state.config.effects,
+      shockwaveBurst: {
+        ...state.config.effects?.shockwaveBurst,
+        thickness: Math.round(value)
+      }
+    };
+  }
+);
+
+addRangeControl(
+  effectsSection,
+  "shockwave maxBursts",
+  1,
+  64,
+  1,
+  () => state.config.effects?.shockwaveBurst?.maxBursts ?? 16,
+  (value) => {
+    state.config.effects = {
+      ...state.config.effects,
+      shockwaveBurst: {
+        ...state.config.effects?.shockwaveBurst,
+        maxBursts: Math.round(value)
+      }
+    };
+  }
+);
+
+addSelectControl(
+  effectsSection,
+  "shockwave trigger",
+  ["pointerDown", "hoverEnter", "both"],
+  () => state.config.effects?.shockwaveBurst?.triggerMode ?? "pointerDown",
+  (value) => {
+    state.config.effects = {
+      ...state.config.effects,
+      shockwaveBurst: {
+        ...state.config.effects?.shockwaveBurst,
+        triggerMode: value as "pointerDown" | "hoverEnter" | "both"
+      }
+    };
+  }
+);
+
+addRangeControl(
+  effectsSection,
+  "shockwave threshold",
+  0,
+  0.2,
+  0.001,
+  () => state.config.effects?.shockwaveBurst?.activationThreshold ?? 0.025,
+  (value) => {
+    state.config.effects = {
+      ...state.config.effects,
+      shockwaveBurst: {
+        ...state.config.effects?.shockwaveBurst,
+        activationThreshold: value
+      }
+    };
+  }
+);
+
+leftPanel.appendChild(effectsSection);
 
 const setupSection = createSection("Setup");
 
@@ -1564,7 +1960,77 @@ addRangeControl(
     state.config.hoverEffects = {
       ...state.config.hoverEffects,
       radius: value,
-      radiusY: state.config.hoverEffects?.radiusY ?? value
+      magnetic: {
+        ...state.config.hoverEffects?.magnetic,
+        radius: state.config.hoverEffects?.magnetic?.radius ?? value
+      }
+    };
+  }
+);
+
+addCheckboxControl(
+  interactionSection,
+  "hover magnetic",
+  () => !!state.config.hoverEffects?.magnetic?.enabled,
+  (value) => {
+    state.config.hoverEffects = {
+      ...state.config.hoverEffects,
+      magnetic: {
+        ...state.config.hoverEffects?.magnetic,
+        enabled: value
+      }
+    };
+  }
+);
+
+addSelectControl(
+  interactionSection,
+  "magnetic mode",
+  ["attract", "repel"],
+  () => state.config.hoverEffects?.magnetic?.mode ?? "attract",
+  (value) => {
+    state.config.hoverEffects = {
+      ...state.config.hoverEffects,
+      magnetic: {
+        ...state.config.hoverEffects?.magnetic,
+        mode: value as "attract" | "repel"
+      }
+    };
+  }
+);
+
+addRangeControl(
+  interactionSection,
+  "magnetic strength",
+  0,
+  24,
+  0.1,
+  () => state.config.hoverEffects?.magnetic?.strength ?? 2.2,
+  (value) => {
+    state.config.hoverEffects = {
+      ...state.config.hoverEffects,
+      magnetic: {
+        ...state.config.hoverEffects?.magnetic,
+        strength: value
+      }
+    };
+  }
+);
+
+addRangeControl(
+  interactionSection,
+  "magnetic radius",
+  20,
+  260,
+  1,
+  () => state.config.hoverEffects?.magnetic?.radius ?? state.config.hoverEffects?.radius ?? 100,
+  (value) => {
+    state.config.hoverEffects = {
+      ...state.config.hoverEffects,
+      magnetic: {
+        ...state.config.hoverEffects?.magnetic,
+        radius: value
+      }
     };
   }
 );
@@ -2105,7 +2571,7 @@ runtimeStats.style.whiteSpace = "pre-wrap";
 runtimeStats.style.color = "#cbd5e1";
 runtimeStats.style.fontSize = "11px";
 runtimeSection.appendChild(runtimeStats);
-utilityPanel.appendChild(runtimeSection);
+leftPanel.appendChild(runtimeSection);
 
 function updateRuntimeStats(): void {
   const debugState = effect as unknown as EffectDebugState;
@@ -2122,6 +2588,7 @@ function updateRuntimeStats(): void {
     `loop: step=${loopTuning.fixedTimeStep.toFixed(2)} maxDelta=${loopTuning.maxDelta} maxUpdates=${loopTuning.maxUpdatesPerFrame}`,
     `active cells: ${activeCells}/${totalCells}`,
     `active ripples: ${activeRipples}`,
+    `effects: palette=${state.config.effects?.paletteCycle?.enabled ? "on" : "off"} dissolve=${state.config.effects?.dissolve?.enabled ? "on" : "off"} shockwave=${state.config.effects?.shockwaveBurst?.enabled ? "on" : "off"}`,
     `timeline: ${timelineState.playing ? "playing" : "paused"} step=${timelineState.stepIndex}`,
     `preset: ${state.preset}`
   ].join("\n");
@@ -2236,7 +2703,11 @@ buttonsRow.appendChild(
           ...parsed.config,
           hoverEffects: {
             ...presetBase.hoverEffects,
-            ...parsed.config.hoverEffects
+            ...parsed.config.hoverEffects,
+            magnetic: {
+              ...presetBase.hoverEffects?.magnetic,
+              ...parsed.config.hoverEffects?.magnetic
+            }
           },
           rippleEffects: {
             ...presetBase.rippleEffects,
@@ -2245,6 +2716,22 @@ buttonsRow.appendChild(
           breathing: {
             ...presetBase.breathing,
             ...parsed.config.breathing
+          },
+          effects: {
+            ...presetBase.effects,
+            ...parsed.config.effects,
+            paletteCycle: {
+              ...presetBase.effects?.paletteCycle,
+              ...parsed.config.effects?.paletteCycle
+            },
+            dissolve: {
+              ...presetBase.effects?.dissolve,
+              ...parsed.config.effects?.dissolve
+            },
+            shockwaveBurst: {
+              ...presetBase.effects?.shockwaveBurst,
+              ...parsed.config.effects?.shockwaveBurst
+            }
           },
           performance: {
             ...presetBase.performance,
@@ -2311,7 +2798,7 @@ buttonsRow.appendChild(
 );
 
 ioSection.appendChild(buttonsRow);
-utilityPanel.appendChild(ioSection);
+leftPanel.appendChild(ioSection);
 
 function renderAllControls(): void {
   for (const refresh of refreshers) {
@@ -2321,10 +2808,12 @@ function renderAllControls(): void {
   rebuildEffect();
   updateTimelinePreview();
   updateRuntimeStats();
+  layoutLeftPanels();
 }
 
 document.body.appendChild(controlsPanel);
-document.body.appendChild(utilityPanel);
+document.body.appendChild(leftPanel);
+layoutLeftPanels();
 
 canvas.addEventListener("click", (event) => {
   const rect = canvas.getBoundingClientRect();

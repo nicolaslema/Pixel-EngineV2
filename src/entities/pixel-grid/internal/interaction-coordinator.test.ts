@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { PixelCell } from "../../PixelCell";
 import { createPixelGridRuntimeState } from "./runtime-state";
 import {
+  applyMagneticHoverPass,
   applyReactiveHoverPass,
   applyReactiveRipplePass
 } from "./interaction-coordinator";
@@ -22,13 +23,17 @@ describe("interaction-coordinator", () => {
         mode: "reactive",
         interactionScope: "all",
         radius: 120,
-        radiusY: 120,
-        shape: "circle",
         strength: 1,
         deactivate: 0.4,
         displace: 4,
         jitter: 1,
-        tintPalette: ["#ff0000"]
+        tintPalette: ["#ff0000"],
+        magnetic: {
+          enabled: false,
+          mode: "attract",
+          strength: 2,
+          radius: 120
+        }
       } as any,
       hoverEnabled: true,
       mouse: { x: 0, y: 0, inside: true }
@@ -37,6 +42,39 @@ describe("interaction-coordinator", () => {
     expect(cell.targetSize).toBeLessThan(1);
     expect(Math.abs(cell.offsetX) + Math.abs(cell.offsetY)).toBeGreaterThan(0);
     expect(cell.color).toBe("#ff0000");
+  });
+
+  it("applies magnetic hover pass in classic mode", () => {
+    const cell = new PixelCell(30, 0, "#334155", 10, 1);
+    cell.targetSize = 1;
+    const cells = [cell];
+    const runtime = createPixelGridRuntimeState(cells.length);
+    runtime.activeMaskWeightCache[0] = 1;
+
+    applyMagneticHoverPass({
+      cells,
+      runtime,
+      hoverEffects: {
+        mode: "classic",
+        interactionScope: "all",
+        radius: 120,
+        strength: 1,
+        deactivate: 0,
+        displace: 0,
+        jitter: 0,
+        tintPalette: [],
+        magnetic: {
+          enabled: true,
+          mode: "attract",
+          strength: 2.2,
+          radius: 120
+        }
+      } as any,
+      hoverEnabled: true,
+      mouse: { x: 0, y: 0, inside: true }
+    });
+
+    expect(cell.offsetX).toBeLessThan(0);
   });
 
   it("applies reactive ripple effects when ripples are active", () => {

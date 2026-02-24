@@ -30,9 +30,37 @@ export function getHoverWeight(
   const dy = cell.y - mouse.y;
   return computeHoverFalloff(dx, dy, {
     radiusX: hoverEffects.radius,
-    radiusY: hoverEffects.radiusY,
-    shape: hoverEffects.shape
+    radiusY: hoverEffects.radius
   });
+}
+
+export function applyMagneticHoverToCell(
+  options: {
+    cell: PixelCell;
+    interaction: number;
+    originX: number;
+    originY: number;
+    hoverEffects: ResolvedPixelGridConfig["hoverEffects"];
+  }
+): void {
+  const magnetic = options.hoverEffects.magnetic;
+  if (!magnetic.enabled) return;
+
+  const dx = options.originX - options.cell.x;
+  const dy = options.originY - options.cell.y;
+  const radius = magnetic.radius;
+  const falloff = computeHoverFalloff(dx, dy, {
+    radiusX: radius,
+    radiusY: radius
+  });
+  if (falloff <= 0) return;
+
+  const len = Math.sqrt(dx * dx + dy * dy) || 1;
+  const direction = magnetic.mode === "attract" ? 1 : -1;
+  const pull = magnetic.strength * options.interaction * falloff * direction;
+
+  options.cell.offsetX += (dx / len) * pull;
+  options.cell.offsetY += (dy / len) * pull;
 }
 
 export function shouldAffectCell(

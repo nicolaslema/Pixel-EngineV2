@@ -2,6 +2,80 @@
 
 This guide covers migration to the formal v1 stable baseline and the new package split.
 
+## Update: v1.0.20 Hover API Simplification + Magnetic Mode (2026-02-24)
+
+- `hoverEffects.radiusY` removed.
+- `hoverEffects.shape` removed from hover configuration (hover is circle-only for now).
+- Added `hoverEffects.magnetic`:
+  - `enabled`
+  - `mode: "attract" | "repel"`
+  - `strength`
+  - `radius`
+
+Migration:
+
+```ts
+// before
+hoverEffects: {
+  mode: "reactive",
+  radius: 120,
+  radiusY: 90,
+  shape: "vignette"
+}
+
+// after
+hoverEffects: {
+  mode: "reactive",
+  radius: 120,
+  magnetic: { enabled: true, mode: "attract", strength: 2.4, radius: 120 }
+}
+```
+
+## Update: v1.0.19 Phase 9 PR-9B Effects Expansion (2026-02-24)
+
+- Added new `effects` options:
+  - `effects.dissolve`
+  - `effects.shockwaveBurst`
+- `effects.paletteCycle` remains available.
+
+Example:
+
+```ts
+effects: {
+  paletteCycle: { enabled: true, speed: 0.45, scope: "activeOnly" },
+  dissolve: { enabled: true, speed: 0.9, amount: 0.3 },
+  shockwaveBurst: {
+    enabled: true,
+    speed: 0.85,
+    strength: 0.45,
+    thickness: 28,
+    maxBursts: 16,
+    triggerMode: "pointerDown"
+  }
+}
+```
+
+## Update: v1.0.18 Effects API Simplification (2026-02-24)
+
+- `effects.trail` was removed from `PixelGridConfig` and `PixelGridEffect` runtime.
+- `effects` now only supports `paletteCycle`.
+- Playground `Effects` panel was simplified to only expose `paletteCycle` controls.
+
+Migration:
+
+```ts
+// before
+effects: {
+  trail: { enabled: true, decay: 0.88, strength: 1 },
+  paletteCycle: { enabled: true, speed: 0.45, scope: "activeOnly" }
+}
+
+// after
+effects: {
+  paletteCycle: { enabled: true, speed: 0.45, scope: "activeOnly" }
+}
+```
+
 ## Update: v1.0.16 Phase 4 Multi-Mask Timeline Hardening (2026-02-23)
 
 - React hybrid mask (`mask.type="hybrid"`) now has production-hardened validation for multi-mask timelines:

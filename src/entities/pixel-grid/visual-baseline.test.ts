@@ -84,8 +84,6 @@ describe("PixelGrid visual baseline", () => {
         hoverEffects: {
           mode: "classic",
           radius: 85,
-          radiusY: 85,
-          shape: "circle",
           strength: 1
         }
       },
@@ -126,8 +124,6 @@ describe("PixelGrid visual baseline", () => {
         hoverEffects: {
           mode: "reactive",
           radius: 100,
-          radiusY: 80,
-          shape: "vignette",
           strength: 1,
           displace: 4,
           jitter: 1.2
@@ -178,8 +174,6 @@ describe("PixelGrid visual baseline", () => {
         hoverEffects: {
           mode: "classic",
           radius: 110,
-          radiusY: 95,
-          shape: "vignette",
           strength: 1
         },
         breathing: {
@@ -187,7 +181,7 @@ describe("PixelGrid visual baseline", () => {
           speed: 1.7,
           radius: 160,
           radiusY: 120,
-          shape: "vignette",
+          shape: "circle",
           strength: 0.55,
           minOpacity: 0.45,
           maxOpacity: 1,

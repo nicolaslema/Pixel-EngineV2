@@ -1,28 +1,17 @@
 import { Influence, BlendMode } from "./Influence";
 import { EnginePointerSource } from "../core/EnginePointerSource";
-import { computeHoverFalloff, HoverShape } from "./HoverShape";
-
-export interface HoverInfluenceOptions {
-  radiusY?: number;
-  shape?: HoverShape;
-}
+import { computeHoverFalloff } from "./HoverShape";
 
 export class HoverInfluence implements Influence {
   priority = 5;
   blendMode: BlendMode = "add";
-  private radiusY: number;
-  private shape: HoverShape;
 
   constructor(
     private engine: EnginePointerSource,
     private radius: number,
     private breathSpeed: number,
-    private strength: number,
-    options: HoverInfluenceOptions = {}
-  ) {
-    this.radiusY = options.radiusY ?? radius;
-    this.shape = options.shape ?? "circle";
-  }
+    private strength: number
+  ) {}
 
   update(_delta = 0): void {
     void _delta;
@@ -39,8 +28,8 @@ export class HoverInfluence implements Influence {
     return {
       minX: x - this.radius,
       maxX: x + this.radius,
-      minY: y - this.radiusY,
-      maxY: y + this.radiusY
+      minY: y - this.radius,
+      maxY: y + this.radius
     };
   }
 
@@ -56,8 +45,7 @@ export class HoverInfluence implements Influence {
 
     const falloff = computeHoverFalloff(dx, dy, {
       radiusX: this.radius,
-      radiusY: this.radiusY,
-      shape: this.shape
+      radiusY: this.radius
     });
 
     if (falloff <= 0) return 0;
