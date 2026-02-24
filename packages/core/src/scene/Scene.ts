@@ -5,12 +5,17 @@ export class Scene {
   private entities: Entity[] = [];
 
   add(entity: Entity): void {
+    if (this.entities.includes(entity)) return;
     this.entities.push(entity);
     this.sort();
+    entity.onAdd();
   }
 
   remove(entity: Entity): void {
-    this.entities = this.entities.filter(e => e !== entity);
+    const index = this.entities.indexOf(entity);
+    if (index === -1) return;
+    this.entities.splice(index, 1);
+    entity.onRemove();
   }
 
   private sort(): void {
@@ -35,5 +40,13 @@ export class Scene {
 
   getEntities(): readonly Entity[] {
     return this.entities;
+  }
+
+  destroy(): void {
+    for (const entity of this.entities) {
+      entity.onRemove();
+      entity.onDestroy();
+    }
+    this.entities = [];
   }
 }

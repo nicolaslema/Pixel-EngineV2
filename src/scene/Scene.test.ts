@@ -4,6 +4,9 @@ import { Entity } from "./Entity";
 import { IRenderer } from "../renderers/IRenderer";
 
 class TestEntity extends Entity {
+  onAdd = vi.fn();
+  onRemove = vi.fn();
+  onDestroy = vi.fn();
   update = vi.fn();
   render = vi.fn();
 }
@@ -39,5 +42,34 @@ describe("Scene", () => {
     scene.remove(entity);
 
     expect(scene.getEntities().length).toBe(0);
+    expect(entity.onAdd).toHaveBeenCalledTimes(1);
+    expect(entity.onRemove).toHaveBeenCalledTimes(1);
+  });
+
+  it("should ignore duplicate add and fire add hook once", () => {
+    const scene = new Scene();
+    const entity = new TestEntity();
+
+    scene.add(entity);
+    scene.add(entity);
+
+    expect(scene.getEntities().length).toBe(1);
+    expect(entity.onAdd).toHaveBeenCalledTimes(1);
+  });
+
+  it("should destroy all entities with lifecycle hooks", () => {
+    const scene = new Scene();
+    const a = new TestEntity();
+    const b = new TestEntity();
+
+    scene.add(a);
+    scene.add(b);
+    scene.destroy();
+
+    expect(scene.getEntities().length).toBe(0);
+    expect(a.onRemove).toHaveBeenCalledTimes(1);
+    expect(a.onDestroy).toHaveBeenCalledTimes(1);
+    expect(b.onRemove).toHaveBeenCalledTimes(1);
+    expect(b.onDestroy).toHaveBeenCalledTimes(1);
   });
 });

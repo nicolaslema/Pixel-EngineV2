@@ -4,6 +4,7 @@ export type RenderCallback = (alpha: number, renderDelta: number) => void;
 export interface GameLoopConfig {
   fixedTimeStep?: number;
   maxDelta?: number;
+  maxUpdatesPerFrame?: number;
   onRender?: RenderCallback;
   getTimeScale?: () => number;
 }
@@ -17,6 +18,7 @@ export class GameLoop {
 
   private readonly fixedTimeStep: number;
   private readonly maxDelta: number;
+  private readonly maxUpdatesPerFrame: number;
   private readonly onRender?: RenderCallback;
   private readonly getTimeScale?: () => number;
 
@@ -30,6 +32,7 @@ export class GameLoop {
   ) {
     this.fixedTimeStep = config?.fixedTimeStep ?? 1000 / 60;
     this.maxDelta = config?.maxDelta ?? 250;
+    this.maxUpdatesPerFrame = config?.maxUpdatesPerFrame ?? 240;
     this.onRender = config?.onRender;
     this.getTimeScale = config?.getTimeScale;
   }
@@ -69,12 +72,11 @@ export class GameLoop {
     const timeScale = this.resolveTimeScale();
     this.accumulator += delta * timeScale;
 
-    const maxUpdatesPerFrame = 240;
     let updateCount = 0;
 
     while (
       this.accumulator >= this.fixedTimeStep &&
-      updateCount < maxUpdatesPerFrame
+      updateCount < this.maxUpdatesPerFrame
     ) {
       this.frame(this.fixedTimeStep);
       this.accumulator -= this.fixedTimeStep;
@@ -114,5 +116,13 @@ export class GameLoop {
 
   isRunning(): boolean {
     return this.running;
+  }
+
+  getConfig(): Readonly<Required<Pick<GameLoopConfig, "fixedTimeStep" | "maxDelta" | "maxUpdatesPerFrame">>> {
+    return {
+      fixedTimeStep: this.fixedTimeStep,
+      maxDelta: this.maxDelta,
+      maxUpdatesPerFrame: this.maxUpdatesPerFrame
+    };
   }
 }

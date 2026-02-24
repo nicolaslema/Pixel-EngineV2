@@ -2,6 +2,30 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.0.16] - 2026-02-24
+
+### Added
+- Completed v1.1 Phase 8 pre-effects robustness hardening:
+  - PR-8A: native `PixelGridEffect.resize(width, height)` and React grid/effect resize sync.
+  - PR-8B: pointer-first input path + entity lifecycle hooks (`onAdd`, `onRemove`, `onDestroy`).
+  - PR-8C: explicit engine loop tuning via `PixelEngineOptions.loop`.
+- New engine runtime inspection helpers:
+  - `engine.getQuality()`
+  - `engine.getLoopTuning()`
+- New tests for:
+  - loop update cap behavior (`maxUpdatesPerFrame`)
+  - runtime tuning defaults/overrides
+  - pointer/fallback input behavior
+  - scene/entity lifecycle hooks
+
+### Changed
+- `PixelEngineOptions.quality` now has explicit scheduling semantics (runtime loop profile defaults).
+- `GameLoop` now supports configurable `maxUpdatesPerFrame`.
+- `PixelCanvas` and `PixelGridCanvas` no longer force `width/height: 100%` at base component level.
+
+### Removed
+- Dormant `PerformanceMonitor` module from core runtime surface (was not wired in engine path).
+
 ## [1.0.15] - 2026-02-22
 
 ### Added

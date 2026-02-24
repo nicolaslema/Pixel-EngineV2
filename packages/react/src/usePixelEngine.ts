@@ -15,6 +15,7 @@ export function usePixelEngine(options: UsePixelEngineOptions): UsePixelEngineRe
     height,
     autoStart = true,
     quality,
+    loop,
     clearColor,
     devicePixelRatio,
     resizeMode = "observer",
@@ -58,6 +59,7 @@ export function usePixelEngine(options: UsePixelEngineOptions): UsePixelEngineRe
       width: resolvedSize.width,
       height: resolvedSize.height,
       quality,
+      loop,
       clearColor,
       devicePixelRatio
     };
@@ -127,6 +129,7 @@ export function usePixelEngine(options: UsePixelEngineOptions): UsePixelEngineRe
     devicePixelRatio,
     fitMode,
     height,
+    loop,
     quality,
     resizeMode,
     width

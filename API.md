@@ -41,6 +41,9 @@ engine.start();
   - `time.renderDelta` (raw frame render delta)
   - `time.elapsed` (simulated elapsed time)
 - `PixelEngine` exposes `getScheduler()` for deterministic phased tasks.
+- Engine runtime tuning is explicit:
+  - `quality` defines scheduling defaults (`low` | `medium` | `high`)
+  - `loop` overrides expose fixed-step tuning (`fixedTimeStep`, `maxDelta`, `maxUpdatesPerFrame`)
 
 Scheduler phases:
 - `preUpdate`
@@ -64,6 +67,25 @@ scheduler.add("ui-render-hook", (renderDelta, alpha) => {
 }, { phase: "postRender", priority: 10 });
 
 engine.getTime().timeScale = 0.5; // slow-motion by reducing update scheduling rate
+```
+
+Engine runtime tuning example:
+
+```ts
+const engine = new PixelEngine({
+  canvas,
+  width: 1000,
+  height: 700,
+  quality: "high",
+  loop: {
+    fixedTimeStep: 12,
+    maxDelta: 180,
+    maxUpdatesPerFrame: 64
+  }
+});
+
+console.log(engine.getQuality()); // "high"
+console.log(engine.getLoopTuning()); // resolved runtime loop profile
 ```
 
 ## React Public API

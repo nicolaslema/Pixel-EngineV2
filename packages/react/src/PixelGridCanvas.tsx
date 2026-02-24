@@ -3,9 +3,7 @@ import { usePixelGridEffect } from "./usePixelGridEffect";
 import { PixelGridCanvasProps } from "./types";
 
 const baseStyle: CSSProperties = {
-  display: "block",
-  width: "100%",
-  height: "100%"
+  display: "block"
 };
 
 export function PixelGridCanvas(props: PixelGridCanvasProps) {

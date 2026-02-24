@@ -201,4 +201,26 @@ describe("PixelGridEffect", () => {
     warnSpy.mockRestore();
     engine.destroy();
   });
+
+  it("should resize runtime grid without remounting effect instance", () => {
+    const canvas = document.createElement("canvas");
+    const engine = new PixelEngine({
+      canvas,
+      width: 220,
+      height: 140
+    });
+
+    const effect = new PixelGridEffect(engine, 220, 140, {
+      colors: ["#334155", "#475569", "#64748b"],
+      gap: 8,
+      expandEase: 0.08,
+      breathSpeed: 1
+    });
+
+    expect(() => effect.resize(480, 260)).not.toThrow();
+    expect(() => effect.update(16)).not.toThrow();
+    expect(() => effect.render(engine.getRenderer())).not.toThrow();
+
+    engine.destroy();
+  });
 });

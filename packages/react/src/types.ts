@@ -34,6 +34,7 @@ export interface UsePixelEngineOptions {
   height: number;
   autoStart?: boolean;
   quality?: QualityLevel;
+  loop?: PixelEngineOptions["loop"];
   clearColor?: string | null;
   devicePixelRatio?: number;
   resizeMode?: ResizeMode;

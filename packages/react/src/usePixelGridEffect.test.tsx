@@ -226,6 +226,59 @@ describe("usePixelGridEffect", () => {
     cleanupHost(container, root);
   });
 
+  it("resizes existing effect when dimensions change without remount", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+    const addEntity = vi.fn();
+    const removeEntity = vi.fn();
+    const engine = {
+      addEntity,
+      removeEntity,
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    };
+    const createEngine = vi.fn(() => engine);
+    const resize = vi.fn();
+    const createGridEffect = vi.fn(() => ({
+      triggerRipple: vi.fn(),
+      resize
+    }));
+
+    function TestComponent(props: { width: number; height: number }) {
+      const { canvasRef } = usePixelGridEffect({
+        width: props.width,
+        height: props.height,
+        effectKey: "stable",
+        gridConfig: {
+          colors: ["#334155", "#475569", "#64748b"],
+          gap: 6,
+          expandEase: 0.08,
+          breathSpeed: 1
+        },
+        createEngine: createEngine as never,
+        createGridEffect: createGridEffect as never
+      });
+      return <canvas ref={canvasRef} />;
+    }
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(<TestComponent width={300} height={180} />);
+    });
+    expect(createGridEffect).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      root.render(<TestComponent width={420} height={240} />);
+    });
+
+    expect(createGridEffect).toHaveBeenCalledTimes(1);
+    expect(resize).toHaveBeenCalled();
+    expect(resize).toHaveBeenLastCalledWith(420, 240);
+
+    cleanupHost(container, root);
+  });
+
   it("forwards hybrid multi-mask items/steps with assetId refs to effect config", () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

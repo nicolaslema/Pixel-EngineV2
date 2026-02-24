@@ -15,6 +15,12 @@ export abstract class Entity {
     this.transform = new Transform();
   }
 
+  onAdd(): void {}
+
+  onRemove(): void {}
+
+  onDestroy(): void {}
+
   update(_deltaTime: number): void {}
 
   render(_renderer: IRenderer, _alpha = 1): void {}

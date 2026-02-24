@@ -40,11 +40,21 @@ const canvas = document.getElementById("app") as HTMLCanvasElement;
 
 const width = 800;
 const height = 600;
+const engineRuntimeTuning = {
+  quality: "medium" as const,
+  loop: {
+    fixedTimeStep: 1000 / 60,
+    maxDelta: 250,
+    maxUpdatesPerFrame: 240
+  }
+};
 
 const engine = new PixelEngine({
   canvas,
   width,
-  height
+  height,
+  quality: engineRuntimeTuning.quality,
+  loop: engineRuntimeTuning.loop
 });
 
 function cloneConfig<T>(value: T): T {
@@ -2105,8 +2115,11 @@ function updateRuntimeStats(): void {
   const totalCells = debugState.cells?.length ?? 0;
   const activeRipples = debugState.runtime?.activeRipples?.length ?? 0;
   const timelineState = effect.getMaskTimelineState();
+  const loopTuning = engine.getLoopTuning();
   runtimeStats.textContent = [
     `fps: ${engine.getFPS().toFixed(1)}`,
+    `quality: ${engine.getQuality()}`,
+    `loop: step=${loopTuning.fixedTimeStep.toFixed(2)} maxDelta=${loopTuning.maxDelta} maxUpdates=${loopTuning.maxUpdatesPerFrame}`,
     `active cells: ${activeCells}/${totalCells}`,
     `active ripples: ${activeRipples}`,
     `timeline: ${timelineState.playing ? "playing" : "paused"} step=${timelineState.stepIndex}`,

@@ -3,9 +3,7 @@ import { usePixelEngine } from "./usePixelEngine";
 import { PixelCanvasProps } from "./types";
 
 const baseStyle: CSSProperties = {
-  display: "block",
-  width: "100%",
-  height: "100%"
+  display: "block"
 };
 
 export function PixelCanvas(props: PixelCanvasProps) {

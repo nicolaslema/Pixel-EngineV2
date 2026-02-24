@@ -2,7 +2,8 @@ import { Entity, IRenderer, type EnginePointerSource } from "@pixel-engine/core"
 import { PixelCell } from "./PixelCell";
 import {
   PixelGridConfig,
-  PixelGridInfluenceOptions
+  PixelGridInfluenceOptions,
+  ResolvedPixelGridConfig
 } from "./pixel-grid/types";
 import { resolvePixelGridConfig } from "./pixel-grid/normalizeConfig";
 import {
@@ -11,8 +12,12 @@ import {
 } from "./pixel-grid/internal/runtime-controller";
 
 export class PixelGridEffect extends Entity {
-  private readonly runtime: PixelGridRuntimeController;
-  private readonly cells: PixelCell[];
+  private runtime: PixelGridRuntimeController;
+  private cells: PixelCell[];
+  private readonly influenceOptions: PixelGridInfluenceOptions;
+  private readonly resolvedConfig: ResolvedPixelGridConfig;
+  private width: number;
+  private height: number;
 
   constructor(
     private engine: EnginePointerSource,
@@ -27,17 +32,19 @@ export class PixelGridEffect extends Entity {
   ) {
     super();
 
-    const resolved = resolvePixelGridConfig(config);
-    this.emitConfigWarnings(resolved.warnings);
+    this.influenceOptions = { ...influenceOptions };
+    this.resolvedConfig = resolvePixelGridConfig(config);
+    this.emitConfigWarnings(this.resolvedConfig.warnings);
     this.applyCanvasBackgroundFromConfig();
-
+    this.width = Math.max(1, Math.round(width));
+    this.height = Math.max(1, Math.round(height));
     this.runtime = createPixelGridRuntimeController({
-      engine,
-      width,
-      height,
-      config,
-      influenceOptions,
-      resolvedConfig: resolved
+      engine: this.engine,
+      width: this.width,
+      height: this.height,
+      config: this.config,
+      influenceOptions: this.influenceOptions,
+      resolvedConfig: this.resolvedConfig
     });
     this.cells = this.runtime.getCellsForDebug();
   }
@@ -66,6 +73,24 @@ export class PixelGridEffect extends Entity {
 
   triggerRipple(x: number, y: number): void {
     this.runtime.triggerRipple(x, y);
+  }
+
+  resize(width: number, height: number): void {
+    const nextWidth = Math.max(1, Math.round(width));
+    const nextHeight = Math.max(1, Math.round(height));
+    if (nextWidth === this.width && nextHeight === this.height) return;
+
+    this.width = nextWidth;
+    this.height = nextHeight;
+    this.runtime = createPixelGridRuntimeController({
+      engine: this.engine,
+      width: this.width,
+      height: this.height,
+      config: this.config,
+      influenceOptions: this.influenceOptions,
+      resolvedConfig: this.resolvedConfig
+    });
+    this.cells = this.runtime.getCellsForDebug();
   }
 
   setCanvasBackground(background: string | null): void {

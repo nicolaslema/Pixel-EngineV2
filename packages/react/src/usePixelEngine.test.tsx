@@ -151,4 +151,42 @@ describe("usePixelEngine", () => {
 
     cleanupHost(container, root);
   });
+
+  it("forwards loop tuning options to engine creation", () => {
+    const createEngine = vi.fn(() => ({
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    })) as unknown as ReturnType<typeof vi.fn>;
+
+    function TestComponent() {
+      const { canvasRef } = usePixelEngine({
+        width: 300,
+        height: 180,
+        quality: "high",
+        loop: {
+          fixedTimeStep: 12,
+          maxDelta: 180,
+          maxUpdatesPerFrame: 64
+        },
+        createEngine: createEngine as never
+      });
+      return <canvas ref={canvasRef} />;
+    }
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(<TestComponent />);
+    });
+
+    const call = createEngine.mock.calls[0]?.[0];
+    expect(call.quality).toBe("high");
+    expect(call.loop).toEqual({
+      fixedTimeStep: 12,
+      maxDelta: 180,
+      maxUpdatesPerFrame: 64
+    });
+
+    cleanupHost(container, root);
+  });
 });

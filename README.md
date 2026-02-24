@@ -295,6 +295,9 @@ Validated in an external React project (Vite + TypeScript) with local package in
 ## Loop and Scheduler Semantics
 
 - Simulation uses a fixed timestep update loop.
+- Core runtime scheduling can be tuned from `PixelEngine`:
+  - `quality`: scheduling profile defaults (`low` | `medium` | `high`)
+  - `loop`: explicit overrides (`fixedTimeStep`, `maxDelta`, `maxUpdatesPerFrame`)
 - `timeScale` now controls update scheduling at accumulator level.
   - `0` pauses simulation updates.
   - `0.5` halves simulation update frequency (slow-motion).
@@ -304,6 +307,25 @@ Validated in an external React project (Vite + TypeScript) with local package in
   - `renderDelta`: render-frame delta
   - `elapsed`: simulated elapsed time
 - `PixelEngine` exposes `getScheduler()` with deterministic phased execution and priority ordering.
+- Runtime profile inspection:
+  - `engine.getQuality()`
+  - `engine.getLoopTuning()`
+
+Runtime tuning example:
+
+```ts
+const engine = new PixelEngine({
+  canvas,
+  width,
+  height,
+  quality: "high",
+  loop: {
+    fixedTimeStep: 12,
+    maxDelta: 180,
+    maxUpdatesPerFrame: 64
+  }
+});
+```
 
 Scheduler phases:
 - `preUpdate`

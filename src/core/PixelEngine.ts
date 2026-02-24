@@ -1,5 +1,5 @@
 import { GameLoop } from "./GameLoop";
-import { PixelEngineOptions } from "./types";
+import { PixelEngineLoopOptions, PixelEngineOptions, QualityLevel } from "./types";
 import { Renderer } from "../renderers/Renderer";
 import { Scene } from "../scene/Scene";
 import { Entity } from "../scene/Entity";
@@ -18,6 +18,8 @@ export class PixelEngine {
   private scheduler: Scheduler;
   private camera: Camera2D;
   private clearColor: string | null;
+  private readonly quality: QualityLevel;
+  private readonly loopTuning: Required<PixelEngineLoopOptions>;
   private dpr: number;
   private width: number;
   private height: number;
@@ -34,11 +36,13 @@ export class PixelEngine {
   };
 
   constructor(private options: PixelEngineOptions) {
-    const { canvas, width, height, rendererFactory } = options;
+    const { canvas, width, height, rendererFactory, loop } = options;
 
     this.width = width;
     this.height = height;
     this.clearColor = options.clearColor ?? "black";
+    this.quality = options.quality ?? "medium";
+    this.loopTuning = resolveLoopTuning(this.quality, loop);
     this.dpr = Math.max(1, options.devicePixelRatio ?? window.devicePixelRatio ?? 1);
 
     this.renderer = rendererFactory
@@ -54,6 +58,9 @@ export class PixelEngine {
     this.loop = new GameLoop((deltaTime: number) => {
       this.update(deltaTime);
     }, {
+      fixedTimeStep: this.loopTuning.fixedTimeStep,
+      maxDelta: this.loopTuning.maxDelta,
+      maxUpdatesPerFrame: this.loopTuning.maxUpdatesPerFrame,
       onRender: (alpha: number, renderDelta: number) => {
         this.render(alpha, renderDelta);
       },
@@ -112,6 +119,7 @@ export class PixelEngine {
 
   destroy(): void {
     this.stop();
+    this.scene.destroy();
     this.input.destroy();
     this.renderer.destroy?.();
   }
@@ -184,4 +192,64 @@ export class PixelEngine {
   getClearColor(): string | null {
     return this.clearColor;
   }
+
+  getQuality(): QualityLevel {
+    return this.quality;
+  }
+
+  getLoopTuning(): Readonly<Required<PixelEngineLoopOptions>> {
+    return this.loopTuning;
+  }
+}
+
+function resolveLoopTuning(
+  quality: QualityLevel,
+  loop?: PixelEngineLoopOptions
+): Required<PixelEngineLoopOptions> {
+  const defaults = getQualityLoopDefaults(quality);
+  return {
+    fixedTimeStep: resolvePositiveNumber(loop?.fixedTimeStep, defaults.fixedTimeStep),
+    maxDelta: resolvePositiveNumber(loop?.maxDelta, defaults.maxDelta),
+    maxUpdatesPerFrame: resolvePositiveInteger(
+      loop?.maxUpdatesPerFrame,
+      defaults.maxUpdatesPerFrame
+    )
+  };
+}
+
+function getQualityLoopDefaults(quality: QualityLevel): Required<PixelEngineLoopOptions> {
+  if (quality === "low") {
+    return {
+      fixedTimeStep: 1000 / 45,
+      maxDelta: 200,
+      maxUpdatesPerFrame: 120
+    };
+  }
+  if (quality === "high") {
+    return {
+      fixedTimeStep: 1000 / 75,
+      maxDelta: 250,
+      maxUpdatesPerFrame: 360
+    };
+  }
+  return {
+    fixedTimeStep: 1000 / 60,
+    maxDelta: 250,
+    maxUpdatesPerFrame: 240
+  };
+}
+
+function resolvePositiveNumber(value: number | undefined, fallback: number): number {
+  if (typeof value !== "number") return fallback;
+  if (!Number.isFinite(value)) return fallback;
+  if (value <= 0) return fallback;
+  return value;
+}
+
+function resolvePositiveInteger(value: number | undefined, fallback: number): number {
+  if (typeof value !== "number") return fallback;
+  if (!Number.isFinite(value)) return fallback;
+  const rounded = Math.floor(value);
+  if (rounded <= 0) return fallback;
+  return rounded;
 }

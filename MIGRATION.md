@@ -28,6 +28,34 @@ Maintainer note:
 - Use `bench:transition:legacy` to compare against pre-multi-mask behavior.
 - Use `bench:transition:multi` as the default tracking target for Phase 4+ timeline regressions.
 
+## Update: v1.0.17 Phase 8C Runtime Tuning Contracts (2026-02-24)
+
+- `PixelEngineOptions` now supports explicit loop tuning:
+  - `loop.fixedTimeStep`
+  - `loop.maxDelta`
+  - `loop.maxUpdatesPerFrame`
+- `quality` in `PixelEngineOptions` now has explicit runtime meaning:
+  - it selects scheduling defaults for the fixed-step loop profile
+  - explicit `loop` values always override quality defaults
+- New runtime inspection helpers:
+  - `engine.getQuality()`
+  - `engine.getLoopTuning()`
+- Removed dormant `PerformanceMonitor` module from core public surface.
+
+Recommended migration:
+
+```ts
+const engine = new PixelEngine({
+  canvas,
+  width,
+  height,
+  quality: "medium",
+  loop: {
+    maxUpdatesPerFrame: 180
+  }
+});
+```
+
 ## Update: v1.0.15 Phase 2 Runtime Tuning + Culling (2026-02-22)
 
 - `PixelGridConfig` now supports `performance` tuning:

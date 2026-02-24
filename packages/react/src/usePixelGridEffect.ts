@@ -13,6 +13,28 @@ function toLocalCoords(canvas: HTMLCanvasElement, event: MouseEvent | PointerEve
   };
 }
 
+function getCanvasClientSize(canvas: HTMLCanvasElement): { width: number; height: number } {
+  return {
+    width: Math.max(1, Math.round(canvas.clientWidth)),
+    height: Math.max(1, Math.round(canvas.clientHeight))
+  };
+}
+
+function resolveEffectSize(
+  canvas: HTMLCanvasElement | null,
+  width: number,
+  height: number,
+  gridWidth: number | undefined,
+  gridHeight: number | undefined,
+  fitMode: "none" | "client"
+): { width: number; height: number } {
+  const clientSize = fitMode === "client" && canvas ? getCanvasClientSize(canvas) : null;
+  return {
+    width: Math.max(1, Math.round(gridWidth ?? clientSize?.width ?? width)),
+    height: Math.max(1, Math.round(gridHeight ?? clientSize?.height ?? height))
+  };
+}
+
 export function usePixelGridEffect(options: UsePixelGridEffectOptions): UsePixelGridEffectResult {
   const {
     width,
@@ -26,6 +48,8 @@ export function usePixelGridEffect(options: UsePixelGridEffectOptions): UsePixel
     effectKey = "default",
     autoAttach = true,
     rippleTrigger = "click",
+    fitMode = "none",
+    resizeMode = "observer",
     onGridReady,
     onRipple,
     createGridEffect,
@@ -35,6 +59,8 @@ export function usePixelGridEffect(options: UsePixelGridEffectOptions): UsePixel
   const { canvasRef, engine, isReady } = usePixelEngine({
     width,
     height,
+    fitMode,
+    resizeMode,
     ...engineOptions
   });
   const resolvedGridConfig = useMemo(
@@ -63,21 +89,20 @@ export function usePixelGridEffect(options: UsePixelGridEffectOptions): UsePixel
 
   useEffect(() => {
     if (!engine) return;
-
-    const effectWidth = Math.max(1, gridWidth ?? width);
-    const effectHeight = Math.max(1, gridHeight ?? height);
+    const canvas = canvasRef.current;
+    const size = resolveEffectSize(canvas, width, height, gridWidth, gridHeight, fitMode);
     const effect = createGridEffectRef.current
       ? createGridEffectRef.current(
         engine,
-        effectWidth,
-        effectHeight,
+        size.width,
+        size.height,
         gridConfigRef.current,
         influenceOptionsRef.current
       )
       : new PixelGridEffect(
         engine,
-        effectWidth,
-        effectHeight,
+        size.width,
+        size.height,
         gridConfigRef.current,
         influenceOptionsRef.current
       );
@@ -96,7 +121,51 @@ export function usePixelGridEffect(options: UsePixelGridEffectOptions): UsePixel
         gridRef.current = null;
       }
     };
-  }, [autoAttach, effectKey, engine, gridHeight, gridWidth, height, width]);
+  }, [autoAttach, effectKey, engine]);
+
+  useEffect(() => {
+    const effect = gridRef.current;
+    if (!effect) return;
+    const size = resolveEffectSize(
+      canvasRef.current,
+      width,
+      height,
+      gridWidth,
+      gridHeight,
+      fitMode
+    );
+    effect.resize?.(size.width, size.height);
+  }, [canvasRef, effectKey, fitMode, gridHeight, gridWidth, height, width]);
+
+  useEffect(() => {
+    if (fitMode !== "client") return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const applyResize = () => {
+      const effect = gridRef.current;
+      if (!effect) return;
+      const size = resolveEffectSize(
+        canvas,
+        width,
+        height,
+        gridWidth,
+        gridHeight,
+        fitMode
+      );
+      effect.resize?.(size.width, size.height);
+    };
+
+    if (resizeMode === "observer" && typeof ResizeObserver !== "undefined") {
+      const ro = new ResizeObserver(() => applyResize());
+      ro.observe(canvas);
+      return () => ro.disconnect();
+    }
+    if (resizeMode === "window") {
+      window.addEventListener("resize", applyResize, { passive: true });
+      return () => window.removeEventListener("resize", applyResize);
+    }
+  }, [canvasRef, effectKey, fitMode, gridHeight, gridWidth, height, resizeMode, width]);
 
   useEffect(() => {
     if (rippleTrigger === "none") return;

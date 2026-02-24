@@ -89,4 +89,19 @@ describe("GameLoop", () => {
     expect(frame).toHaveBeenCalledTimes(3);
     expect(frame).toHaveBeenLastCalledWith(16);
   });
+
+  it("respects maxUpdatesPerFrame cap", () => {
+    const loop = new GameLoop(frame, {
+      fixedTimeStep: 10,
+      maxDelta: 500,
+      maxUpdatesPerFrame: 2
+    });
+
+    loop.start();
+
+    now = 100;
+    rafCallback?.(100);
+
+    expect(frame).toHaveBeenCalledTimes(2);
+  });
 });
