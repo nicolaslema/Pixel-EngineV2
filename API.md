@@ -1,6 +1,6 @@
 # Pixel Engine API
 
-This document focuses on the stable public API and React integration patterns (including Phase E PR-E2 preset tuning updates).
+This document focuses on the stable public API and React integration patterns for the current v1 baseline plus v1.1 runtime hardening.
 
 ## Packages
 
@@ -30,6 +30,12 @@ const grid = new PixelGridEffect(engine, 1000, 700, {
 });
 engine.addEntity(grid);
 engine.start();
+```
+
+Resize without remount:
+
+```ts
+grid.resize(1200, 760);
 ```
 
 ## Core Loop and Scheduler Semantics
@@ -127,11 +133,14 @@ Key fields:
 - `gridConfig?: Partial<PixelGridConfig>`
 - `mask?: { type: "text" | "image" | "hybrid", ... }`
 - `effectKey?: string | number`
+- `fitMode?: "none" | "client"`
+- `resizeMode?: "observer" | "window" | "none"`
 - `onRipple?`, `onHoverStart?`, `onHoverEnd?`, `onGridReady?`
 
 Notes:
 - `gridConfig` is optional when `preset` is provided.
 - `effectKey` controls explicit effect recreation (prevents accidental remounts from inline objects).
+- With `fitMode="client"`, React wrappers keep engine canvas size and grid effect size synchronized (using `ResizeObserver` or `window` mode).
 - for `mask.type="hybrid"`, you can provide:
   - `autoMorph`
   - `texts[]` / `images[]` for multiple assets
@@ -336,6 +345,7 @@ Preset matrix:
 - Effect remount behavior:
   - stable `effectKey` keeps the same effect instance
   - changing `effectKey` forces intentional recreation
+  - size changes do not require remount; active effect uses `resize(width, height)`
 - Timeline compatibility:
   - `assetId` is the preferred field in `steps[]`
   - `maskId` remains accepted as legacy alias

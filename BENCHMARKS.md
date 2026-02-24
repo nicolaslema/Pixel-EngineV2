@@ -58,6 +58,78 @@ Notes:
 - CPU scheduling and garbage collection can move single-run results noticeably.
 - Prefer at least 5 runs for release-level comparisons.
 
+## Latest snapshot (2026-02-24)
+
+Measurement command:
+
+```bash
+npm run bench:pixelgrid
+```
+
+Resolved benchmark command:
+
+```bash
+node scripts/bench/pixelgrid-bench.cjs --suite=all --runs=3
+```
+
+Scenario setup:
+- Frames: `240` (warmup `60`)
+- Classic suite quality: `medium`
+- Stress suite qualities: `low`, `medium`, `high`
+
+Results:
+
+### Classic (`classic-comparable`)
+
+- Cells (estimated): `19539`
+- Avg update ms (mean): `5.070`
+- Avg render ms (mean): `0.288`
+- Avg frame ms (median): `5.502`
+- Avg frame ms (mean): `5.358`
+- Frame p95 ms: `5.891`
+- Est. FPS (median): `181.7`
+- Est. FPS (mean): `188.4`
+- Heap delta MB (mean): `-2.261`
+
+### Stress (`stress-overdraw`)
+
+- `low`
+  - Cells (estimated): `49128`
+  - Avg update ms (mean): `22.208`
+  - Avg render ms (mean): `0.744`
+  - Avg frame ms (median): `21.701`
+  - Avg frame ms (mean): `22.952`
+  - Frame p95 ms: `25.865`
+  - Est. FPS (median): `46.1`
+  - Est. FPS (mean): `43.9`
+  - Heap delta MB (mean): `-1.565`
+
+- `medium`
+  - Cells (estimated): `49128`
+  - Avg update ms (mean): `20.506`
+  - Avg render ms (mean): `0.710`
+  - Avg frame ms (median): `21.321`
+  - Avg frame ms (mean): `21.216`
+  - Frame p95 ms: `21.546`
+  - Est. FPS (median): `46.9`
+  - Est. FPS (mean): `47.1`
+  - Heap delta MB (mean): `3.633`
+
+- `high`
+  - Cells (estimated): `49128`
+  - Avg update ms (mean): `20.458`
+  - Avg render ms (mean): `0.719`
+  - Avg frame ms (median): `21.226`
+  - Avg frame ms (mean): `21.178`
+  - Frame p95 ms: `21.395`
+  - Est. FPS (median): `47.1`
+  - Est. FPS (mean): `47.2`
+  - Heap delta MB (mean): `-1.643`
+
+Notes:
+- This snapshot uses default quick-run settings (`runs=3`).
+- For formal release comparison, continue using 5-run commands from the official baseline section.
+
 ## PixelGrid transition benchmark suites
 
 Run:

@@ -11,6 +11,12 @@ High-performance 2D pixel simulation engine for browser apps and UI frameworks.
 - v1.1 Phase 1 completed (PR-1A + PR-1B)
 - v1.1 Phase 2 completed (PR-2A + PR-2B)
 - v1.1 Phase 3 completed (PR-3A + PR-3B)
+- v1.1 Phase 4 completed (PR-M1 + PR-M2 + PR-M3)
+- v1.1 Phase 5 completed (PR-5A + PR-5B + PR-5C)
+- v1.1 Phase 6 completed (PR-6A + PR-6B + PR-6C)
+- v1.1 Phase 7 completed (PR-7A + PR-7B + PR-7C)
+- v1.1 Phase 8 completed (PR-8A + PR-8B + PR-8C)
+- Current active work: v1.1 Phase 9 (effect pack)
 
 ## Install
 
@@ -258,6 +264,7 @@ Preset matrix:
 - Effect lifecycle:
   - Use `effectKey` when you want an intentional effect remount.
   - Keep `effectKey` stable to avoid unnecessary remounts.
+  - `PixelGridEffect` supports `resize(width, height)` and React wrappers keep it synced during `fitMode="client"` resize flows.
 - Mask guidance:
   - `hero-image` should be paired with an image mask.
   - `mask.type = "hybrid"` is recommended for text+image morph flows.
@@ -326,6 +333,11 @@ const engine = new PixelEngine({
   }
 });
 ```
+
+Loop tuning controls:
+- `fixedTimeStep`: simulation step size (ms) per fixed update.
+- `maxDelta`: clamp for large frame gaps.
+- `maxUpdatesPerFrame`: safety cap for catch-up updates.
 
 Scheduler phases:
 - `preUpdate`
