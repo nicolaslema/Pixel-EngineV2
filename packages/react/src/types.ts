@@ -41,6 +41,7 @@ export interface ScrollReactiveGridOptions {
   intensity?: number;
   direction?: ScrollReactiveDirection;
   edge?: ScrollReactiveEdge;
+  source?: "auto" | "window" | HTMLElement | React.RefObject<HTMLElement | null>;
   cooldownMs?: number;
   maxBurstRipples?: number;
   respectReducedMotion?: boolean;

@@ -2540,8 +2540,9 @@ addSelectControl(
     if (!state.timelineAssets.image1ObjectUrl && firstImage?.src) {
       state.timelineAssets.image1 = firstImage.src;
     }
-    if (!state.timelineAssets.image2ObjectUrl && (secondImage?.src ?? firstImage?.src)) {
-      state.timelineAssets.image2 = secondImage?.src ?? firstImage!.src;
+    const nextImage2Src = secondImage?.src ?? firstImage?.src;
+    if (!state.timelineAssets.image2ObjectUrl && nextImage2Src) {
+      state.timelineAssets.image2 = nextImage2Src;
     }
     renderAllControls();
   }

@@ -13,6 +13,7 @@ interface ResolvedScrollReactiveGridOptions {
   intensity: number;
   direction: ScrollReactiveDirection;
   edge: ScrollReactiveEdge;
+  source: ScrollReactiveGridOptions["source"];
   cooldownMs: number;
   maxBurstRipples: number;
   respectReducedMotion: boolean;
@@ -30,6 +31,7 @@ function resolveOptions(
     intensity: clamp(options?.intensity ?? 1, 0, 4),
     direction: options?.direction ?? "both",
     edge: options?.edge ?? "leading",
+    source: options?.source ?? "auto",
     cooldownMs: clamp(options?.cooldownMs ?? 90, 0, 2000),
     maxBurstRipples: Math.max(1, Math.round(options?.maxBurstRipples ?? 3)),
     respectReducedMotion: options?.respectReducedMotion ?? true
@@ -59,6 +61,75 @@ function resolveOriginY(
   return direction === "down" ? top : bottom;
 }
 
+type ScrollTarget = Window | HTMLElement;
+
+function isRefSource(
+  source: ScrollReactiveGridOptions["source"]
+): source is RefObject<HTMLElement | null> {
+  return typeof source === "object" && source !== null && "current" in source;
+}
+
+function readScrollOffset(target: ScrollTarget): number {
+  if ("scrollTop" in target) {
+    return target.scrollTop;
+  }
+  return target.scrollY || target.pageYOffset || 0;
+}
+
+function isScrollableElement(element: HTMLElement): boolean {
+  if (typeof window === "undefined" || typeof window.getComputedStyle !== "function") return false;
+  const style = window.getComputedStyle(element);
+  const overflowY = `${style.overflowY || ""} ${style.overflow || ""}`;
+  return /(auto|scroll|overlay)/i.test(overflowY);
+}
+
+function findNearestScrollableAncestor(canvas: HTMLCanvasElement | null): HTMLElement | null {
+  let node = canvas?.parentElement ?? null;
+  while (node) {
+    if (isScrollableElement(node)) {
+      return node;
+    }
+    node = node.parentElement;
+  }
+  return null;
+}
+
+function resolveScrollTargets(
+  source: ScrollReactiveGridOptions["source"],
+  canvas: HTMLCanvasElement | null
+): { scrollTargets: ScrollTarget[]; wheelTarget: ScrollTarget } {
+  if (typeof window === "undefined") {
+    return { scrollTargets: [], wheelTarget: window };
+  }
+
+  if (source === "window") {
+    return { scrollTargets: [window], wheelTarget: window };
+  }
+
+  if (source instanceof HTMLElement) {
+    return { scrollTargets: [source], wheelTarget: source };
+  }
+
+  if (isRefSource(source)) {
+    const node = source.current;
+    if (node instanceof HTMLElement) {
+      return { scrollTargets: [node], wheelTarget: node };
+    }
+    return { scrollTargets: [window], wheelTarget: window };
+  }
+
+  const autoContainer = findNearestScrollableAncestor(canvas);
+  if (!autoContainer) {
+    return { scrollTargets: [window], wheelTarget: window };
+  }
+
+  return { scrollTargets: [autoContainer, window], wheelTarget: autoContainer };
+}
+
+function nowMs(): number {
+  return typeof performance !== "undefined" ? performance.now() : Date.now();
+}
+
 export function useScrollReactiveGrid(params: UseScrollReactiveGridParams): void {
   const options = resolveOptions(params.options);
 
@@ -67,46 +138,55 @@ export function useScrollReactiveGrid(params: UseScrollReactiveGridParams): void
     if (typeof window === "undefined") return;
     if (options.respectReducedMotion && shouldReduceMotion()) return;
 
+    const canvas = params.canvasRef.current;
+    const { scrollTargets, wheelTarget } = resolveScrollTargets(options.source, canvas);
+    if (scrollTargets.length === 0) return;
+
     let rafId = 0;
-    let latestScrollY = window.scrollY || window.pageYOffset || 0;
-    let latestTimestamp = typeof performance !== "undefined" ? performance.now() : Date.now();
-    let lastScrollY = latestScrollY;
-    let lastTimestamp = latestTimestamp;
-    let lastTriggerTimestamp = 0;
+    let pendingDeltaY = 0;
+    let lastProcessedTimestamp = nowMs();
+    let lastBurstTimestamp = 0;
+    let lastWheelTimestamp = Number.NEGATIVE_INFINITY;
+    const lastOffsets = new Map<ScrollTarget, number>();
+    for (const target of scrollTargets) {
+      lastOffsets.set(target, readScrollOffset(target));
+    }
+
+    const scheduleFlush = () => {
+      if (!rafId) {
+        rafId = window.requestAnimationFrame(flush);
+      }
+    };
 
     const flush = () => {
       rafId = 0;
-      const dy = latestScrollY - lastScrollY;
-      if (Math.abs(dy) < 0.5) return;
+      const dy = pendingDeltaY;
+      pendingDeltaY = 0;
+      if (Math.abs(dy) < 0.5) {
+        return;
+      }
 
       const direction: "up" | "down" = dy > 0 ? "down" : "up";
       if (!isDirectionAllowed(options.direction, direction)) {
-        lastScrollY = latestScrollY;
-        lastTimestamp = latestTimestamp;
         return;
       }
 
-      const now = latestTimestamp;
-      if (now - lastTriggerTimestamp < options.cooldownMs) {
-        lastScrollY = latestScrollY;
-        lastTimestamp = latestTimestamp;
+      const now = nowMs();
+      if (now - lastBurstTimestamp < options.cooldownMs) {
         return;
       }
 
-      const dt = Math.max(1, now - lastTimestamp);
+      const dt = Math.max(1, now - lastProcessedTimestamp);
+      lastProcessedTimestamp = now;
       const velocity = Math.abs(dy) / dt;
       const normalizedIntensity = clamp(velocity * 16 * options.intensity, 0, 1);
       if (normalizedIntensity <= 0.01) {
-        lastScrollY = latestScrollY;
-        lastTimestamp = latestTimestamp;
         return;
       }
 
       const canvas = params.canvasRef.current;
       const grid = params.gridRef.current;
       if (!canvas || !grid) {
-        lastScrollY = latestScrollY;
-        lastTimestamp = latestTimestamp;
         return;
       }
 
@@ -127,22 +207,47 @@ export function useScrollReactiveGrid(params: UseScrollReactiveGridParams): void
         grid.triggerRipple(x, originY);
       }
 
-      lastTriggerTimestamp = now;
-      lastScrollY = latestScrollY;
-      lastTimestamp = latestTimestamp;
+      lastBurstTimestamp = now;
     };
 
-    const onScroll = () => {
-      latestScrollY = window.scrollY || window.pageYOffset || 0;
-      latestTimestamp = typeof performance !== "undefined" ? performance.now() : Date.now();
-      if (!rafId) {
-        rafId = window.requestAnimationFrame(flush);
+    const onScroll = (target: ScrollTarget) => () => {
+      const now = nowMs();
+      const previous = lastOffsets.get(target) ?? readScrollOffset(target);
+      const current = readScrollOffset(target);
+      lastOffsets.set(target, current);
+      const delta = current - previous;
+      if (Math.abs(delta) < 0.5) return;
+
+      // Avoid counting wheel + scroll from the same gesture twice.
+      if (now - lastWheelTimestamp < 40) {
+        return;
       }
+
+      pendingDeltaY += delta;
+      scheduleFlush();
     };
 
-    window.addEventListener("scroll", onScroll, { passive: true });
+    const onWheel: EventListener = (event) => {
+      const wheelEvent = event as WheelEvent;
+      if (!Number.isFinite(wheelEvent.deltaY) || Math.abs(wheelEvent.deltaY) < 0.01) return;
+      lastWheelTimestamp = nowMs();
+      pendingDeltaY += wheelEvent.deltaY;
+      scheduleFlush();
+    };
+
+    const detachScrollHandlers: Array<() => void> = [];
+    for (const target of scrollTargets) {
+      const handler = onScroll(target);
+      target.addEventListener("scroll", handler, { passive: true });
+      detachScrollHandlers.push(() => target.removeEventListener("scroll", handler));
+    }
+    wheelTarget.addEventListener("wheel", onWheel, { passive: true });
+
     return () => {
-      window.removeEventListener("scroll", onScroll);
+      for (const detach of detachScrollHandlers) {
+        detach();
+      }
+      wheelTarget.removeEventListener("wheel", onWheel);
       if (rafId) {
         window.cancelAnimationFrame(rafId);
       }
@@ -154,6 +259,7 @@ export function useScrollReactiveGrid(params: UseScrollReactiveGridParams): void
     options.intensity,
     options.direction,
     options.edge,
+    options.source,
     options.cooldownMs,
     options.maxBurstRipples,
     options.respectReducedMotion

@@ -8,6 +8,10 @@ All notable changes to this project are documented in this file.
 - React grid lifecycle behavior in `@pixel-engine/react`:
   - `usePixelGridEffect` / `PixelGridCanvas` now recreate the effect when resolved `gridConfig` or `influenceOptions` changes.
   - `effectKey` remains available as an additional explicit remount/reset boundary.
+- React scroll-reactive utility hardening:
+  - `useScrollReactiveGrid` now listens to both `scroll` and `wheel`.
+  - Added configurable `scrollReactive.source` support (`auto`, `window`, `HTMLElement`, `RefObject`).
+  - Delta processing now uses queued `pendingDeltaY` + `requestAnimationFrame` flush to improve consecutive gesture handling.
 
 ### Docs
 - React documentation was reorganized for readability and completeness:

@@ -172,7 +172,7 @@ describe("PixelGridCanvas", () => {
     cleanupHost(container, root);
   });
 
-  it("triggers ripple bursts on scroll when scrollReactive is enabled", () => {
+  it("triggers ripple bursts on wheel when scrollReactive is enabled", () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     const createEngine = vi.fn(() => ({
       addEntity: vi.fn(),
@@ -193,12 +193,6 @@ describe("PixelGridCanvas", () => {
         return 1;
       });
     const cafSpy = vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
-    Object.defineProperty(window, "scrollY", {
-      configurable: true,
-      writable: true,
-      value: 0
-    });
-
     const { container, root } = createHost();
     act(() => {
       root.render(
@@ -219,9 +213,152 @@ describe("PixelGridCanvas", () => {
       );
     });
 
-    (window as { scrollY: number }).scrollY = 240;
     act(() => {
-      window.dispatchEvent(new Event("scroll"));
+      window.dispatchEvent(new WheelEvent("wheel", { deltaY: 240 }));
+    });
+
+    expect(triggerRipple).toHaveBeenCalled();
+
+    cleanupHost(container, root);
+    rafSpy.mockRestore();
+    cafSpy.mockRestore();
+  });
+
+  it("triggers ripple bursts on consecutive wheel gestures in the same direction", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    vi.useFakeTimers();
+    const createEngine = vi.fn(() => ({
+      addEntity: vi.fn(),
+      removeEntity: vi.fn(),
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    })) as never;
+    const triggerRipple = vi.fn();
+    const createGridEffect = vi.fn(() => ({
+      triggerRipple
+    })) as never;
+
+    let nextRafId = 1;
+    const rafTimers = new Map<number, ReturnType<typeof setTimeout>>();
+    const rafSpy = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation((callback: FrameRequestCallback) => {
+        const id = nextRafId++;
+        const timerId = setTimeout(() => callback(16), 0);
+        rafTimers.set(id, timerId);
+        return id;
+      });
+    const cafSpy = vi.spyOn(window, "cancelAnimationFrame").mockImplementation((id: number) => {
+      const timerId = rafTimers.get(id);
+      if (typeof timerId !== "undefined") {
+        clearTimeout(timerId);
+      }
+    });
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelGridCanvas
+          width={320}
+          height={180}
+          preset="card-ripple"
+          scrollReactive={{
+            enabled: true,
+            intensity: 1.2,
+            direction: "down",
+            source: "window",
+            cooldownMs: 0,
+            maxBurstRipples: 1
+          }}
+          createEngine={createEngine}
+          createGridEffect={createGridEffect}
+        />
+      );
+    });
+
+    act(() => {
+      window.dispatchEvent(new WheelEvent("wheel", { deltaY: 120 }));
+      vi.runOnlyPendingTimers();
+    });
+    act(() => {
+      window.dispatchEvent(new WheelEvent("wheel", { deltaY: 110 }));
+      vi.runOnlyPendingTimers();
+    });
+
+    expect(triggerRipple).toHaveBeenCalledTimes(2);
+
+    cleanupHost(container, root);
+    rafSpy.mockRestore();
+    cafSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it("supports scroll reactive bursts from overflow container sources", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const createEngine = vi.fn(() => ({
+      addEntity: vi.fn(),
+      removeEntity: vi.fn(),
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    })) as never;
+    const triggerRipple = vi.fn();
+    const createGridEffect = vi.fn(() => ({
+      triggerRipple
+    })) as never;
+
+    const rafSpy = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation((callback: FrameRequestCallback) => {
+        callback(16);
+        return 1;
+      });
+    const cafSpy = vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+
+    function OverflowHarness() {
+      const scrollRef = React.useRef<HTMLDivElement | null>(null);
+      return (
+        <div
+          ref={scrollRef}
+          style={{
+            maxHeight: "160px",
+            overflowY: "auto"
+          }}
+        >
+          <div style={{ height: "520px" }}>
+            <PixelGridCanvas
+              width={320}
+              height={180}
+              preset="card-ripple"
+              scrollReactive={{
+                enabled: true,
+                intensity: 1.25,
+                direction: "both",
+                source: scrollRef,
+                cooldownMs: 0,
+                maxBurstRipples: 2
+              }}
+              createEngine={createEngine}
+              createGridEffect={createGridEffect}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(<OverflowHarness />);
+    });
+
+    const scrollContainer = container.firstElementChild as HTMLDivElement;
+    expect(scrollContainer).not.toBeNull();
+
+    scrollContainer.scrollTop = 0;
+    act(() => {
+      scrollContainer.scrollTop = 140;
+      scrollContainer.dispatchEvent(new Event("scroll"));
     });
 
     expect(triggerRipple).toHaveBeenCalled();

@@ -184,7 +184,7 @@ export function App() {
 
 | Option | Type | Fields |
 |---|---|---|
-| `scrollReactive` | object | `enabled`, `intensity`, `direction`, `edge`, `cooldownMs`, `maxBurstRipples`, `respectReducedMotion` |
+| `scrollReactive` | object | `enabled`, `intensity`, `direction`, `edge`, `source`, `cooldownMs`, `maxBurstRipples`, `respectReducedMotion` |
 | `sectionTransition` | object | `enabled`, `preset`, `amount`, `threshold`, `once`, `rippleOnEnter`, `playTimelineOnEnter`, `pauseTimelineOnExit`, `respectReducedMotion` |
 | `themeSync` | object | `enabled`, `mode`, `followSystem`, `brandColors`, `brandCanvasBackground`, `brandHoverTintPalette`, `brandRippleTintPalette` |
 | `statePreset` | string or object | `"idle" \| "hover" \| "active" \| "success" \| "error" \| "loading"` or `{ enabled, value }` |
