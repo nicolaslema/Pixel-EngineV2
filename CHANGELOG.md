@@ -2,6 +2,61 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.0.21] - 2026-02-24
+
+### Changed
+- React grid lifecycle behavior in `@pixel-engine/react`:
+  - `usePixelGridEffect` / `PixelGridCanvas` now recreate the effect when resolved `gridConfig` or `influenceOptions` changes.
+  - `effectKey` remains available as an additional explicit remount/reset boundary.
+
+### Docs
+- React documentation was reorganized for readability and completeness:
+  - `README.md` now includes `easy`, `medium`, and `advanced` React usage paths.
+  - Added React options reference tables covering hook/component options and web utility options.
+  - Updated lifecycle notes to reflect current `effectKey` semantics.
+- Phase 10 docs were formally closed and synchronized:
+  - `docs/Version.1.1/issues/phase-10-web-product-utilities.md`
+  - `docs/Version.1.1/ROADMAP.md`
+  - `docs/Version.1.1/INDEX.md`
+  - closure includes manual validation in playground + external React project.
+
+## [1.0.20] - 2026-02-24
+
+### Added
+- Phase 10 PR-10A web product utilities in `@pixel-engine/react`:
+  - `scrollReactive` support in `PixelGridCanvas` (intensity + direction + edge + cooldown + burst cap).
+  - `sectionTransition` support in `PixelGridCanvas` (`fade` / `lift` / `zoom` presets).
+  - new hooks:
+    - `useScrollReactiveGrid`
+    - `useSectionTransitionPreset`
+- Phase 10 PR-10B web product utilities in `@pixel-engine/react`:
+  - `themeSync` support (`light` / `dark` / `brand` with optional system-follow mode).
+  - `statePreset` support (`idle`, `hover`, `active`, `success`, `error`, `loading`).
+  - new exports/helpers:
+    - `useResolvedThemeMode`
+    - `resolveThemeSyncGridOverride`
+    - `resolveStatePresetGridOverride`
+    - `mergeGridConfigPartials`
+- Phase 10 PR-10C web product utilities in `@pixel-engine/react`:
+  - `debugHud` support in `PixelGridCanvas` (runtime stats overlay for fps/quality/loop/cells/ripples/timeline).
+  - `ssrPlaceholder` support in `PixelGridCanvas` (`minimal` / `card-soft` / `hero-image` fallback presets).
+  - new exports/helpers:
+    - `useDebugHudOverlay`
+    - `resolveSsrPlaceholderCanvasStyle`
+- Phase 10 PR-10D web product utilities in `@pixel-engine/react`:
+  - CMS-friendly JSON loader/validator:
+    - `validatePixelConfigDocument(input)`
+    - `loadPixelConfigFromJson(json, fallback?)`
+  - End-to-end docs/examples for CMS-driven website integration patterns.
+- Added public debug runtime API in `PixelGridEffect`:
+  - `getDebugSnapshot()`
+
+### Updated
+- `PixelGridCanvas` now composes section transition styles with user-provided `style`.
+- `PixelCard` grid-mode detection now includes Phase 10 utility props (`scrollReactive`, `sectionTransition`, `themeSync`, `statePreset`).
+- `PixelCard` grid-mode detection now also includes `debugHud` and `ssrPlaceholder`.
+- Phase 10 issue/roadmap tracking updated with PR-10A, PR-10B, PR-10C, and PR-10D completion.
+
 ## [1.0.19] - 2026-02-24
 
 ### Changed

@@ -171,4 +171,338 @@ describe("PixelGridCanvas", () => {
 
     cleanupHost(container, root);
   });
+
+  it("triggers ripple bursts on scroll when scrollReactive is enabled", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const createEngine = vi.fn(() => ({
+      addEntity: vi.fn(),
+      removeEntity: vi.fn(),
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    })) as never;
+    const triggerRipple = vi.fn();
+    const createGridEffect = vi.fn(() => ({
+      triggerRipple
+    })) as never;
+
+    const rafSpy = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation((callback: FrameRequestCallback) => {
+        callback(16);
+        return 1;
+      });
+    const cafSpy = vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+    Object.defineProperty(window, "scrollY", {
+      configurable: true,
+      writable: true,
+      value: 0
+    });
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelGridCanvas
+          width={320}
+          height={180}
+          preset="card-ripple"
+          scrollReactive={{
+            enabled: true,
+            intensity: 1.5,
+            direction: "both",
+            cooldownMs: 0,
+            maxBurstRipples: 3
+          }}
+          createEngine={createEngine}
+          createGridEffect={createGridEffect}
+        />
+      );
+    });
+
+    (window as { scrollY: number }).scrollY = 240;
+    act(() => {
+      window.dispatchEvent(new Event("scroll"));
+    });
+
+    expect(triggerRipple).toHaveBeenCalled();
+
+    cleanupHost(container, root);
+    rafSpy.mockRestore();
+    cafSpy.mockRestore();
+  });
+
+  it("applies section transition preset and controls timeline on visibility changes", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const createEngine = vi.fn(() => ({
+      addEntity: vi.fn(),
+      removeEntity: vi.fn(),
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    })) as never;
+    const triggerRipple = vi.fn();
+    const playMaskTimeline = vi.fn();
+    const pauseMaskTimeline = vi.fn();
+    const createGridEffect = vi.fn(() => ({
+      triggerRipple,
+      playMaskTimeline,
+      pauseMaskTimeline
+    })) as never;
+
+    type ObserverCallback = ConstructorParameters<typeof IntersectionObserver>[0];
+    const observerStore: { callback?: ObserverCallback } = {};
+    class IntersectionObserverMock {
+      constructor(callback: ObserverCallback) {
+        observerStore.callback = callback;
+      }
+
+      observe(): void {}
+
+      disconnect(): void {}
+
+      unobserve(): void {}
+
+      takeRecords(): IntersectionObserverEntry[] {
+        return [];
+      }
+    }
+    const previousObserver = globalThis.IntersectionObserver;
+    (globalThis as { IntersectionObserver?: typeof IntersectionObserver }).IntersectionObserver =
+      IntersectionObserverMock as unknown as typeof IntersectionObserver;
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelGridCanvas
+          width={320}
+          height={180}
+          preset="card-soft"
+          sectionTransition={{
+            enabled: true,
+            preset: "lift",
+            playTimelineOnEnter: true,
+            pauseTimelineOnExit: true,
+            rippleOnEnter: true
+          }}
+          createEngine={createEngine}
+          createGridEffect={createGridEffect}
+        />
+      );
+    });
+
+    const canvas = container.querySelector("canvas") as HTMLCanvasElement;
+    expect(canvas).not.toBeNull();
+    const callback = observerStore.callback;
+    expect(callback).toBeTypeOf("function");
+
+    const makeEntry = (ratio: number, isIntersecting: boolean): IntersectionObserverEntry =>
+      ({
+        target: canvas,
+        isIntersecting,
+        intersectionRatio: ratio,
+        boundingClientRect: canvas.getBoundingClientRect(),
+        intersectionRect: canvas.getBoundingClientRect(),
+        rootBounds: null,
+        time: 0
+      }) as IntersectionObserverEntry;
+
+    act(() => {
+      callback?.([makeEntry(0.75, true)], {} as IntersectionObserver);
+    });
+
+    expect(playMaskTimeline).toHaveBeenCalledTimes(1);
+    expect(triggerRipple).toHaveBeenCalled();
+    expect(canvas.style.transform).toContain("translate3d");
+
+    act(() => {
+      callback?.([makeEntry(0, false)], {} as IntersectionObserver);
+    });
+
+    expect(pauseMaskTimeline).toHaveBeenCalledTimes(1);
+
+    cleanupHost(container, root);
+    if (previousObserver) {
+      (globalThis as { IntersectionObserver?: typeof IntersectionObserver }).IntersectionObserver =
+        previousObserver;
+    } else {
+      delete (globalThis as { IntersectionObserver?: typeof IntersectionObserver }).IntersectionObserver;
+    }
+  });
+
+  it("applies themeSync and statePreset overrides before effect creation", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const createEngine = vi.fn(() => ({
+      addEntity: vi.fn(),
+      removeEntity: vi.fn(),
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    })) as never;
+    const createGridEffect = vi.fn(() => ({
+      triggerRipple: vi.fn()
+    })) as never;
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelGridCanvas
+          width={320}
+          height={180}
+          preset="minimal"
+          gridConfig={{ gap: 7 }}
+          themeSync={{ enabled: true, mode: "light", followSystem: false }}
+          statePreset="success"
+          createEngine={createEngine}
+          createGridEffect={createGridEffect}
+        />
+      );
+    });
+
+    expect(createGridEffect).toHaveBeenCalledTimes(1);
+    const configArg = createGridEffect.mock.calls[0][3];
+    expect(configArg.canvasBackground).toBe("#f8fafc");
+    expect(configArg.effects?.paletteCycle?.enabled).toBe(true);
+    expect(configArg.gap).toBe(7);
+
+    cleanupHost(container, root);
+  });
+
+  it("recreates grid effect when statePreset changes without effectKey override", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const createEngine = vi.fn(() => ({
+      addEntity: vi.fn(),
+      removeEntity: vi.fn(),
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    })) as never;
+    const createGridEffect = vi.fn(() => ({
+      triggerRipple: vi.fn()
+    })) as never;
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelGridCanvas
+          width={320}
+          height={180}
+          preset="minimal"
+          statePreset={{ enabled: true, value: "idle" }}
+          createEngine={createEngine}
+          createGridEffect={createGridEffect}
+        />
+      );
+    });
+
+    expect(createGridEffect).toHaveBeenCalledTimes(1);
+    expect(createGridEffect.mock.calls[0][3].effects?.paletteCycle?.enabled).toBe(false);
+
+    act(() => {
+      root.render(
+        <PixelGridCanvas
+          width={320}
+          height={180}
+          preset="minimal"
+          statePreset={{ enabled: true, value: "success" }}
+          createEngine={createEngine}
+          createGridEffect={createGridEffect}
+        />
+      );
+    });
+
+    expect(createGridEffect).toHaveBeenCalledTimes(2);
+    expect(createGridEffect.mock.calls[1][3].colors).toEqual(["#14532d", "#16a34a", "#22c55e"]);
+
+    cleanupHost(container, root);
+  });
+
+  it("renders debug HUD overlay with runtime stats when enabled", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    vi.useFakeTimers();
+
+    const createEngine = vi.fn(() => ({
+      addEntity: vi.fn(),
+      removeEntity: vi.fn(),
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn(),
+      getFPS: vi.fn(() => 61.2),
+      getQuality: vi.fn(() => "medium"),
+      getLoopTuning: vi.fn(() => ({
+        fixedTimeStep: 16.67,
+        maxDelta: 250,
+        maxUpdatesPerFrame: 240
+      }))
+    })) as never;
+    const createGridEffect = vi.fn(() => ({
+      triggerRipple: vi.fn(),
+      getDebugSnapshot: vi.fn(() => ({
+        totalCells: 120,
+        activeCells: 42,
+        activeRipples: 3,
+        timeline: { playing: true, stepIndex: 2 }
+      }))
+    })) as never;
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelGridCanvas
+          width={320}
+          height={180}
+          preset="card-ripple"
+          debugHud={{ enabled: true, updateIntervalMs: 30, showLoop: true }}
+          createEngine={createEngine}
+          createGridEffect={createGridEffect}
+        />
+      );
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(60);
+    });
+
+    const hud = document.querySelector("[data-pixel-engine-debug-hud='true']") as HTMLElement | null;
+    expect(hud).not.toBeNull();
+    expect(hud?.textContent).toContain("fps:");
+    expect(hud?.textContent).toContain("cells:");
+    expect(hud?.textContent).toContain("ripples:");
+
+    cleanupHost(container, root);
+    expect(document.querySelector("[data-pixel-engine-debug-hud='true']")).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it("applies SSR placeholder preset style on canvas", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const createEngine = vi.fn(() => ({
+      addEntity: vi.fn(),
+      removeEntity: vi.fn(),
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    })) as never;
+    const createGridEffect = vi.fn(() => ({
+      triggerRipple: vi.fn()
+    })) as never;
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelGridCanvas
+          width={320}
+          height={180}
+          preset="minimal"
+          ssrPlaceholder={{ enabled: true, preset: "hero-image", hideOnReady: false }}
+          createEngine={createEngine}
+          createGridEffect={createGridEffect}
+        />
+      );
+    });
+
+    const canvas = container.querySelector("canvas");
+    expect(canvas?.style.backgroundImage.length).toBeGreaterThan(0);
+
+    cleanupHost(container, root);
+  });
 });

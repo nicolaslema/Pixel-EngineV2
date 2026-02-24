@@ -63,7 +63,13 @@ export function PixelCard({
     "preset" in canvasProps ||
     "mask" in canvasProps ||
     "rippleTrigger" in canvasProps ||
-    "onGridReady" in canvasProps;
+    "onGridReady" in canvasProps ||
+    "scrollReactive" in canvasProps ||
+    "sectionTransition" in canvasProps ||
+    "themeSync" in canvasProps ||
+    "statePreset" in canvasProps ||
+    "debugHud" in canvasProps ||
+    "ssrPlaceholder" in canvasProps;
 
   const mergedContainerStyle: CSSProperties = {
     ...surfaceStyle,

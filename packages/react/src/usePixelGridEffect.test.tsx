@@ -94,7 +94,7 @@ describe("usePixelGridEffect", () => {
     expect(destroy).toHaveBeenCalledTimes(1);
   });
 
-  it("does not recreate effect on inline config object changes unless effectKey changes", () => {
+  it("recreates effect when grid config changes even with stable effectKey", () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
     const addEntity = vi.fn();
@@ -138,12 +138,12 @@ describe("usePixelGridEffect", () => {
     act(() => {
       root.render(<TestComponent effectKey="stable" gap={8} />);
     });
-    expect(createGridEffect).toHaveBeenCalledTimes(1);
+    expect(createGridEffect).toHaveBeenCalledTimes(2);
 
     act(() => {
       root.render(<TestComponent effectKey="changed" gap={8} />);
     });
-    expect(createGridEffect).toHaveBeenCalledTimes(2);
+    expect(createGridEffect).toHaveBeenCalledTimes(3);
 
     cleanupHost(container, root);
   });

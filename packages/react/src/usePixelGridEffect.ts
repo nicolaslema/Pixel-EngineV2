@@ -35,6 +35,15 @@ function resolveEffectSize(
   };
 }
 
+function stableSerialize(value: unknown): string {
+  if (value === undefined) return "undefined";
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
 export function usePixelGridEffect(options: UsePixelGridEffectOptions): UsePixelGridEffectResult {
   const {
     width,
@@ -71,6 +80,14 @@ export function usePixelGridEffect(options: UsePixelGridEffectOptions): UsePixel
         mask
       }),
     [gridConfig, mask, preset]
+  );
+  const resolvedGridConfigSignature = useMemo(
+    () => stableSerialize(resolvedGridConfig),
+    [resolvedGridConfig]
+  );
+  const influenceOptionsSignature = useMemo(
+    () => stableSerialize(influenceOptions),
+    [influenceOptions]
   );
   const gridRef = useRef<PixelGridEffect | null>(null);
   const onGridReadyRef = useRef(onGridReady);
@@ -121,7 +138,7 @@ export function usePixelGridEffect(options: UsePixelGridEffectOptions): UsePixel
         gridRef.current = null;
       }
     };
-  }, [autoAttach, effectKey, engine]);
+  }, [autoAttach, effectKey, engine, influenceOptionsSignature, resolvedGridConfigSignature]);
 
   useEffect(() => {
     const effect = gridRef.current;

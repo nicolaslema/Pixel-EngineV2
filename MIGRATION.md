@@ -2,6 +2,32 @@
 
 This guide covers migration to the formal v1 stable baseline and the new package split.
 
+## Update: v1.0.21 React Effect Recreation Semantics (2026-02-24)
+
+- `usePixelGridEffect` / `PixelGridCanvas` now recreate the effect when resolved `gridConfig` or `influenceOptions` changes.
+- `effectKey` remains supported as an additional explicit remount/reset boundary.
+
+What changes in practice:
+
+```tsx
+// before (common workaround)
+<PixelGridCanvas
+  preset="minimal"
+  statePreset={{ enabled: true, value: uiState }}
+  effectKey={`state-${uiState}`}
+/>
+
+// now
+<PixelGridCanvas
+  preset="minimal"
+  statePreset={{ enabled: true, value: uiState }}
+/>
+```
+
+When to still use `effectKey`:
+- force a full reset intentionally
+- separate visual sessions/scenes with explicit remount boundaries
+
 ## Update: v1.0.20 Hover API Simplification + Magnetic Mode (2026-02-24)
 
 - `hoverEffects.radiusY` removed.

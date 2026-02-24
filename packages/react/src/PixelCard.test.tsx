@@ -237,6 +237,116 @@ describe("PixelCard", () => {
     cleanupHost(container, root);
   });
 
+  it("uses grid mode when scrollReactive is provided", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const createEngine = vi.fn(() => ({
+      addEntity: vi.fn(),
+      removeEntity: vi.fn(),
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    })) as never;
+    const createGridEffect = vi.fn(() => ({
+      triggerRipple: vi.fn()
+    })) as never;
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelCard
+          width={320}
+          height={180}
+          scrollReactive={{ enabled: true }}
+          createEngine={createEngine}
+          createGridEffect={createGridEffect}
+        >
+          <span>Scroll reactive card</span>
+        </PixelCard>
+      );
+    });
+
+    expect(container.querySelector("canvas")).not.toBeNull();
+    expect(createGridEffect).toHaveBeenCalledTimes(1);
+
+    cleanupHost(container, root);
+  });
+
+  it("uses grid mode when themeSync/statePreset are provided", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const createEngine = vi.fn(() => ({
+      addEntity: vi.fn(),
+      removeEntity: vi.fn(),
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    })) as never;
+    const createGridEffect = vi.fn(() => ({
+      triggerRipple: vi.fn()
+    })) as never;
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelCard
+          width={320}
+          height={180}
+          themeSync={{ enabled: true, mode: "dark", followSystem: false }}
+          statePreset="active"
+          createEngine={createEngine}
+          createGridEffect={createGridEffect}
+        >
+          <span>Themed state card</span>
+        </PixelCard>
+      );
+    });
+
+    expect(container.querySelector("canvas")).not.toBeNull();
+    expect(createGridEffect).toHaveBeenCalledTimes(1);
+
+    cleanupHost(container, root);
+  });
+
+  it("uses grid mode when debugHud/ssrPlaceholder are provided", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const createEngine = vi.fn(() => ({
+      addEntity: vi.fn(),
+      removeEntity: vi.fn(),
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    })) as never;
+    const createGridEffect = vi.fn(() => ({
+      triggerRipple: vi.fn(),
+      getDebugSnapshot: vi.fn(() => ({
+        totalCells: 10,
+        activeCells: 4,
+        activeRipples: 1,
+        timeline: { playing: false, stepIndex: 0 }
+      }))
+    })) as never;
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelCard
+          width={320}
+          height={180}
+          debugHud={{ enabled: true, updateIntervalMs: 50 }}
+          ssrPlaceholder="card-soft"
+          createEngine={createEngine}
+          createGridEffect={createGridEffect}
+        >
+          <span>Debug card</span>
+        </PixelCard>
+      );
+    });
+
+    expect(container.querySelector("canvas")).not.toBeNull();
+    expect(createGridEffect).toHaveBeenCalledTimes(1);
+
+    cleanupHost(container, root);
+  });
+
   it("passes declarative timeline mask config through PixelCard grid mode", () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     const createEngine = vi.fn(() => ({

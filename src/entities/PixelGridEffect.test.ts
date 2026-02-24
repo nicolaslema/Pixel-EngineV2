@@ -223,4 +223,28 @@ describe("PixelGridEffect", () => {
 
     engine.destroy();
   });
+
+  it("should expose runtime debug snapshot", () => {
+    const canvas = document.createElement("canvas");
+    const engine = new PixelEngine({
+      canvas,
+      width: 220,
+      height: 140
+    });
+
+    const effect = new PixelGridEffect(engine, 220, 140, {
+      colors: ["#334155", "#475569", "#64748b"],
+      gap: 8,
+      expandEase: 0.08,
+      breathSpeed: 1
+    });
+
+    const snapshot = effect.getDebugSnapshot();
+    expect(snapshot.totalCells).toBeGreaterThan(0);
+    expect(snapshot.activeCells).toBeGreaterThanOrEqual(0);
+    expect(snapshot.activeRipples).toBeGreaterThanOrEqual(0);
+    expect(typeof snapshot.timeline.stepIndex).toBe("number");
+
+    engine.destroy();
+  });
 });

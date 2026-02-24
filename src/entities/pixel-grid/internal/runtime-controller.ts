@@ -37,6 +37,12 @@ export interface PixelGridRuntimeController {
   triggerRipple(x: number, y: number): void;
   destroy(): void;
   getCellsForDebug(): PixelCell[];
+  getDebugSnapshot(): {
+    totalCells: number;
+    activeCells: number;
+    activeRipples: number;
+    timeline: { playing: boolean; stepIndex: number };
+  };
   playMaskTimeline(): void;
   pauseMaskTimeline(): void;
   resetMaskTimeline(): void;
@@ -311,6 +317,28 @@ export function createPixelGridRuntimeController(
 
     getCellsForDebug(): PixelCell[] {
       return cells;
+    },
+
+    getDebugSnapshot(): {
+      totalCells: number;
+      activeCells: number;
+      activeRipples: number;
+      timeline: { playing: boolean; stepIndex: number };
+    } {
+      let activeCells = 0;
+      for (let index = 0; index < cells.length; index++) {
+        if (cells[index].targetSize > 0.01) activeCells++;
+      }
+
+      return {
+        totalCells: cells.length,
+        activeCells,
+        activeRipples: runtime.activeRipples.length,
+        timeline: {
+          playing: maskState.isPlaying(),
+          stepIndex: maskState.getCurrentStepIndex()
+        }
+      };
     },
 
     playMaskTimeline(): void {

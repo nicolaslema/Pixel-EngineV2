@@ -9,6 +9,50 @@ interface PlaygroundState {
   config: PixelGridConfig;
   influenceOptions: PixelGridInfluenceOptions;
   pageColor: string;
+  webUtilities: {
+    scrollReactive: {
+      enabled: boolean;
+      intensity: number;
+      direction: "up" | "down" | "both";
+      edge: "leading" | "trailing" | "center";
+      cooldownMs: number;
+      maxBurstRipples: number;
+      respectReducedMotion: boolean;
+    };
+    sectionTransition: {
+      enabled: boolean;
+      preset: "fade" | "lift" | "zoom";
+      amount: number;
+      progress: number;
+      rippleOnEnter: boolean;
+      playTimelineOnEnter: boolean;
+      pauseTimelineOnExit: boolean;
+    };
+    themeSync: {
+      enabled: boolean;
+      mode: "light" | "dark" | "brand";
+      followSystem: boolean;
+      brandColors: [string, string, string];
+      brandCanvasBackground: string;
+      brandHoverTintPalette: [string, string, string];
+      brandRippleTintPalette: [string, string, string];
+    };
+    statePreset: {
+      enabled: boolean;
+      value: "idle" | "hover" | "active" | "success" | "error" | "loading";
+    };
+    debugHud: {
+      enabled: boolean;
+      position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+      updateIntervalMs: number;
+      showFps: boolean;
+      showQuality: boolean;
+      showLoop: boolean;
+      showCells: boolean;
+      showRipples: boolean;
+      showTimeline: boolean;
+    };
+  };
   timelineAssets: {
     text1Id: string;
     text2Id: string;
@@ -29,11 +73,6 @@ interface PlaygroundState {
     image1ObjectUrl: string | null;
     image2ObjectUrl: string | null;
   };
-}
-
-interface EffectDebugState {
-  cells: Array<{ targetSize: number }>;
-  runtime: { activeRipples: unknown[] };
 }
 
 const canvas = document.getElementById("app") as HTMLCanvasElement;
@@ -59,6 +98,15 @@ const engine = new PixelEngine({
 
 function cloneConfig<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function shouldReduceMotion(): boolean {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 function createPresetConfig(preset: PlaygroundPreset): PixelGridConfig {
@@ -607,6 +655,50 @@ const state: PlaygroundState = {
     organic: false
   },
   pageColor: "#0b1020",
+  webUtilities: {
+    scrollReactive: {
+      enabled: false,
+      intensity: 1,
+      direction: "both",
+      edge: "leading",
+      cooldownMs: 90,
+      maxBurstRipples: 3,
+      respectReducedMotion: true
+    },
+    sectionTransition: {
+      enabled: false,
+      preset: "fade",
+      amount: 24,
+      progress: 1,
+      rippleOnEnter: true,
+      playTimelineOnEnter: true,
+      pauseTimelineOnExit: false
+    },
+    themeSync: {
+      enabled: false,
+      mode: "dark",
+      followSystem: true,
+      brandColors: ["#0f766e", "#14b8a6", "#2dd4bf"],
+      brandCanvasBackground: "#0b1220",
+      brandHoverTintPalette: ["#5eead4", "#99f6e4", "#ccfbf1"],
+      brandRippleTintPalette: ["#2dd4bf", "#5eead4", "#99f6e4"]
+    },
+    statePreset: {
+      enabled: false,
+      value: "idle"
+    },
+    debugHud: {
+      enabled: false,
+      position: "top-left",
+      updateIntervalMs: 200,
+      showFps: true,
+      showQuality: true,
+      showLoop: true,
+      showCells: true,
+      showRipples: true,
+      showTimeline: true
+    }
+  },
   timelineAssets: {
     text1Id: "text-1",
     text2Id: "text-2",
@@ -629,6 +721,206 @@ const state: PlaygroundState = {
   }
 };
 
+function resolveThemeMode(): "light" | "dark" | "brand" | null {
+  const theme = state.webUtilities.themeSync;
+  if (!theme.enabled) return null;
+  if (theme.mode === "brand") return "brand";
+  if (!theme.followSystem) return theme.mode;
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return "dark";
+  }
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function applyThemeSyncOverrides(config: PixelGridConfig): PixelGridConfig {
+  const mode = resolveThemeMode();
+  if (!mode) return config;
+
+  if (mode === "light") {
+    config.colors = ["#cbd5e1", "#94a3b8", "#64748b"];
+    config.canvasBackground = "#f8fafc";
+    config.hoverEffects = {
+      ...config.hoverEffects,
+      tintPalette: ["#64748b", "#475569", "#334155"]
+    };
+    config.rippleEffects = {
+      ...config.rippleEffects,
+      tintPalette: ["#0f172a", "#334155", "#475569"]
+    };
+    return config;
+  }
+
+  if (mode === "dark") {
+    config.colors = ["#334155", "#475569", "#64748b"];
+    config.canvasBackground = "#0b1220";
+    config.hoverEffects = {
+      ...config.hoverEffects,
+      tintPalette: ["#94a3b8", "#cbd5e1", "#f8fafc"]
+    };
+    config.rippleEffects = {
+      ...config.rippleEffects,
+      tintPalette: ["#f8fafc", "#cbd5e1", "#94a3b8"]
+    };
+    return config;
+  }
+
+  const theme = state.webUtilities.themeSync;
+  config.colors = [...theme.brandColors];
+  config.canvasBackground = theme.brandCanvasBackground;
+  config.hoverEffects = {
+    ...config.hoverEffects,
+    tintPalette: [...theme.brandHoverTintPalette]
+  };
+  config.rippleEffects = {
+    ...config.rippleEffects,
+    tintPalette: [...theme.brandRippleTintPalette]
+  };
+  config.effects = {
+    ...config.effects,
+    paletteCycle: {
+      ...config.effects?.paletteCycle,
+      enabled: true,
+      speed: config.effects?.paletteCycle?.speed ?? 0.55,
+      scope: config.effects?.paletteCycle?.scope ?? "activeOnly",
+      palette: [...theme.brandColors]
+    }
+  };
+  return config;
+}
+
+function applyStatePresetOverrides(config: PixelGridConfig): PixelGridConfig {
+  const presetState = state.webUtilities.statePreset;
+  if (!presetState.enabled) return config;
+
+  if (presetState.value === "idle") {
+    config.effects = {
+      ...config.effects,
+      paletteCycle: {
+        ...config.effects?.paletteCycle,
+        enabled: false
+      }
+    };
+    return config;
+  }
+
+  if (presetState.value === "hover") {
+    config.hoverEffects = {
+      ...config.hoverEffects,
+      mode: "reactive",
+      strength: 1.1,
+      displace: 3,
+      jitter: 1
+    };
+    return config;
+  }
+
+  if (presetState.value === "active") {
+    config.rippleEffects = {
+      ...config.rippleEffects,
+      enabled: true,
+      strength: 34,
+      maxRipples: 48
+    };
+    config.effects = {
+      ...config.effects,
+      shockwaveBurst: {
+        ...config.effects?.shockwaveBurst,
+        enabled: true,
+        triggerMode: "both",
+        strength: 0.55
+      }
+    };
+    return config;
+  }
+
+  if (presetState.value === "success") {
+    config.colors = ["#14532d", "#16a34a", "#22c55e"];
+    config.effects = {
+      ...config.effects,
+      paletteCycle: {
+        ...config.effects?.paletteCycle,
+        enabled: true,
+        speed: 0.55,
+        scope: "activeOnly",
+        palette: ["#166534", "#22c55e", "#86efac"]
+      }
+    };
+    return config;
+  }
+
+  if (presetState.value === "error") {
+    config.colors = ["#7f1d1d", "#b91c1c", "#ef4444"];
+    config.effects = {
+      ...config.effects,
+      paletteCycle: {
+        ...config.effects?.paletteCycle,
+        enabled: true,
+        speed: 0.6,
+        scope: "activeOnly",
+        palette: ["#991b1b", "#ef4444", "#fca5a5"]
+      }
+    };
+    return config;
+  }
+
+  config.effects = {
+    ...config.effects,
+    paletteCycle: {
+      ...config.effects?.paletteCycle,
+      enabled: true,
+      speed: 0.9,
+      scope: "all",
+      palette: ["#1e3a8a", "#2563eb", "#60a5fa"]
+    }
+  };
+  config.breathing = {
+    ...config.breathing,
+    enabled: true,
+    speed: 1.4
+  };
+  return config;
+}
+
+function buildEffectiveConfig(): PixelGridConfig {
+  const effective = cloneConfig(state.config);
+  return applyStatePresetOverrides(applyThemeSyncOverrides(effective));
+}
+
+function buildSectionTransitionStyle(progress: number): { opacity: string; transform: string } {
+  const transition = state.webUtilities.sectionTransition;
+  const p = clamp(progress, 0, 1);
+  if (!transition.enabled) {
+    return { opacity: "1", transform: "translate3d(0, 0, 0)" };
+  }
+
+  if (transition.preset === "fade") {
+    return { opacity: (0.15 + p * 0.85).toFixed(4), transform: "translate3d(0, 0, 0)" };
+  }
+
+  if (transition.preset === "zoom") {
+    const delta = clamp(transition.amount / 420, 0.02, 0.12);
+    const scale = 1 - (1 - p) * delta;
+    return {
+      opacity: (0.2 + p * 0.8).toFixed(4),
+      transform: `translate3d(0, 0, 0) scale(${scale.toFixed(4)})`
+    };
+  }
+
+  const y = (1 - p) * transition.amount;
+  return {
+    opacity: (0.15 + p * 0.85).toFixed(4),
+    transform: `translate3d(0, ${y.toFixed(2)}px, 0)`
+  };
+}
+
+function applySectionTransitionPreview(): void {
+  const style = buildSectionTransitionStyle(state.webUtilities.sectionTransition.progress);
+  canvas.style.opacity = style.opacity;
+  canvas.style.transform = style.transform;
+  canvas.style.transition = "opacity 160ms linear, transform 160ms linear";
+  canvas.style.willChange = "opacity, transform";
+}
+
 document.body.style.backgroundColor = state.pageColor;
 document.body.style.margin = "0";
 document.body.style.minHeight = "100vh";
@@ -650,10 +942,11 @@ let effect = new PixelGridEffect(
   engine,
   width,
   height,
-  cloneConfig(state.config),
+  buildEffectiveConfig(),
   { ...state.influenceOptions }
 );
 engine.addEntity(effect);
+applySectionTransitionPreview();
 
 function rebuildEffect(): void {
   syncTimelineMasksIntoConfig();
@@ -665,10 +958,11 @@ function rebuildEffect(): void {
     engine,
     width,
     height,
-    cloneConfig(state.config),
+    buildEffectiveConfig(),
     { ...state.influenceOptions }
   );
   engine.addEntity(effect);
+  applySectionTransitionPreview();
 }
 
 type TimelineMaskType = "image" | "text";
@@ -1289,6 +1583,206 @@ function addTextControl(
   section.appendChild(row.row);
 }
 
+let debugHudElement: HTMLDivElement | null = null;
+let debugHudIntervalId: number | null = null;
+let scrollReactiveLastTriggerMs = 0;
+let scrollReactiveLastY = typeof window !== "undefined" ? window.scrollY || window.pageYOffset || 0 : 0;
+
+function resolveScrollOriginY(edge: "leading" | "trailing" | "center", direction: "up" | "down"): number {
+  if (edge === "center") return height * 0.5;
+  const top = 2;
+  const bottom = Math.max(2, height - 2);
+  if (edge === "leading") {
+    return direction === "down" ? bottom : top;
+  }
+  return direction === "down" ? top : bottom;
+}
+
+function triggerScrollReactiveBurst(deltaY: number): void {
+  const options = state.webUtilities.scrollReactive;
+  if (!options.enabled) return;
+  if (options.respectReducedMotion && shouldReduceMotion()) return;
+  if (!state.influenceOptions.ripple) return;
+
+  const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+  if (now - scrollReactiveLastTriggerMs < options.cooldownMs) return;
+  if (Math.abs(deltaY) < 0.5) return;
+
+  const direction: "up" | "down" = deltaY > 0 ? "down" : "up";
+  if (options.direction !== "both" && options.direction !== direction) return;
+
+  const normalizedIntensity = clamp((Math.abs(deltaY) / 120) * options.intensity, 0, 1);
+  if (normalizedIntensity <= 0.01) return;
+
+  const rippleCount = Math.max(
+    1,
+    Math.round(1 + normalizedIntensity * (Math.max(1, options.maxBurstRipples) - 1))
+  );
+  const centerX = width * 0.5;
+  const spread = Math.max(8, width * 0.18 * normalizedIntensity);
+  const originY = resolveScrollOriginY(options.edge, direction);
+
+  for (let index = 0; index < rippleCount; index++) {
+    const ratio = rippleCount === 1 ? 0.5 : index / (rippleCount - 1);
+    const offset = (ratio - 0.5) * 2 * spread;
+    const x = clamp(centerX + offset, 0, width);
+    effect.triggerRipple(x, originY);
+  }
+
+  scrollReactiveLastTriggerMs = now;
+}
+
+function ensureDebugHudElement(): HTMLDivElement {
+  if (debugHudElement) return debugHudElement;
+
+  const hud = document.createElement("div");
+  hud.setAttribute("data-playground-debug-hud", "true");
+  hud.style.position = "fixed";
+  hud.style.zIndex = "2147483647";
+  hud.style.pointerEvents = "none";
+  hud.style.background = "rgba(2, 6, 23, 0.86)";
+  hud.style.border = "1px solid rgba(148, 163, 184, 0.4)";
+  hud.style.borderRadius = "8px";
+  hud.style.padding = "8px 10px";
+  hud.style.color = "#e2e8f0";
+  hud.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, monospace";
+  hud.style.fontSize = "11px";
+  hud.style.lineHeight = "1.45";
+  hud.style.whiteSpace = "pre";
+  document.body.appendChild(hud);
+  debugHudElement = hud;
+  return hud;
+}
+
+function hideDebugHud(): void {
+  if (debugHudIntervalId !== null) {
+    window.clearInterval(debugHudIntervalId);
+    debugHudIntervalId = null;
+  }
+  debugHudElement?.remove();
+  debugHudElement = null;
+}
+
+function positionDebugHud(hud: HTMLDivElement): void {
+  const options = state.webUtilities.debugHud;
+  const rect = canvas.getBoundingClientRect();
+  const offsetX = 10;
+  const offsetY = 10;
+  const xLeft = rect.left + offsetX;
+  const xRight = window.innerWidth - rect.right + offsetX;
+  const yTop = rect.top + offsetY;
+  const yBottom = window.innerHeight - rect.bottom + offsetY;
+
+  hud.style.left = "";
+  hud.style.right = "";
+  hud.style.top = "";
+  hud.style.bottom = "";
+
+  if (options.position === "top-left") {
+    hud.style.left = `${xLeft}px`;
+    hud.style.top = `${yTop}px`;
+    return;
+  }
+  if (options.position === "top-right") {
+    hud.style.right = `${xRight}px`;
+    hud.style.top = `${yTop}px`;
+    return;
+  }
+  if (options.position === "bottom-left") {
+    hud.style.left = `${xLeft}px`;
+    hud.style.bottom = `${yBottom}px`;
+    return;
+  }
+  hud.style.right = `${xRight}px`;
+  hud.style.bottom = `${yBottom}px`;
+}
+
+function updateDebugHud(): void {
+  const options = state.webUtilities.debugHud;
+  if (!options.enabled) {
+    hideDebugHud();
+    return;
+  }
+
+  const hud = ensureDebugHudElement();
+  positionDebugHud(hud);
+
+  const snapshot = effect.getDebugSnapshot();
+  const loopTuning = engine.getLoopTuning();
+  const lines: string[] = ["pixel-engine hud"];
+
+  if (options.showFps) {
+    lines.push(`fps: ${engine.getFPS().toFixed(1)}`);
+  }
+  if (options.showQuality) {
+    lines.push(`quality: ${engine.getQuality()}`);
+  }
+  if (options.showLoop) {
+    lines.push(
+      `loop: step=${loopTuning.fixedTimeStep.toFixed(2)} maxDelta=${loopTuning.maxDelta} maxUpdates=${loopTuning.maxUpdatesPerFrame}`
+    );
+  }
+  if (options.showCells) {
+    lines.push(`cells: ${snapshot.activeCells}/${snapshot.totalCells}`);
+  }
+  if (options.showRipples) {
+    lines.push(`ripples: ${snapshot.activeRipples}`);
+  }
+  if (options.showTimeline) {
+    lines.push(`timeline: ${snapshot.timeline.playing ? "playing" : "paused"} step=${snapshot.timeline.stepIndex}`);
+  }
+
+  hud.textContent = lines.join("\n");
+}
+
+function refreshDebugHudTimer(): void {
+  const options = state.webUtilities.debugHud;
+  if (!options.enabled) {
+    hideDebugHud();
+    return;
+  }
+  if (debugHudIntervalId !== null) {
+    window.clearInterval(debugHudIntervalId);
+    debugHudIntervalId = null;
+  }
+  updateDebugHud();
+  debugHudIntervalId = window.setInterval(updateDebugHud, clamp(options.updateIntervalMs, 16, 2000));
+}
+
+function triggerSectionEnter(): void {
+  const options = state.webUtilities.sectionTransition;
+  options.progress = 1;
+  applySectionTransitionPreview();
+  if (options.rippleOnEnter) {
+    effect.triggerRipple(width * 0.5, height * 0.5);
+  }
+  if (options.playTimelineOnEnter) {
+    effect.playMaskTimeline();
+  }
+  updateRuntimeStats();
+}
+
+function triggerSectionExit(): void {
+  const options = state.webUtilities.sectionTransition;
+  options.progress = 0;
+  applySectionTransitionPreview();
+  if (options.pauseTimelineOnExit) {
+    effect.pauseMaskTimeline();
+  }
+  updateRuntimeStats();
+}
+
+window.addEventListener("wheel", (event) => {
+  triggerScrollReactiveBurst(event.deltaY);
+}, { passive: true });
+
+window.addEventListener("scroll", () => {
+  const nextY = window.scrollY || window.pageYOffset || 0;
+  const deltaY = nextY - scrollReactiveLastY;
+  scrollReactiveLastY = nextY;
+  triggerScrollReactiveBurst(deltaY);
+}, { passive: true });
+
 const effectsSection = createSection("Effect Pack v1.1");
 
 addCheckboxControl(
@@ -1655,6 +2149,357 @@ addRangeControl(
 );
 
 leftPanel.appendChild(effectsSection);
+
+const webUtilitiesSection = createSection("Web Utilities (Phase 10)");
+
+addCheckboxControl(
+  webUtilitiesSection,
+  "scrollReactive enabled",
+  () => state.webUtilities.scrollReactive.enabled,
+  (value) => {
+    state.webUtilities.scrollReactive.enabled = value;
+  }
+);
+
+addRangeControl(
+  webUtilitiesSection,
+  "scroll intensity",
+  0,
+  4,
+  0.05,
+  () => state.webUtilities.scrollReactive.intensity,
+  (value) => {
+    state.webUtilities.scrollReactive.intensity = value;
+  }
+);
+
+addSelectControl(
+  webUtilitiesSection,
+  "scroll direction",
+  ["both", "down", "up"],
+  () => state.webUtilities.scrollReactive.direction,
+  (value) => {
+    state.webUtilities.scrollReactive.direction = value as "up" | "down" | "both";
+  }
+);
+
+addSelectControl(
+  webUtilitiesSection,
+  "scroll edge",
+  ["leading", "trailing", "center"],
+  () => state.webUtilities.scrollReactive.edge,
+  (value) => {
+    state.webUtilities.scrollReactive.edge = value as "leading" | "trailing" | "center";
+  }
+);
+
+addRangeControl(
+  webUtilitiesSection,
+  "scroll cooldownMs",
+  0,
+  2000,
+  10,
+  () => state.webUtilities.scrollReactive.cooldownMs,
+  (value) => {
+    state.webUtilities.scrollReactive.cooldownMs = Math.round(value);
+  }
+);
+
+addRangeControl(
+  webUtilitiesSection,
+  "scroll maxBurst",
+  1,
+  12,
+  1,
+  () => state.webUtilities.scrollReactive.maxBurstRipples,
+  (value) => {
+    state.webUtilities.scrollReactive.maxBurstRipples = Math.max(1, Math.round(value));
+  }
+);
+
+addCheckboxControl(
+  webUtilitiesSection,
+  "scroll respect reduced-motion",
+  () => state.webUtilities.scrollReactive.respectReducedMotion,
+  (value) => {
+    state.webUtilities.scrollReactive.respectReducedMotion = value;
+  }
+);
+
+addCheckboxControl(
+  webUtilitiesSection,
+  "sectionTransition enabled",
+  () => state.webUtilities.sectionTransition.enabled,
+  (value) => {
+    state.webUtilities.sectionTransition.enabled = value;
+    if (!value) {
+      state.webUtilities.sectionTransition.progress = 1;
+    }
+    applySectionTransitionPreview();
+  }
+);
+
+addSelectControl(
+  webUtilitiesSection,
+  "transition preset",
+  ["fade", "lift", "zoom"],
+  () => state.webUtilities.sectionTransition.preset,
+  (value) => {
+    state.webUtilities.sectionTransition.preset = value as "fade" | "lift" | "zoom";
+    applySectionTransitionPreview();
+  }
+);
+
+addRangeControl(
+  webUtilitiesSection,
+  "transition amount",
+  0,
+  120,
+  1,
+  () => state.webUtilities.sectionTransition.amount,
+  (value) => {
+    state.webUtilities.sectionTransition.amount = Math.round(value);
+    applySectionTransitionPreview();
+  }
+);
+
+addRangeControl(
+  webUtilitiesSection,
+  "transition progress",
+  0,
+  1,
+  0.01,
+  () => state.webUtilities.sectionTransition.progress,
+  (value) => {
+    state.webUtilities.sectionTransition.progress = value;
+    applySectionTransitionPreview();
+  }
+);
+
+addCheckboxControl(
+  webUtilitiesSection,
+  "enter ripple",
+  () => state.webUtilities.sectionTransition.rippleOnEnter,
+  (value) => {
+    state.webUtilities.sectionTransition.rippleOnEnter = value;
+  }
+);
+
+addCheckboxControl(
+  webUtilitiesSection,
+  "enter play timeline",
+  () => state.webUtilities.sectionTransition.playTimelineOnEnter,
+  (value) => {
+    state.webUtilities.sectionTransition.playTimelineOnEnter = value;
+  }
+);
+
+addCheckboxControl(
+  webUtilitiesSection,
+  "exit pause timeline",
+  () => state.webUtilities.sectionTransition.pauseTimelineOnExit,
+  (value) => {
+    state.webUtilities.sectionTransition.pauseTimelineOnExit = value;
+  }
+);
+
+const transitionButtons = document.createElement("div");
+transitionButtons.style.display = "flex";
+transitionButtons.style.gap = "8px";
+transitionButtons.appendChild(createButton("Simulate Enter", triggerSectionEnter));
+transitionButtons.appendChild(createButton("Simulate Exit", triggerSectionExit));
+webUtilitiesSection.appendChild(transitionButtons);
+
+addCheckboxControl(
+  webUtilitiesSection,
+  "themeSync enabled",
+  () => state.webUtilities.themeSync.enabled,
+  (value) => {
+    state.webUtilities.themeSync.enabled = value;
+  }
+);
+
+addSelectControl(
+  webUtilitiesSection,
+  "theme mode",
+  ["dark", "light", "brand"],
+  () => state.webUtilities.themeSync.mode,
+  (value) => {
+    state.webUtilities.themeSync.mode = value as "light" | "dark" | "brand";
+  }
+);
+
+addCheckboxControl(
+  webUtilitiesSection,
+  "follow system theme",
+  () => state.webUtilities.themeSync.followSystem,
+  (value) => {
+    state.webUtilities.themeSync.followSystem = value;
+  }
+);
+
+addColorControl(
+  webUtilitiesSection,
+  "brand color 1",
+  () => state.webUtilities.themeSync.brandColors[0],
+  (value) => {
+    state.webUtilities.themeSync.brandColors = [
+      value,
+      state.webUtilities.themeSync.brandColors[1],
+      state.webUtilities.themeSync.brandColors[2]
+    ];
+  },
+  () => rebuildEffect()
+);
+
+addColorControl(
+  webUtilitiesSection,
+  "brand color 2",
+  () => state.webUtilities.themeSync.brandColors[1],
+  (value) => {
+    state.webUtilities.themeSync.brandColors = [
+      state.webUtilities.themeSync.brandColors[0],
+      value,
+      state.webUtilities.themeSync.brandColors[2]
+    ];
+  },
+  () => rebuildEffect()
+);
+
+addColorControl(
+  webUtilitiesSection,
+  "brand color 3",
+  () => state.webUtilities.themeSync.brandColors[2],
+  (value) => {
+    state.webUtilities.themeSync.brandColors = [
+      state.webUtilities.themeSync.brandColors[0],
+      state.webUtilities.themeSync.brandColors[1],
+      value
+    ];
+  },
+  () => rebuildEffect()
+);
+
+addColorControl(
+  webUtilitiesSection,
+  "brand canvas bg",
+  () => state.webUtilities.themeSync.brandCanvasBackground,
+  (value) => {
+    state.webUtilities.themeSync.brandCanvasBackground = value;
+  },
+  () => rebuildEffect()
+);
+
+addSelectControl(
+  webUtilitiesSection,
+  "statePreset",
+  ["off", "idle", "hover", "active", "success", "error", "loading"],
+  () => (state.webUtilities.statePreset.enabled ? state.webUtilities.statePreset.value : "off"),
+  (value) => {
+    if (value === "off") {
+      state.webUtilities.statePreset.enabled = false;
+      return;
+    }
+    state.webUtilities.statePreset.enabled = true;
+    state.webUtilities.statePreset.value = value as "idle" | "hover" | "active" | "success" | "error" | "loading";
+  }
+);
+
+addCheckboxControl(
+  webUtilitiesSection,
+  "debugHud enabled",
+  () => state.webUtilities.debugHud.enabled,
+  (value) => {
+    state.webUtilities.debugHud.enabled = value;
+    refreshDebugHudTimer();
+  }
+);
+
+addSelectControl(
+  webUtilitiesSection,
+  "hud position",
+  ["top-left", "top-right", "bottom-left", "bottom-right"],
+  () => state.webUtilities.debugHud.position,
+  (value) => {
+    state.webUtilities.debugHud.position = value as "top-left" | "top-right" | "bottom-left" | "bottom-right";
+    updateDebugHud();
+  }
+);
+
+addRangeControl(
+  webUtilitiesSection,
+  "hud intervalMs",
+  16,
+  2000,
+  1,
+  () => state.webUtilities.debugHud.updateIntervalMs,
+  (value) => {
+    state.webUtilities.debugHud.updateIntervalMs = Math.round(value);
+    refreshDebugHudTimer();
+  }
+);
+
+addCheckboxControl(
+  webUtilitiesSection,
+  "hud showFps",
+  () => state.webUtilities.debugHud.showFps,
+  (value) => {
+    state.webUtilities.debugHud.showFps = value;
+    updateDebugHud();
+  }
+);
+
+addCheckboxControl(
+  webUtilitiesSection,
+  "hud showQuality",
+  () => state.webUtilities.debugHud.showQuality,
+  (value) => {
+    state.webUtilities.debugHud.showQuality = value;
+    updateDebugHud();
+  }
+);
+
+addCheckboxControl(
+  webUtilitiesSection,
+  "hud showLoop",
+  () => state.webUtilities.debugHud.showLoop,
+  (value) => {
+    state.webUtilities.debugHud.showLoop = value;
+    updateDebugHud();
+  }
+);
+
+addCheckboxControl(
+  webUtilitiesSection,
+  "hud showCells",
+  () => state.webUtilities.debugHud.showCells,
+  (value) => {
+    state.webUtilities.debugHud.showCells = value;
+    updateDebugHud();
+  }
+);
+
+addCheckboxControl(
+  webUtilitiesSection,
+  "hud showRipples",
+  () => state.webUtilities.debugHud.showRipples,
+  (value) => {
+    state.webUtilities.debugHud.showRipples = value;
+    updateDebugHud();
+  }
+);
+
+addCheckboxControl(
+  webUtilitiesSection,
+  "hud showTimeline",
+  () => state.webUtilities.debugHud.showTimeline,
+  (value) => {
+    state.webUtilities.debugHud.showTimeline = value;
+    updateDebugHud();
+  }
+);
+
+leftPanel.appendChild(webUtilitiesSection);
 
 const setupSection = createSection("Setup");
 
@@ -2574,24 +3419,21 @@ runtimeSection.appendChild(runtimeStats);
 leftPanel.appendChild(runtimeSection);
 
 function updateRuntimeStats(): void {
-  const debugState = effect as unknown as EffectDebugState;
-  const activeCells = debugState.cells
-    ? debugState.cells.reduce((count, cell) => count + (cell.targetSize > 0.01 ? 1 : 0), 0)
-    : 0;
-  const totalCells = debugState.cells?.length ?? 0;
-  const activeRipples = debugState.runtime?.activeRipples?.length ?? 0;
+  const snapshot = effect.getDebugSnapshot();
   const timelineState = effect.getMaskTimelineState();
   const loopTuning = engine.getLoopTuning();
   runtimeStats.textContent = [
     `fps: ${engine.getFPS().toFixed(1)}`,
     `quality: ${engine.getQuality()}`,
     `loop: step=${loopTuning.fixedTimeStep.toFixed(2)} maxDelta=${loopTuning.maxDelta} maxUpdates=${loopTuning.maxUpdatesPerFrame}`,
-    `active cells: ${activeCells}/${totalCells}`,
-    `active ripples: ${activeRipples}`,
+    `active cells: ${snapshot.activeCells}/${snapshot.totalCells}`,
+    `active ripples: ${snapshot.activeRipples}`,
     `effects: palette=${state.config.effects?.paletteCycle?.enabled ? "on" : "off"} dissolve=${state.config.effects?.dissolve?.enabled ? "on" : "off"} shockwave=${state.config.effects?.shockwaveBurst?.enabled ? "on" : "off"}`,
     `timeline: ${timelineState.playing ? "playing" : "paused"} step=${timelineState.stepIndex}`,
+    `web: scroll=${state.webUtilities.scrollReactive.enabled ? "on" : "off"} transition=${state.webUtilities.sectionTransition.enabled ? "on" : "off"} theme=${state.webUtilities.themeSync.enabled ? state.webUtilities.themeSync.mode : "off"} state=${state.webUtilities.statePreset.enabled ? state.webUtilities.statePreset.value : "off"}`,
     `preset: ${state.preset}`
   ].join("\n");
+  updateDebugHud();
 }
 
 const ioSection = createSection("Config IO");
@@ -2634,6 +3476,7 @@ buttonsRow.appendChild(
         pageColor: state.pageColor,
         config: state.config,
         influenceOptions: state.influenceOptions,
+        webUtilities: state.webUtilities,
         timelineAssets: {
           text1Id: state.timelineAssets.text1Id,
           text2Id: state.timelineAssets.text2Id,
@@ -2667,6 +3510,7 @@ buttonsRow.appendChild(
         pageColor?: string;
         config?: Partial<PixelGridConfig>;
         influenceOptions?: PixelGridInfluenceOptions;
+        webUtilities?: Partial<PlaygroundState["webUtilities"]>;
         timelineAssets?: {
           text1Id?: string;
           text2Id?: string;
@@ -2770,6 +3614,33 @@ buttonsRow.appendChild(
         };
       }
 
+      if (parsed.webUtilities) {
+        state.webUtilities = {
+          ...state.webUtilities,
+          ...parsed.webUtilities,
+          scrollReactive: {
+            ...state.webUtilities.scrollReactive,
+            ...parsed.webUtilities.scrollReactive
+          },
+          sectionTransition: {
+            ...state.webUtilities.sectionTransition,
+            ...parsed.webUtilities.sectionTransition
+          },
+          themeSync: {
+            ...state.webUtilities.themeSync,
+            ...parsed.webUtilities.themeSync
+          },
+          statePreset: {
+            ...state.webUtilities.statePreset,
+            ...parsed.webUtilities.statePreset
+          },
+          debugHud: {
+            ...state.webUtilities.debugHud,
+            ...parsed.webUtilities.debugHud
+          }
+        };
+      }
+
       if (parsed.timelineAssets) {
         state.timelineAssets = {
           ...state.timelineAssets,
@@ -2807,6 +3678,7 @@ function renderAllControls(): void {
   renderTimelineStepEditors();
   rebuildEffect();
   updateTimelinePreview();
+  refreshDebugHudTimer();
   updateRuntimeStats();
   layoutLeftPanels();
 }
@@ -2825,9 +3697,11 @@ canvas.addEventListener("click", (event) => {
 
 window.setInterval(updateRuntimeStats, 250);
 updateTimelinePreview();
+refreshDebugHudTimer();
 updateRuntimeStats();
 
 window.addEventListener("beforeunload", () => {
+  hideDebugHud();
   if (state.timelineAssets.image1ObjectUrl) {
     URL.revokeObjectURL(state.timelineAssets.image1ObjectUrl);
   }

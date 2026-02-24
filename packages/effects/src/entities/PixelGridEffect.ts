@@ -11,6 +11,13 @@ import {
   PixelGridRuntimeController
 } from "./pixel-grid/internal/runtime-controller";
 
+export interface PixelGridDebugSnapshot {
+  totalCells: number;
+  activeCells: number;
+  activeRipples: number;
+  timeline: { playing: boolean; stepIndex: number };
+}
+
 export class PixelGridEffect extends Entity {
   private runtime: PixelGridRuntimeController;
   private cells: PixelCell[];
@@ -116,5 +123,9 @@ export class PixelGridEffect extends Entity {
 
   getMaskTimelineState(): { playing: boolean; stepIndex: number } {
     return this.runtime.getMaskTimelineState();
+  }
+
+  getDebugSnapshot(): PixelGridDebugSnapshot {
+    return this.runtime.getDebugSnapshot();
   }
 }

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./PixelEngine-Thumbnail2.png" alt="Pixel Engine Thumbnail" width="980" />
+</p>
+
 # Pixel Engine
 
 High-performance 2D pixel simulation engine for browser apps and UI frameworks.
@@ -17,7 +21,7 @@ High-performance 2D pixel simulation engine for browser apps and UI frameworks.
 - v1.1 Phase 7 completed (PR-7A + PR-7B + PR-7C)
 - v1.1 Phase 8 completed (PR-8A + PR-8B + PR-8C)
 - v1.1 Phase 9 completed (PR-9A + PR-9B + PR-9C, PR-9D deferred)
-- Current active work: v1.1 Phase 10 (web product utilities)
+- v1.1 Phase 10 completed (web product utilities)
 
 ## Install
 
@@ -80,59 +84,55 @@ engine.start();
 
 ## React Usage Guide
 
-### 1) Simple usage (fastest start)
-
-Use a preset, no manual engine wiring:
+### Easy
 
 ```tsx
 import { PixelGridCanvas } from "@pixel-engine/react";
 
-export function SimplePreset() {
+export function EasyExample() {
   return <PixelGridCanvas width={900} height={520} preset="card-soft" />;
 }
 ```
 
-### 2) Simple config (preset + small override)
-
-Keep defaults but tune a few values:
+### Medium
 
 ```tsx
+import { useState } from "react";
 import { PixelGridCanvas } from "@pixel-engine/react";
 
-export function PresetWithOverrides() {
+type UiState = "idle" | "active" | "success" | "error" | "loading";
+
+export function MediumExample() {
+  const [uiState, setUiState] = useState<UiState>("idle");
+
   return (
-    <PixelGridCanvas
-      width={900}
-      height={520}
-      preset="card-ripple"
-      gridConfig={{
-        gap: 6,
-        rippleEffects: { maxRipples: 36 },
-        hoverEffects: { radius: 120 },
-        effects: {
-          paletteCycle: { enabled: true, speed: 0.35, scope: "activeOnly" },
-          dissolve: { enabled: true, speed: 0.9, amount: 0.28 },
-          shockwaveBurst: { enabled: true, speed: 0.9, strength: 0.45, thickness: 28, triggerMode: "pointerDown" }
-        }
-      }}
-    />
+    <>
+      <button onClick={() => setUiState("active")}>active</button>
+      <PixelGridCanvas
+        width={900}
+        height={520}
+        preset="card-ripple"
+        gridConfig={{ gap: 6, hoverEffects: { radius: 120 } }}
+        statePreset={{ enabled: true, value: uiState }}
+        scrollReactive={{ enabled: true, intensity: 1.1, direction: "both" }}
+        sectionTransition={{ enabled: true, preset: "lift", amount: 28 }}
+      />
+    </>
   );
 }
 ```
 
-### 3) Advanced config (callbacks + timeline items)
-
-Use interaction callbacks and declarative `mask`:
+### Advanced
 
 ```tsx
 import catPngUrl from "./assets/cat.png";
 import { PixelGridCanvas } from "@pixel-engine/react";
 
-export function AdvancedMask() {
+export function AdvancedExample() {
   return (
     <PixelGridCanvas
-      width={900}
-      height={520}
+      width={960}
+      height={540}
       preset="hero-image"
       onHoverStart={(e) => console.log("hover start", e.x, e.y)}
       onHoverEnd={(e) => console.log("hover end", e.x, e.y)}
@@ -140,103 +140,136 @@ export function AdvancedMask() {
       mask={{
         type: "hybrid",
         initialMask: "image",
-        texts: [
-          { id: "title", text: "PIXEL", centerX: 450, centerY: 275, fontSize: 132, fontFamily: "Arial", fontWeight: 700 },
-          { id: "subtitle", text: "ENGINE", centerX: 450, centerY: 275, fontSize: 112, fontFamily: "Arial", fontWeight: 700 }
-        ],
-        images: [
-          { id: "catA", src: catPngUrl, centerX: 450, centerY: 250, scale: 2.1, sampleMode: "threshold" },
-          { id: "catB", src: catPngUrl, centerX: 450, centerY: 250, scale: 1.6, sampleMode: "luminance" }
-        ],
         items: [
-          { type: "text", id: "title", text: "PIXEL", centerX: 450, centerY: 275, fontSize: 132, fontFamily: "Arial", fontWeight: 700 },
-          { type: "image", id: "catA", src: catPngUrl, centerX: 450, centerY: 250, scale: 2.1, sampleMode: "threshold" },
-          { type: "text", id: "subtitle", text: "ENGINE", centerX: 450, centerY: 275, fontSize: 112, fontFamily: "Arial", fontWeight: 700 },
-          { type: "image", id: "catB", src: catPngUrl, centerX: 450, centerY: 250, scale: 1.6, sampleMode: "luminance" }
+          { type: "text", id: "title", text: "PIXEL", centerX: 480, centerY: 280, fontSize: 132, fontFamily: "Arial", fontWeight: 700 },
+          { type: "image", id: "imgA", src: catPngUrl, centerX: 480, centerY: 260, scale: 2.05, sampleMode: "threshold" },
+          { type: "text", id: "subtitle", text: "ENGINE", centerX: 480, centerY: 280, fontSize: 112, fontFamily: "Arial", fontWeight: 700 },
+          { type: "image", id: "imgB", src: catPngUrl, centerX: 480, centerY: 260, scale: 1.65, sampleMode: "luminance" }
         ],
         steps: [
           { mask: "text", assetId: "title", holdMs: 1100, mode: "morph", durationMs: 700 },
-          { mask: "image", assetId: "catA", holdMs: 1000, mode: "fade", durationMs: 450 },
+          { mask: "image", assetId: "imgA", holdMs: 1000, mode: "fade", durationMs: 450 },
           { mask: "text", assetId: "subtitle", holdMs: 1100, mode: "dissolve", durationMs: 620 },
-          { mask: "image", assetId: "catB", holdMs: 1000, mode: "fade", durationMs: 450 }
+          { mask: "image", assetId: "imgB", holdMs: 1000, mode: "fade", durationMs: 450 }
         ],
-        maskTimeline: {
-          enabled: true,
-          autoplay: true,
-          loop: true,
-          initialStep: 0
-        }
+        maskTimeline: { enabled: true, autoplay: true, loop: true, initialStep: 0 }
       }}
-      effectKey="hero-timeline-v2"
+      themeSync={{
+        enabled: true,
+        mode: "brand",
+        brandColors: ["#0f766e", "#14b8a6", "#2dd4bf"],
+        brandCanvasBackground: "#071414"
+      }}
+      debugHud={{ enabled: true, position: "top-right", updateIntervalMs: 180, showLoop: true }}
+      ssrPlaceholder={{ enabled: true, preset: "hero-image", hideOnReady: true }}
     />
   );
 }
 ```
 
-Timeline model notes:
-- `maskTimeline.items`: declares timeline assets (text/image masks).
-- `steps[].assetId`: points to an asset declared in `items`.
-- `steps[].mode` and `steps[].durationMs`: transition aliases for fast authoring.
-- `steps[].transition`: still supported for full control (`seed`, explicit fields).
+## React Options Reference
 
-### 4) Custom config (public helpers)
+### `usePixelEngine` and `PixelCanvas` options
 
-Build reusable team presets:
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `width` | `number` | required | Backing canvas width. |
+| `height` | `number` | required | Backing canvas height. |
+| `autoStart` | `boolean` | `true` | Start engine automatically on mount. |
+| `quality` | `"low" \| "medium" \| "high"` | engine default | Runtime quality profile. |
+| `loop` | `{ fixedTimeStep?, maxDelta?, maxUpdatesPerFrame? }` | engine default | Fixed-step runtime tuning. |
+| `clearColor` | `string \| null` | engine default | Canvas clear color (`null` for transparent). |
+| `devicePixelRatio` | `number` | runtime default | Override DPR. |
+| `fitMode` | `"none" \| "client"` | `"none"` | Bind engine size to explicit width/height or canvas client size. |
+| `resizeMode` | `"observer" \| "window" \| "none"` | `"observer"` | Resize strategy when `fitMode="client"`. |
+| `onReady` | `(engine) => void` | none | Engine ready callback. |
+| `onDestroy` | `(engine) => void` | none | Engine cleanup callback. |
+| `onHoverStart` | `(payload) => void` | none | Pointer enters canvas. |
+| `onHoverEnd` | `(payload) => void` | none | Pointer leaves canvas. |
+| `createEngine` | `(options) => PixelEngine` | none | Dependency injection for tests/custom engines. |
+| `className` (`PixelCanvas`) | `string` | none | Canvas class name. |
+| `style` (`PixelCanvas`) | `CSSProperties` | none | Canvas inline style. |
+
+### `usePixelGridEffect` and `PixelGridCanvas` core options
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `preset` | `"minimal" \| "card-soft" \| "card-ripple" \| "hero-image"` | none | Declarative baseline config. |
+| `gridConfig` | `Partial<PixelGridConfig>` | none | Low-level effect overrides. |
+| `mask` | `text \| image \| hybrid` | none | Declarative mask + timeline mapping. |
+| `influenceOptions` | `PixelGridInfluenceOptions` | effect default | Enable/disable influence groups. |
+| `effectKey` | `string \| number` | `"default"` | Extra remount key for intentional full reset. |
+| `gridWidth` | `number` | none | Explicit effect width override. |
+| `gridHeight` | `number` | none | Explicit effect height override. |
+| `autoAttach` | `boolean` | `true` | Auto add/remove effect in scene. |
+| `rippleTrigger` | `"click" \| "pointerdown" \| "none"` | `"click"` | Built-in ripple trigger event. |
+| `onGridReady` | `(effect, engine) => void` | none | Effect ready callback. |
+| `onRipple` | `(payload) => void` | none | Ripple trigger callback. |
+| `createGridEffect` | `(engine, w, h, config, influenceOptions?) => PixelGridEffect` | none | Dependency injection for tests/custom effects. |
+| `className` (`PixelGridCanvas`) | `string` | none | Canvas class name. |
+| `style` (`PixelGridCanvas`) | `CSSProperties` | none | Canvas inline style (composed with transition/placeholder styles). |
+
+### `PixelGridCanvas` web utility options
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `scrollReactive` | object | disabled | Converts scroll motion into ripple bursts. |
+| `sectionTransition` | object | disabled | Viewport enter/exit visual preset (`fade`, `lift`, `zoom`). |
+| `themeSync` | object | disabled | Light/dark/brand palette sync. |
+| `statePreset` | string or object | disabled | Declarative visual states (`idle`, `hover`, `active`, `success`, `error`, `loading`). |
+| `debugHud` | object | disabled | Live runtime overlay diagnostics. |
+| `ssrPlaceholder` | preset or object | disabled | SSR-safe static placeholder style. |
+
+### `PixelSurface` and `PixelCard` overlay options
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `overlayPointerEvents` | `"none" \| "auto" \| "hybrid"` | `"none"` | Overlay/canvas event routing mode. |
+| `containerClassName` | `string` | none | Wrapper class. |
+| `containerStyle` | `CSSProperties` | none | Wrapper style. |
+| `overlayClassName` | `string` | none | Overlay class. |
+| `overlayStyle` | `CSSProperties` | none | Overlay style. |
+| `radius` (`PixelCard`) | `number` | `16` | Card corner radius. |
+| `padding` (`PixelCard`) | `number` | `16` | Overlay content padding. |
+
+Notes:
+- `overlayPointerEvents="none"`: overlay does not block hover/ripple.
+- `overlayPointerEvents="auto"`: overlay handles pointer events; canvas does not receive them through overlay.
+- `overlayPointerEvents="hybrid"`: overlay remains interactive and pointer bridge forwards interactions to canvas effects.
+
+### CMS-driven config example
 
 ```tsx
-import catPngUrl from "./assets/cat.png";
-import {
-  PixelGridCanvas,
-  createPixelPreset,
-  mergePixelOptions,
-  createMaskConfig
-} from "@pixel-engine/react";
+import { useMemo } from "react";
+import { PixelGridCanvas, loadPixelConfigFromJson } from "@pixel-engine/react";
 
-const base = createPixelPreset("card-ripple");
-const tuned = mergePixelOptions(base, {
-  gap: 6,
-  hoverEffects: {
-    radius: 125,
-    magnetic: { enabled: true, mode: "attract", strength: 2.6, radius: 125 }
-  },
-  rippleEffects: { maxRipples: 40 }
-});
-const mask = createMaskConfig({
-  type: "image",
-  src: catPngUrl,
-  centerX: 450,
-  centerY: 260,
-  scale: 2
-});
+type Props = { cmsJson: string };
 
-export function CustomConfig() {
-  return <PixelGridCanvas width={900} height={520} gridConfig={{ ...tuned, ...mask }} />;
-}
-```
+export function CmsDrivenSection({ cmsJson }: Props) {
+  const parsed = useMemo(
+    () => loadPixelConfigFromJson(cmsJson, { schemaVersion: "1.0", preset: "minimal" }),
+    [cmsJson]
+  );
 
-Hover notes:
-- `hoverEffects` now uses a single radius (`radius`) and circle profile.
-- `hoverEffects.magnetic` supports `mode: "attract" | "repel"`.
+  if (!parsed.ok || !parsed.value) return <div>Invalid CMS config</div>;
 
-### 5) Overlay content (`PixelCard` / `PixelSurface`)
-
-By default, overlay content does not block canvas interactions:
-
-```tsx
-import { PixelCard } from "@pixel-engine/react";
-
-export function Card() {
   return (
-    <PixelCard width={420} height={240} preset="card-soft">
-      <h3>Pixel Card</h3>
-    </PixelCard>
+    <PixelGridCanvas
+      width={960}
+      height={520}
+      preset={parsed.value.preset}
+      gridConfig={parsed.value.gridConfig}
+      mask={parsed.value.mask}
+      scrollReactive={parsed.value.scrollReactive}
+      sectionTransition={parsed.value.sectionTransition}
+      themeSync={parsed.value.themeSync}
+      statePreset={parsed.value.statePreset}
+      debugHud={parsed.value.debugHud}
+      ssrPlaceholder={parsed.value.ssrPlaceholder}
+    />
   );
 }
 ```
-
-- Default: `overlayPointerEvents="none"` (hover/ripple pass through)
-- Set `overlayPointerEvents="auto"` only when overlay UI must be clickable
-- Set `overlayPointerEvents="hybrid"` to keep overlay clickable and still forward hover/ripple interactions to canvas
 
 ## When to use what
 
@@ -274,9 +307,17 @@ Preset matrix:
   - `PixelSurface`/`PixelCard` default to `overlayPointerEvents="none"`.
   - Set `overlayPointerEvents="auto"` for clickable overlay UI.
   - Set `overlayPointerEvents="hybrid"` for clickable overlay UI while preserving canvas hover/ripple via pointer bridge forwarding.
+- Web utilities:
+  - `scrollReactive` on `PixelGridCanvas` enables direction/intensity-based ripple response from page scroll.
+  - `sectionTransition` on `PixelGridCanvas` enables declarative section entrance presets (`fade`, `lift`, `zoom`).
+  - `themeSync` on `PixelGridCanvas`/`PixelCard` enables light/dark/brand visual synchronization.
+  - `statePreset` enables declarative state styling (`idle`, `hover`, `active`, `success`, `error`, `loading`).
+  - `debugHud` enables runtime diagnostics overlay for development/debug sessions.
+  - `ssrPlaceholder` enables preset static fallback visuals before full client runtime is ready.
+  - `loadPixelConfigFromJson` / `validatePixelConfigDocument` enable CMS-safe config ingestion.
 - Effect lifecycle:
-  - Use `effectKey` when you want an intentional effect remount.
-  - Keep `effectKey` stable to avoid unnecessary remounts.
+  - `usePixelGridEffect` / `PixelGridCanvas` recreates the effect when resolved `gridConfig` or `influenceOptions` changes.
+  - Use `effectKey` when you want an additional intentional full remount/reset boundary.
   - `PixelGridEffect` supports `resize(width, height)` and React wrappers keep it synced during `fitMode="client"` resize flows.
 - Mask guidance:
   - `hero-image` should be paired with an image mask.
@@ -296,6 +337,13 @@ Validated in an external React project (Vite + TypeScript) with local package in
 - `PixelGridCanvas`
 - `PixelSurface`
 - `PixelCard`
+- Phase 10 utilities validated in practice:
+  - `scrollReactive`
+  - `sectionTransition`
+  - `themeSync`
+  - `statePreset`
+  - `debugHud`
+  - `ssrPlaceholder`
 
 ## Package Split
 
