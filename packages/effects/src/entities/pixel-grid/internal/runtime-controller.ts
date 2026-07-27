@@ -17,8 +17,7 @@ import { DEFAULT_PIXEL_GRID_RUNTIME_TUNING } from "./runtime-tuning";
 import { createMaskWeightCacheCoordinator } from "./mask-weight-cache";
 import { createPixelGridEffectsPipeline } from "./effects/pipeline";
 import {
-  applyMagneticHoverPass,
-  applyReactiveHoverPass,
+  applyHoverInteractionsPass,
   applyReactiveRipplePass
 } from "./interaction-coordinator";
 
@@ -185,64 +184,74 @@ export function createPixelGridRuntimeController(
     runtime.recycledRipples.push(ripple);
   };
 
+  // Pipeline dependency closures + the params object are created once (not per frame):
+  // every value they close over (cells, runtime, params.resolvedConfig/influenceOptions,
+  // params.engine.mouse -- a live reference PixelEngine mutates in place, never reassigns --
+  // inverseGap/columns/rows, maskWeightCache, effectsPipeline) is stable for the controller's
+  // lifetime. Only `delta` genuinely varies per frame, so it's written onto `pipelineParams`
+  // right before each call instead of being captured by a freshly allocated closure.
+  const shouldRecomputeMaskWeightCache = (): boolean => maskWeightCache.shouldRecompute();
+  const updateMaskWeightCache = (): void => maskWeightCache.recompute();
+  const applyHoverInteractions = (): void => {
+    applyHoverInteractionsPass({
+      cells,
+      runtime,
+      hoverEffects: params.resolvedConfig.hoverEffects,
+      hoverEnabled: !!params.influenceOptions.hover,
+      mouse: params.engine.mouse
+    });
+  };
+  const applyReactiveRippleEffects = (): void => {
+    applyReactiveRipplePass({
+      cells,
+      runtime,
+      rippleEnabled: !!params.influenceOptions.ripple,
+      inverseGap,
+      columns,
+      rows,
+      hoverEffects: params.resolvedConfig.hoverEffects,
+      rippleEffects: params.resolvedConfig.rippleEffects,
+      getCellIndex
+    });
+  };
+  const applyBreathing = (): void => {
+    applyBreathingSystem({
+      cells,
+      breathing: params.resolvedConfig.breathing,
+      mouse: params.engine.mouse,
+      imageMaskWeightCache: runtime.imageMaskWeightCache,
+      textMaskWeightCache: runtime.textMaskWeightCache,
+      reactiveTime: runtime.reactiveTime
+    });
+  };
+  // Reads pipelineParams.delta (set just before this runs each frame) rather than closing
+  // over a `delta` parameter -- a closure created once here has no per-call `delta` binding
+  // to capture, unlike the old per-frame closure it replaces.
+  const applyPostEffects = (): void => {
+    effectsPipeline.update(pipelineParams.delta);
+    effectsPipeline.apply(cells);
+  };
+
+  const pipelineParams: Parameters<typeof runPixelGridUpdatePipeline>[0] = {
+    delta: 0,
+    cells,
+    expandEase: params.config.expandEase,
+    runtime,
+    influenceManager,
+    maskState,
+    getCellIndex,
+    shouldRecomputeMaskWeightCache,
+    updateMaskWeightCache,
+    applyHoverInteractions,
+    applyReactiveRippleEffects,
+    applyBreathing,
+    applyPostEffects
+  };
+
   return {
     update(delta: number): void {
-      runPixelGridUpdatePipeline({
-        delta,
-        cells,
-        expandEase: params.config.expandEase,
-        runtime,
-        influenceManager,
-        maskState,
-        getCellIndex,
-        shouldRecomputeMaskWeightCache: () => maskWeightCache.shouldRecompute(),
-        updateMaskWeightCache: () => maskWeightCache.recompute(),
-        applyReactiveHover: () => {
-          applyReactiveHoverPass({
-            cells,
-            runtime,
-            hoverEffects: params.resolvedConfig.hoverEffects,
-            hoverEnabled: !!params.influenceOptions.hover,
-            mouse: params.engine.mouse
-          });
-        },
-        applyMagneticHover: () => {
-          applyMagneticHoverPass({
-            cells,
-            runtime,
-            hoverEffects: params.resolvedConfig.hoverEffects,
-            hoverEnabled: !!params.influenceOptions.hover,
-            mouse: params.engine.mouse
-          });
-        },
-        applyReactiveRippleEffects: () => {
-          applyReactiveRipplePass({
-            cells,
-            runtime,
-            rippleEnabled: !!params.influenceOptions.ripple,
-            inverseGap,
-            columns,
-            rows,
-            hoverEffects: params.resolvedConfig.hoverEffects,
-            rippleEffects: params.resolvedConfig.rippleEffects,
-            getCellIndex
-          });
-        },
-        applyBreathing: () => {
-          applyBreathingSystem({
-            cells,
-            breathing: params.resolvedConfig.breathing,
-            mouse: params.engine.mouse,
-            imageMaskWeightCache: runtime.imageMaskWeightCache,
-            textMaskWeightCache: runtime.textMaskWeightCache,
-            reactiveTime: runtime.reactiveTime
-          });
-        },
-        applyPostEffects: () => {
-          effectsPipeline.update(delta);
-          effectsPipeline.apply(cells);
-        }
-      });
+      pipelineParams.delta = delta;
+      runPixelGridUpdatePipeline(pipelineParams);
     },
 
     render(renderer: IRenderer, alpha: number): void {

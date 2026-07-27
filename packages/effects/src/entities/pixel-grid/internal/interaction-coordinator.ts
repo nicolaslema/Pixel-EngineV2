@@ -9,7 +9,7 @@ import {
 } from "./reactive-effects";
 import { PixelGridRuntimeState } from "./runtime-state";
 
-interface ReactiveHoverPassParams {
+interface HoverInteractionsPassParams {
   cells: PixelCell[];
   runtime: Pick<PixelGridRuntimeState, "activeMaskWeightCache" | "reactiveTime">;
   hoverEffects: ResolvedPixelGridConfig["hoverEffects"];
@@ -29,18 +29,24 @@ interface ReactiveRipplePassParams {
   getCellIndex: (x: number, y: number) => number;
 }
 
-interface MagneticHoverPassParams {
-  cells: PixelCell[];
-  runtime: Pick<PixelGridRuntimeState, "activeMaskWeightCache">;
-  hoverEffects: ResolvedPixelGridConfig["hoverEffects"];
-  hoverEnabled: boolean;
-  mouse: { x: number; y: number; inside: boolean };
-}
-
-export function applyReactiveHoverPass(
-  params: ReactiveHoverPassParams
+/**
+ * Fused reactive-hover + magnetic-hover pass. Both effects share the same per-cell gate
+ * (shouldAffectCell + getHoverWeight, same hoverEffects.radius-based falloff) and used to
+ * run as two separate full-grid loops recomputing that falloff independently -- merged into
+ * one loop, one falloff computation, with each sub-effect still independently gated exactly
+ * as before (`mode === "reactive"` for the reactive effect, `magnetic.enabled` for the
+ * magnetic pull). Magnetic's own internal falloff (based on `magnetic.radius`, which can
+ * differ from `hoverEffects.radius`) is untouched -- magnetic reach is still implicitly
+ * capped by `hoverEffects.radius` via this shared outer gate, exactly like before.
+ */
+export function applyHoverInteractionsPass(
+  params: HoverInteractionsPassParams
 ): void {
-  if (!params.hoverEnabled || params.hoverEffects.mode !== "reactive") return;
+  if (!params.hoverEnabled || !params.mouse.inside) return;
+
+  const applyReactive = params.hoverEffects.mode === "reactive";
+  const applyMagnetic = params.hoverEffects.magnetic.enabled;
+  if (!applyReactive && !applyMagnetic) return;
 
   for (let i = 0; i < params.cells.length; i++) {
     const cell = params.cells[i];
@@ -59,46 +65,28 @@ export function applyReactiveHoverPass(
 
     const interaction = falloff * params.hoverEffects.strength;
 
-    applyReactiveEffectsToCell({
-      cell,
-      cellIndex: i,
-      interaction,
-      originX: params.mouse.x,
-      originY: params.mouse.y,
-      reactiveTime: params.runtime.reactiveTime,
-      hoverEffects: params.hoverEffects,
-      tintPalette: params.hoverEffects.tintPalette
-    });
-  }
-}
-
-export function applyMagneticHoverPass(
-  params: MagneticHoverPassParams
-): void {
-  if (!params.hoverEnabled || !params.mouse.inside || !params.hoverEffects.magnetic.enabled) return;
-
-  for (let i = 0; i < params.cells.length; i++) {
-    const cell = params.cells[i];
-    if (
-      !shouldAffectCell(
-        params.hoverEffects.interactionScope,
-        cell.targetSize,
-        params.runtime.activeMaskWeightCache[i]
-      )
-    ) {
-      continue;
+    if (applyReactive) {
+      applyReactiveEffectsToCell({
+        cell,
+        cellIndex: i,
+        interaction,
+        originX: params.mouse.x,
+        originY: params.mouse.y,
+        reactiveTime: params.runtime.reactiveTime,
+        hoverEffects: params.hoverEffects,
+        tintPalette: params.hoverEffects.tintPalette
+      });
     }
 
-    const falloff = getHoverWeight(cell, params.mouse, params.hoverEffects);
-    if (falloff <= 0) continue;
-
-    applyMagneticHoverToCell({
-      cell,
-      interaction: falloff * params.hoverEffects.strength,
-      originX: params.mouse.x,
-      originY: params.mouse.y,
-      hoverEffects: params.hoverEffects
-    });
+    if (applyMagnetic) {
+      applyMagneticHoverToCell({
+        cell,
+        interaction,
+        originX: params.mouse.x,
+        originY: params.mouse.y,
+        hoverEffects: params.hoverEffects
+      });
+    }
   }
 }
 

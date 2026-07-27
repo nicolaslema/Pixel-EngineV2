@@ -19,6 +19,10 @@ interface ReactiveCellOptions {
   };
 }
 
+// Reused across calls (instead of allocating a fresh object per cell per frame) whenever
+// the caller doesn't pass explicit multipliers -- e.g. the reactive-hover path.
+const DEFAULT_MULTIPLIERS = { deactivate: 1, displace: 1, jitter: 1 } as const;
+
 export function getHoverWeight(
   cell: PixelCell,
   mouse: { x: number; y: number; inside: boolean },
@@ -79,11 +83,7 @@ export function applyReactiveEffectsToCell(
   const strength = Math.max(0, options.interaction);
   if (strength <= 0) return;
 
-  const multipliers = options.multipliers ?? {
-    deactivate: 1,
-    displace: 1,
-    jitter: 1
-  };
+  const multipliers = options.multipliers ?? DEFAULT_MULTIPLIERS;
   const deactivate = options.hoverEffects.deactivate * multipliers.deactivate;
   const displace = options.hoverEffects.displace * multipliers.displace;
   const jitter = options.hoverEffects.jitter * multipliers.jitter;

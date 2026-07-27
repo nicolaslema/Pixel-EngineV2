@@ -13,8 +13,7 @@ interface UpdatePipelineParams {
   getCellIndex: (x: number, y: number) => number;
   shouldRecomputeMaskWeightCache: () => boolean;
   updateMaskWeightCache: () => void;
-  applyReactiveHover: () => void;
-  applyMagneticHover: () => void;
+  applyHoverInteractions: () => void;
   applyReactiveRippleEffects: () => void;
   applyBreathing: () => void;
   applyPostEffects: () => void;
@@ -43,8 +42,7 @@ export function runPixelGridUpdatePipeline(
     params.updateMaskWeightCache();
   }
 
-  params.applyReactiveHover();
-  params.applyMagneticHover();
+  params.applyHoverInteractions();
   params.applyReactiveRippleEffects();
   params.applyBreathing();
   params.applyPostEffects();
