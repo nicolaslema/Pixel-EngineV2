@@ -1,6 +1,6 @@
-import { PixelEngine } from "../src/core/PixelEngine";
-import { PixelGridEffect } from "../src/entities/PixelGridEffect";
-import type { PixelGridConfig, PixelGridInfluenceOptions } from "../src/entities/pixel-grid/types";
+import { PixelEngine } from "@pixel-engine/core";
+import { PixelGridEffect } from "@pixel-engine/effects";
+import type { PixelGridConfig, PixelGridInfluenceOptions } from "@pixel-engine/effects";
 
 type PlaygroundPreset = "minimal" | "card-soft" | "card-ripple" | "hero-image";
 
@@ -1550,39 +1550,6 @@ function readEffectPaletteColor(index: number): string {
   return state.config.effects?.paletteCycle?.palette?.[index] ?? fallback;
 }
 
-function addTextControl(
-  section: HTMLElement,
-  label: string,
-  getValue: () => string,
-  setValue: (value: string) => void,
-  onApply: () => void
-): void {
-  const row = createRow(label);
-  const input = document.createElement("input");
-  input.type = "text";
-  input.style.gridColumn = "1 / -1";
-  input.style.background = "#111827";
-  input.style.color = "#e5e7eb";
-  input.style.border = "1px solid rgba(148, 163, 184, 0.4)";
-  input.style.borderRadius = "6px";
-  input.style.padding = "4px 6px";
-
-  const sync = () => {
-    const value = getValue();
-    input.value = value;
-    row.value.textContent = value.length > 18 ? `${value.slice(0, 18)}…` : value;
-  };
-  sync();
-  refreshers.push(sync);
-  input.addEventListener("change", () => {
-    setValue(input.value);
-    onApply();
-    sync();
-  });
-  row.row.appendChild(input);
-  section.appendChild(row.row);
-}
-
 let debugHudElement: HTMLDivElement | null = null;
 let debugHudIntervalId: number | null = null;
 let scrollReactiveLastTriggerMs = 0;
@@ -2596,13 +2563,13 @@ addRangeControl(
 
 addSelectControl(
   setupSection,
-  "quality",
+  "detail",
   ["low", "medium", "high"],
-  () => state.config.performance?.quality ?? "medium",
+  () => state.config.performance?.detail ?? "medium",
   (value) => {
     state.config.performance = {
       ...state.config.performance,
-      quality: value as "low" | "medium" | "high"
+      detail: value as "low" | "medium" | "high"
     };
   }
 );

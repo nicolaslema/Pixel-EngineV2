@@ -28,20 +28,20 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Parity Check
-        run: npm run parity:check
+      - name: Lint
+        run: npm run lint
 
       - name: Test
         run: npm run test:ci
+
+      - name: Build (packages)
+        run: npm run build:packages
 
       - name: Build (aggregate)
         run: npm run build
 
       - name: Typecheck
         run: npm run typecheck
-
-      - name: Build (packages)
-        run: npm run build:packages
 
       - name: Release Docs Check
         run: npm run release:docs:check

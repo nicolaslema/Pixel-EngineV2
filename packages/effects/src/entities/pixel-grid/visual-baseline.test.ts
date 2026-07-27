@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { PixelEngine } from "../../core/PixelEngine";
-import { IRenderer } from "../../renderers/IRenderer";
+import { PixelEngine, IRenderer } from "@pixel-engine/core";
 import { PixelGridEffect } from "../PixelGridEffect";
 import { PixelCell } from "../PixelCell";
 
