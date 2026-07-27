@@ -14,42 +14,7 @@ import { createPixelPreset, mergePixelOptions } from "./presets";
 
 function warnDev(message: string): void {
   if (typeof process !== "undefined" && process.env?.NODE_ENV === "production") return;
-  // eslint-disable-next-line no-console
   console.warn(`[pixel-engine/react] ${message}`);
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
-}
-
-function ensurePositive(
-  value: number | undefined,
-  fallback: number,
-  label: string
-): number {
-  if (typeof value === "undefined") {
-    return fallback;
-  }
-  if (!Number.isFinite(value) || value <= 0) {
-    warnDev(`${label} must be > 0. Falling back to ${fallback}.`);
-    return fallback;
-  }
-  return value;
-}
-
-function ensureNonNegative(
-  value: number | undefined,
-  fallback: number,
-  label: string
-): number {
-  if (typeof value === "undefined") {
-    return fallback;
-  }
-  if (!Number.isFinite(value) || value < 0) {
-    warnDev(`${label} must be >= 0. Falling back to ${fallback}.`);
-    return fallback;
-  }
-  return value;
 }
 
 function cloneTimelineStep(
@@ -265,21 +230,22 @@ function toMaskConfig(mask?: PixelGridMaskInput): Partial<PixelGridConfig> {
     timeline.steps = hybrid.steps.map(cloneTimelineStep);
   }
   if (!timeline.items || timeline.items.length === 0) {
-    const derivedItems: NonNullable<PixelGridConfig["maskTimeline"]>["items"] = [];
+    // Auto-derive a default timeline step per declared mask, referencing it by id
+    // (maskTimeline.steps) rather than redeclaring it (maskTimeline.items). textMasks/
+    // imageMasks above are the single declaration of each mask; redeclaring the same
+    // mask+id into maskTimeline.items would register it a second time under the same id
+    // once normalizeMaskCollections (in @pixel-engine/effects) processes both collections,
+    // and the second registration is dropped as a duplicate -- silently disabling the
+    // whole auto-derived timeline whenever more than one mask of a type is provided.
+    const derivedSteps: NonNullable<PixelGridConfig["maskTimeline"]>["steps"] = [];
     for (const textMask of textMasks) {
-      derivedItems.push({
-        type: "text",
-        ...textMask
-      });
+      derivedSteps.push({ mask: "text", assetId: textMask.id });
     }
     for (const imageMask of imageMasks) {
-      derivedItems.push({
-        type: "image",
-        ...imageMask
-      });
+      derivedSteps.push({ mask: "image", assetId: imageMask.id });
     }
-    if (derivedItems.length > 0) {
-      timeline.items = derivedItems;
+    if (derivedSteps.length > 0 && (!timeline.steps || timeline.steps.length === 0)) {
+      timeline.steps = derivedSteps;
     }
   }
 
@@ -293,14 +259,15 @@ function toMaskConfig(mask?: PixelGridMaskInput): Partial<PixelGridConfig> {
     (timeline.items?.length ?? 0) > 0 ||
     (timeline.steps?.length ?? 0) > 0;
 
-  const firstImageMask = imageMasks[0];
-  const firstTextMask = textMasks[0];
-
+  // Emit exactly one of singular/plural per mask type (never both): normalizeMaskCollections
+  // treats `imageMask`/`textMask` and `imageMasks`/`textMasks` as independent declaration
+  // sources, so populating both with the same single entry registered it twice under the
+  // same id, always producing a spurious "duplicate mask id ignored" warning.
   return {
-    imageMask: firstImageMask ? { ...firstImageMask } : undefined,
-    textMask: firstTextMask ? { ...firstTextMask } : undefined,
-    imageMasks: imageMasks.length > 0 ? imageMasks : undefined,
-    textMasks: textMasks.length > 0 ? textMasks : undefined,
+    imageMask: imageMasks.length === 1 ? { ...imageMasks[0] } : undefined,
+    textMask: textMasks.length === 1 ? { ...textMasks[0] } : undefined,
+    imageMasks: imageMasks.length > 1 ? imageMasks : undefined,
+    textMasks: textMasks.length > 1 ? textMasks : undefined,
     autoMorph: hybrid.autoMorph,
     maskTimeline: hasTimelineConfig ? timeline : undefined,
     initialMask: hybrid.initialMask
@@ -376,121 +343,17 @@ export function resolveGridConfigInput(params: {
     validateHybridTimelineConsistency(withMask);
   }
 
-  const legacyHover = withMask.hoverEffects as (typeof withMask.hoverEffects & {
-    radiusY?: unknown;
-    shape?: unknown;
-  });
-  if (legacyHover?.radiusY !== undefined) {
-    warnDev("hoverEffects.radiusY is no longer supported. Use hoverEffects.radius.");
-  }
-  if (legacyHover?.shape !== undefined && legacyHover.shape !== "circle") {
-    warnDev("hoverEffects.shape only supports \"circle\" in the current API.");
-  }
-
-  const hover = withMask.hoverEffects
-    ? {
-      ...withMask.hoverEffects,
-      radius: ensurePositive(withMask.hoverEffects.radius, 120, "hoverEffects.radius"),
-      strength: ensureNonNegative(withMask.hoverEffects.strength, 1, "hoverEffects.strength"),
-      deactivate: clamp(
-        ensureNonNegative(withMask.hoverEffects.deactivate, 0.8, "hoverEffects.deactivate"),
-        0,
-        1
-      ),
-      displace: ensureNonNegative(withMask.hoverEffects.displace, 3, "hoverEffects.displace"),
-      jitter: ensureNonNegative(withMask.hoverEffects.jitter, 1.25, "hoverEffects.jitter"),
-      magnetic: withMask.hoverEffects.magnetic
-        ? {
-          ...withMask.hoverEffects.magnetic,
-          strength: ensureNonNegative(
-            withMask.hoverEffects.magnetic.strength,
-            2.5,
-            "hoverEffects.magnetic.strength"
-          ),
-          radius: ensurePositive(
-            withMask.hoverEffects.magnetic.radius,
-            withMask.hoverEffects.radius ?? 120,
-            "hoverEffects.magnetic.radius"
-          )
-        }
-        : undefined
-    }
-    : undefined;
-
-  const ripple = withMask.rippleEffects
-    ? {
-      ...withMask.rippleEffects,
-      speed: ensurePositive(withMask.rippleEffects.speed, 0.5, "rippleEffects.speed"),
-      thickness: ensurePositive(withMask.rippleEffects.thickness, 50, "rippleEffects.thickness"),
-      strength: ensureNonNegative(withMask.rippleEffects.strength, 30, "rippleEffects.strength"),
-      maxRipples: Math.max(
-        1,
-        Math.round(
-          ensurePositive(withMask.rippleEffects.maxRipples, 20, "rippleEffects.maxRipples")
-        )
-      ),
-      deactivateMultiplier: ensureNonNegative(
-        withMask.rippleEffects.deactivateMultiplier,
-        1,
-        "rippleEffects.deactivateMultiplier"
-      ),
-      displaceMultiplier: ensureNonNegative(
-        withMask.rippleEffects.displaceMultiplier,
-        1,
-        "rippleEffects.displaceMultiplier"
-      ),
-      jitterMultiplier: ensureNonNegative(
-        withMask.rippleEffects.jitterMultiplier,
-        1,
-        "rippleEffects.jitterMultiplier"
-      )
-    }
-    : undefined;
-
-  const breathing = withMask.breathing
-    ? {
-      ...withMask.breathing,
-      speed: ensurePositive(withMask.breathing.speed, 1, "breathing.speed"),
-      radius: ensurePositive(
-        withMask.breathing.radius,
-        hover?.radius ?? 120,
-        "breathing.radius"
-      ),
-      radiusY: ensurePositive(
-        withMask.breathing.radiusY ?? withMask.breathing.radius,
-        hover?.radius ?? 120,
-        "breathing.radiusY"
-      ),
-      strength: ensureNonNegative(withMask.breathing.strength, 0.9, "breathing.strength"),
-      minOpacity: clamp(
-        ensureNonNegative(withMask.breathing.minOpacity, 0.55, "breathing.minOpacity"),
-        0,
-        1
-      ),
-      maxOpacity: clamp(
-        ensureNonNegative(withMask.breathing.maxOpacity, 1, "breathing.maxOpacity"),
-        0,
-        1
-      )
-    }
-    : undefined;
-
-  if (breathing && breathing.minOpacity > breathing.maxOpacity) {
-    warnDev("breathing.minOpacity cannot be greater than breathing.maxOpacity. Swapping values.");
-    const min = breathing.maxOpacity;
-    const max = breathing.minOpacity;
-    breathing.minOpacity = min;
-    breathing.maxOpacity = max;
-  }
-
+  // hoverEffects/rippleEffects/breathing per-field defaults & clamps (radius, strength,
+  // min/max opacity swap, legacy field detection, etc.) are intentionally NOT re-derived
+  // here: @pixel-engine/effects' resolvePixelGridConfig (the PixelGridEffect constructor
+  // always calls it) is the single authority for that. Re-deriving it here was pure
+  // duplication of the exact same defaults, with no protection for consumers who
+  // construct PixelGridEffect directly instead of through this resolver.
   return {
     ...withMask,
     colors: safeColors,
     gap: safeGap,
     expandEase: safeExpandEase,
-    breathSpeed: safeBreathSpeed,
-    hoverEffects: hover,
-    rippleEffects: ripple,
-    breathing
+    breathSpeed: safeBreathSpeed
   };
 }

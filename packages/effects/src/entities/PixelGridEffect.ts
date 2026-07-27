@@ -23,6 +23,13 @@ export class PixelGridEffect extends Entity {
   private cells: PixelCell[];
   private readonly influenceOptions: PixelGridInfluenceOptions;
   private readonly resolvedConfig: ResolvedPixelGridConfig;
+  /**
+   * `config` with the required scalars (colors/gap/expandEase/breathSpeed) replaced by
+   * their validated `resolvedConfig` values, so the runtime controller never has to
+   * re-validate them and can't be constructed from an invalid gap/colors even when
+   * this effect is built directly (bypassing @pixel-engine/react's own validation).
+   */
+  private readonly sanitizedConfig: PixelGridConfig;
   private width: number;
   private height: number;
 
@@ -42,6 +49,13 @@ export class PixelGridEffect extends Entity {
     this.influenceOptions = { ...influenceOptions };
     this.resolvedConfig = resolvePixelGridConfig(config);
     this.emitConfigWarnings(this.resolvedConfig.warnings);
+    this.sanitizedConfig = {
+      ...this.config,
+      colors: this.resolvedConfig.colors,
+      gap: this.resolvedConfig.gap,
+      expandEase: this.resolvedConfig.expandEase,
+      breathSpeed: this.resolvedConfig.breathSpeed
+    };
     this.applyCanvasBackgroundFromConfig();
     this.width = Math.max(1, Math.round(width));
     this.height = Math.max(1, Math.round(height));
@@ -49,7 +63,7 @@ export class PixelGridEffect extends Entity {
       engine: this.engine,
       width: this.width,
       height: this.height,
-      config: this.config,
+      config: this.sanitizedConfig,
       influenceOptions: this.influenceOptions,
       resolvedConfig: this.resolvedConfig
     });
@@ -94,7 +108,7 @@ export class PixelGridEffect extends Entity {
       engine: this.engine,
       width: this.width,
       height: this.height,
-      config: this.config,
+      config: this.sanitizedConfig,
       influenceOptions: this.influenceOptions,
       resolvedConfig: this.resolvedConfig
     });

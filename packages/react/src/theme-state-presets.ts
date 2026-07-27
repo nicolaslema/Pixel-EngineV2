@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { PixelGridConfig } from "@pixel-engine/effects";
 import { StatePresetInput, StatePresetName, ThemeSyncMode, ThemeSyncOptions } from "./types";
+import { deepClone } from "./internal/deep-merge-config";
+import { mergePixelOptions } from "./presets";
 
 const LIGHT_THEME: Partial<PixelGridConfig> = {
   colors: ["#cbd5e1", "#94a3b8", "#64748b"],
@@ -90,128 +92,24 @@ const STATE_PRESET_OVERRIDES: Record<StatePresetName, Partial<PixelGridConfig>> 
   }
 };
 
-function cloneArray(values: string[] | undefined): string[] | undefined {
-  return values ? [...values] : undefined;
-}
-
 function clonePartialConfig(config: Partial<PixelGridConfig> | undefined): Partial<PixelGridConfig> {
-  if (!config) return {};
-  return {
-    ...config,
-    colors: cloneArray(config.colors),
-    hoverEffects: config.hoverEffects
-      ? {
-        ...config.hoverEffects,
-        tintPalette: cloneArray(config.hoverEffects.tintPalette),
-        magnetic: config.hoverEffects.magnetic
-          ? { ...config.hoverEffects.magnetic }
-          : undefined
-      }
-      : undefined,
-    rippleEffects: config.rippleEffects
-      ? {
-        ...config.rippleEffects,
-        tintPalette: cloneArray(config.rippleEffects.tintPalette)
-      }
-      : undefined,
-    breathing: config.breathing ? { ...config.breathing } : undefined,
-    effects: config.effects
-      ? {
-        ...config.effects,
-        paletteCycle: config.effects.paletteCycle
-          ? {
-            ...config.effects.paletteCycle,
-            palette: cloneArray(config.effects.paletteCycle.palette)
-          }
-          : undefined,
-        dissolve: config.effects.dissolve
-          ? { ...config.effects.dissolve }
-          : undefined,
-        shockwaveBurst: config.effects.shockwaveBurst
-          ? { ...config.effects.shockwaveBurst }
-          : undefined
-      }
-      : undefined
-  };
+  return config ? deepClone(config) : {};
 }
 
+/**
+ * Layers any number of partial configs left-to-right (later entries win),
+ * deep-merging every nested block (including autoMorph/maskTimeline/mask
+ * props, which the previous hand-rolled version silently dropped).
+ * Implemented as a fold over `mergePixelOptions` so there is exactly one
+ * merge algorithm in the package.
+ */
 export function mergeGridConfigPartials(
   ...configs: Array<Partial<PixelGridConfig> | undefined>
 ): Partial<PixelGridConfig> {
-  let merged: Partial<PixelGridConfig> = {};
-
-  for (const candidate of configs) {
-    if (!candidate) continue;
-    const next = clonePartialConfig(candidate);
-    merged = {
-      ...merged,
-      ...next,
-      colors: next.colors ?? merged.colors,
-      hoverEffects:
-        merged.hoverEffects || next.hoverEffects
-          ? {
-            ...(merged.hoverEffects ?? {}),
-            ...(next.hoverEffects ?? {}),
-            tintPalette: next.hoverEffects?.tintPalette ?? merged.hoverEffects?.tintPalette,
-            magnetic:
-              merged.hoverEffects?.magnetic || next.hoverEffects?.magnetic
-                ? {
-                  ...(merged.hoverEffects?.magnetic ?? {}),
-                  ...(next.hoverEffects?.magnetic ?? {})
-                }
-                : undefined
-          }
-          : undefined,
-      rippleEffects:
-        merged.rippleEffects || next.rippleEffects
-          ? {
-            ...(merged.rippleEffects ?? {}),
-            ...(next.rippleEffects ?? {}),
-            tintPalette: next.rippleEffects?.tintPalette ?? merged.rippleEffects?.tintPalette
-          }
-          : undefined,
-      breathing:
-        merged.breathing || next.breathing
-          ? {
-            ...(merged.breathing ?? {}),
-            ...(next.breathing ?? {})
-          }
-          : undefined,
-      effects:
-        merged.effects || next.effects
-          ? {
-            ...(merged.effects ?? {}),
-            ...(next.effects ?? {}),
-            paletteCycle:
-              merged.effects?.paletteCycle || next.effects?.paletteCycle
-                ? {
-                  ...(merged.effects?.paletteCycle ?? {}),
-                  ...(next.effects?.paletteCycle ?? {}),
-                  palette:
-                    next.effects?.paletteCycle?.palette ??
-                    merged.effects?.paletteCycle?.palette
-                }
-                : undefined,
-            dissolve:
-              merged.effects?.dissolve || next.effects?.dissolve
-                ? {
-                  ...(merged.effects?.dissolve ?? {}),
-                  ...(next.effects?.dissolve ?? {})
-                }
-                : undefined,
-            shockwaveBurst:
-              merged.effects?.shockwaveBurst || next.effects?.shockwaveBurst
-                ? {
-                  ...(merged.effects?.shockwaveBurst ?? {}),
-                  ...(next.effects?.shockwaveBurst ?? {})
-                }
-                : undefined
-          }
-          : undefined
-    };
-  }
-
-  return merged;
+  return configs.reduce<Partial<PixelGridConfig>>(
+    (merged, next) => (next ? mergePixelOptions(merged as PixelGridConfig, next) : merged),
+    {}
+  );
 }
 
 function readSystemTheme(): ThemeSyncMode {

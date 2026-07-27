@@ -5,7 +5,7 @@ export type HoverMode = "classic" | "reactive";
 export type ReactiveHoverScope = "all" | "activeOnly" | "imageMask";
 export type MagneticHoverMode = "attract" | "repel";
 export type InitialMask = "image" | "text";
-export type PixelGridQualityLevel = "low" | "medium" | "high";
+export type PixelGridDetailLevel = "low" | "medium" | "high";
 export type MaskTimelineTransitionMode = "morph" | "fade" | "dissolve";
 export type PixelGridMaskType = InitialMask;
 export type PaletteCycleScope = "all" | "activeOnly";
@@ -149,7 +149,7 @@ export interface ResolvedMaskTimelineOptions {
 }
 
 export interface PerformanceOptions {
-  quality?: PixelGridQualityLevel;
+  detail?: PixelGridDetailLevel;
   viewportCulling?: boolean;
   cullingPadding?: number;
   minRenderableSize?: number;
@@ -222,7 +222,7 @@ export interface ResolvedPixelGridEffectsOptions {
 }
 
 export interface ResolvedPerformanceOptions {
-  quality: PixelGridQualityLevel;
+  detail: PixelGridDetailLevel;
   viewportCulling: boolean;
   cullingPadding: number;
   minRenderableSize: number;
@@ -293,6 +293,10 @@ export interface PixelGridInfluenceOptions {
 }
 
 export interface ResolvedPixelGridConfig {
+  colors: string[];
+  gap: number;
+  expandEase: number;
+  breathSpeed: number;
   hoverEffects: ResolvedHoverEffectsOptions;
   rippleEffects: Required<RippleEffectsOptions>;
   breathing: Required<BreathingOptions>;

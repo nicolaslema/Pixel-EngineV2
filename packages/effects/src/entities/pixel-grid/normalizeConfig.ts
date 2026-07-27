@@ -10,21 +10,30 @@ import {
   ResolvedPixelGridTextMaskConfig
 } from "./types";
 
+const DEFAULT_COLORS = ["#334155", "#475569", "#64748b"];
+const DEFAULT_GAP = 7;
+const DEFAULT_EXPAND_EASE = 0.08;
+const DEFAULT_BREATH_SPEED = 1;
+
 export function resolvePixelGridConfig(
   config: PixelGridConfig
 ): ResolvedPixelGridConfig {
   const warnings: string[] = [];
   const resolvedMasks = normalizeMaskCollections(config, warnings);
   const hoverEffects = config.hoverEffects;
-  const legacyHoverEffects = hoverEffects as (typeof hoverEffects & { radiusY?: unknown; shape?: unknown });
   const rippleEffects = config.rippleEffects;
 
-  if (legacyHoverEffects?.radiusY !== undefined) {
-    warnings.push("hoverEffects.radiusY is no longer supported. Use hoverEffects.radius.");
+  // Required scalars have no fallback at the type level; this is the safety net for
+  // consumers constructing PixelGridEffect directly (bypassing @pixel-engine/react's
+  // own preset-aware validation), so an invalid value never reaches GridBuilder math.
+  const hasValidColors = Array.isArray(config.colors) && config.colors.length > 0;
+  if (!hasValidColors) {
+    warnings.push("colors must be a non-empty array. Falling back to default colors.");
   }
-  if (legacyHoverEffects?.shape !== undefined && legacyHoverEffects.shape !== "circle") {
-    warnings.push("hoverEffects.shape only supports \"circle\" in the current API.");
-  }
+  const colors = hasValidColors ? config.colors : DEFAULT_COLORS;
+  const gap = ensurePositiveScalar(config.gap, DEFAULT_GAP, "gap", warnings);
+  const expandEase = ensurePositiveScalar(config.expandEase, DEFAULT_EXPAND_EASE, "expandEase", warnings);
+  const breathSpeed = ensurePositiveScalar(config.breathSpeed, DEFAULT_BREATH_SPEED, "breathSpeed", warnings);
 
   const resolvedHover: ResolvedPixelGridConfig["hoverEffects"] = {
     mode: hoverEffects?.mode ?? "classic",
@@ -82,17 +91,25 @@ export function resolvePixelGridConfig(
     affectText: config.breathing?.affectText ?? true
   };
 
-  const quality = config.performance?.quality ?? "medium";
-  const qualityDefaults = getQualityDefaults(quality);
+  if (breathing.minOpacity > breathing.maxOpacity) {
+    warnings.push("breathing.minOpacity cannot be greater than breathing.maxOpacity. Swapping values.");
+    const min = breathing.maxOpacity;
+    const max = breathing.minOpacity;
+    breathing.minOpacity = min;
+    breathing.maxOpacity = max;
+  }
+
+  const detail = config.performance?.detail ?? "medium";
+  const detailDefaults = getDetailDefaults(detail);
   const resolvedPerformance: ResolvedPixelGridConfig["performance"] = {
-    quality,
-    viewportCulling: config.performance?.viewportCulling ?? qualityDefaults.viewportCulling,
-    cullingPadding: Math.max(0, config.performance?.cullingPadding ?? qualityDefaults.cullingPadding),
+    detail,
+    viewportCulling: config.performance?.viewportCulling ?? detailDefaults.viewportCulling,
+    cullingPadding: Math.max(0, config.performance?.cullingPadding ?? detailDefaults.cullingPadding),
     minRenderableSize: Math.max(
       0.1,
-      config.performance?.minRenderableSize ?? qualityDefaults.minRenderableSize
+      config.performance?.minRenderableSize ?? detailDefaults.minRenderableSize
     ),
-    maxRipplesCap: qualityDefaults.maxRipplesCap
+    maxRipplesCap: detailDefaults.maxRipplesCap
   };
   const resolvedEffects: ResolvedPixelGridConfig["effects"] = {
     paletteCycle: {
@@ -100,7 +117,7 @@ export function resolvePixelGridConfig(
       speed: clampMin(config.effects?.paletteCycle?.speed, 0, 0.45),
       scope: config.effects?.paletteCycle?.scope ?? "activeOnly",
       activationThreshold: clampMin(config.effects?.paletteCycle?.activationThreshold, 0, 0.025),
-      palette: resolvePaletteCyclePalette(config, warnings)
+      palette: resolvePaletteCyclePalette(config, colors, warnings)
     },
     dissolve: {
       enabled: config.effects?.dissolve?.enabled ?? false,
@@ -121,6 +138,10 @@ export function resolvePixelGridConfig(
   };
 
   return {
+    colors,
+    gap,
+    expandEase,
+    breathSpeed,
     hoverEffects: resolvedHover,
     rippleEffects: resolvedRipple,
     breathing,
@@ -549,8 +570,8 @@ function resolveMaskTimeline(
   };
 }
 
-function getQualityDefaults(quality: ResolvedPixelGridConfig["performance"]["quality"]) {
-  if (quality === "low") {
+function getDetailDefaults(detail: ResolvedPixelGridConfig["performance"]["detail"]) {
+  if (detail === "low") {
     return {
       viewportCulling: true,
       cullingPadding: 12,
@@ -559,7 +580,7 @@ function getQualityDefaults(quality: ResolvedPixelGridConfig["performance"]["qua
     };
   }
 
-  if (quality === "high") {
+  if (detail === "high") {
     return {
       viewportCulling: true,
       cullingPadding: 28,
@@ -596,13 +617,25 @@ function clampMin(value: number | undefined, min: number, fallback: number): num
   return Math.max(min, value);
 }
 
+function ensurePositiveScalar(
+  value: number | undefined,
+  fallback: number,
+  label: string,
+  warnings: string[]
+): number {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) return value;
+  warnings.push(`${label} must be > 0. Falling back to ${fallback}.`);
+  return fallback;
+}
+
 function resolvePaletteCyclePalette(
   config: PixelGridConfig,
+  gridColors: string[],
   warnings: string[]
 ): string[] {
   const candidatePalette = config.effects?.paletteCycle?.palette;
   if (!candidatePalette) {
-    return config.colors;
+    return gridColors;
   }
 
   const sanitized = candidatePalette
@@ -611,7 +644,7 @@ function resolvePaletteCyclePalette(
 
   if (sanitized.length === 0) {
     warnings.push("effects.paletteCycle.palette: no valid colors found, using grid colors.");
-    return config.colors;
+    return gridColors;
   }
 
   return sanitized;

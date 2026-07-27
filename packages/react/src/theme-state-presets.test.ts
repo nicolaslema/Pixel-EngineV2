@@ -55,4 +55,28 @@ describe("theme-state-presets", () => {
     expect(merged.hoverEffects?.magnetic?.enabled).toBe(true);
     expect(merged.hoverEffects?.magnetic?.strength).toBe(3.3);
   });
+
+  it("carries autoMorph/maskTimeline/mask props through (previously dropped: mergeGridConfigPartials had no field-specific handling for them, so they fell through an incomplete shallow spread)", () => {
+    const merged = mergeGridConfigPartials(
+      {
+        autoMorph: { enabled: true, morphDurationMs: 900 },
+        maskTimeline: { enabled: true, loop: true },
+        textMask: { id: "base-text", text: "Base" },
+        imageMasks: [{ id: "base-image", src: "/base.png" }]
+      },
+      {
+        autoMorph: { holdImageMs: 1200 },
+        maskTimeline: { autoplay: false }
+      }
+    );
+
+    expect(merged.autoMorph?.enabled).toBe(true);
+    expect(merged.autoMorph?.morphDurationMs).toBe(900);
+    expect(merged.autoMorph?.holdImageMs).toBe(1200);
+    expect(merged.maskTimeline?.enabled).toBe(true);
+    expect(merged.maskTimeline?.loop).toBe(true);
+    expect(merged.maskTimeline?.autoplay).toBe(false);
+    expect(merged.textMask?.id).toBe("base-text");
+    expect(merged.imageMasks?.[0]?.id).toBe("base-image");
+  });
 });
