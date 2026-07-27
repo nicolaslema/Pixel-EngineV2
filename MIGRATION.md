@@ -2,6 +2,28 @@
 
 This guide covers migration to the formal v1 stable baseline and the new package split.
 
+## Update: Unreleased — `performance.quality` renamed to `performance.detail` (2026-07-27)
+
+- `PixelGridConfig.performance.quality` is renamed to `PixelGridConfig.performance.detail` (same values: `"low" | "medium" | "high"`). The exported type `PixelGridQualityLevel` is renamed to `PixelGridDetailLevel`.
+- Reason: `PixelGridConfig.performance.quality` (grid render/culling detail) and `PixelEngineOptions.quality` (core engine loop tuning) shared a name and value union but controlled unrelated subsystems, which was a common source of confusion. The engine-level `quality` is unchanged.
+
+Migration:
+
+```ts
+// before
+gridConfig: {
+  performance: { quality: "low" }
+}
+
+// after
+gridConfig: {
+  performance: { detail: "low" }
+}
+```
+
+- Removed the runtime-only `hoverEffects.radiusY`/`hoverEffects.shape` legacy-detection warnings. These fields were already removed from the public type in v1.0.20 (see below); the defensive `console.warn` shim for untyped/JS callers still passing them has now been removed as well. Passing them is simply a no-op (ignored), not an error.
+- No other public API changes. Mask id generation/resolution behavior is unchanged for typical usage (see `API.md`'s "Mask id resolution order" note); an internal duplicate-id bug that could silently disable an auto-derived mask timeline for hybrid `texts[]`/`images[]` input with more than one unlabeled mask of the same type was fixed — no consumer action needed.
+
 ## Update: v1.0.21 React Effect Recreation Semantics (2026-02-24)
 
 - `usePixelGridEffect` / `PixelGridCanvas` now recreate the effect when resolved `gridConfig` or `influenceOptions` changes.

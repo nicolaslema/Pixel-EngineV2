@@ -163,11 +163,13 @@ Overlay behavior:
 
 - `npm run dev`: run playground with Vite.
 - `npm run test`: run Vitest.
+- `npm run lint`: ESLint checks.
+- `npm run format`: apply Prettier formatting.
 - `npm run typecheck`: TypeScript checks (`tsc --noEmit`).
 - `npm run build`: build aggregate package.
 - `npm run build:packages`: build `@pixel-engine/core`, `@pixel-engine/effects`, `@pixel-engine/react`.
-- `npm run build:all`: build aggregate + packages.
-- `npm run verify`: parity + tests + build + typecheck.
+- `npm run build:all`: build packages + aggregate.
+- `npm run verify`: lint + tests + build + typecheck.
 - `npm run bench:pixelgrid`: PixelGrid benchmark suite.
 - `npm run release:check`: full pre-release verification.
 

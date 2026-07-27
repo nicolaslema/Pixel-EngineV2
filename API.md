@@ -10,10 +10,8 @@ This document focuses on the stable public API and React integration patterns fo
 
 ## Package Boundary Rules
 
-- Source-of-truth implementation lives in `packages/*/src`.
-- Root `src/*` is a compatibility/testing mirror for the aggregate `pixel-engine` package.
-- Keep mirror files synchronized whenever runtime logic changes.
-- Run `npm run parity:check` before merge/release (also enforced in CI and `npm run verify`).
+- Source-of-truth implementation lives in `packages/*/src` (`@pixel-engine/core`, `@pixel-engine/effects`, `@pixel-engine/react`).
+- Root `src/index.ts` is a thin re-export used to build the aggregate `pixel-engine` compatibility package; it has no implementation of its own.
 
 ## Core + Effects (manual)
 
@@ -227,7 +225,7 @@ Optional groups:
 - `rippleEffects`
 - `breathing`
 - `effects` (`paletteCycle`, `dissolve`, `shockwaveBurst`)
-- `performance` (`quality`, `viewportCulling`, `cullingPadding`, `minRenderableSize`)
+- `performance` (`detail`, `viewportCulling`, `cullingPadding`, `minRenderableSize`)
 - `imageMask`, `textMask`, `autoMorph`, `initialMask`
 - `canvasBackground`
 
@@ -244,7 +242,7 @@ Example runtime tuning:
 ```ts
 gridConfig: {
   performance: {
-    quality: "low",
+    detail: "low",
     viewportCulling: true,
     cullingPadding: 16,
     minRenderableSize: 1
@@ -567,6 +565,12 @@ Preset matrix:
     - empty ids
     - conflicting `assetId` vs `maskId`
     - duplicate ids within same declaration group
+- Mask id resolution order: both the singular (`imageMask`/`textMask`) and plural
+  (`imageMasks`/`textMasks`) props are supported at the same time — plural array entries are
+  registered first, in array order, then the singular prop (if present) is appended last.
+  Ids are generated (`image-1`, `text-1`, ...) for any mask that doesn't provide its own `id`.
+  This resolution happens once, in `@pixel-engine/effects`; it's the same regardless of
+  whether masks arrive via the `mask` prop or directly via `gridConfig`.
 
 ## Asset path note
 

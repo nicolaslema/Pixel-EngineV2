@@ -2,6 +2,29 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+### Internal
+- Removed the manually-mirrored root `src/{core,input,scene,renderers,grid,utils,entities,influences}` copy of `packages/core/src` / `packages/effects/src`. `packages/*/src` is now the only source location; root `src/` contains only the aggregate re-export (`src/index.ts`) and playground assets.
+- All unit tests moved from root `src/**/*.test.ts` into their matching `packages/{core,effects}/src/**` locations (colocated with the source they test).
+- Removed `scripts/release/check-package-parity.mjs` and the `parity:check` script/CI step, which existed solely to keep the now-removed mirror in sync.
+- `npm run build:all` now builds workspace packages before the aggregate package (`build:packages && build`), matching publish order.
+- Added ESLint (flat config) + Prettier tooling (`npm run lint`, `npm run format`) and a CI `Lint` step.
+- No public API changes; `@pixel-engine/core`, `@pixel-engine/effects`, `@pixel-engine/react`, and the aggregate `pixel-engine` package are unaffected. No consumer migration steps required.
+
+### Changed
+- **Breaking:** `PixelGridConfig.performance.quality` renamed to `performance.detail` (type `PixelGridQualityLevel` renamed to `PixelGridDetailLevel`), to remove the naming collision with the unrelated engine-level `PixelEngineOptions.quality`. See `MIGRATION.md`.
+- `@pixel-engine/effects`' `resolvePixelGridConfig` (`normalizeConfig.ts`) is now the single authority for `PixelGridConfig` defaults/validation:
+  - `@pixel-engine/react`'s `resolveGridConfigInput` no longer re-derives `hoverEffects`/`rippleEffects`/`breathing` defaults (previously duplicated, byte-for-byte, in both layers).
+  - The `breathing.minOpacity > maxOpacity` swap-guard now applies unconditionally (previously only when going through the React layer; direct/vanilla `PixelGridEffect` construction had no protection).
+  - Added a safety net for the required scalars (`colors`, `gap`, `expandEase`, `breathSpeed`): invalid values now fall back to safe defaults with a warning instead of silently producing a broken grid, for consumers constructing `PixelGridEffect` directly.
+  - Removed the runtime-only legacy `hoverEffects.radiusY`/`hoverEffects.shape` detection warnings (dead since v1.0.20; see `MIGRATION.md`).
+- Consolidated the two independent deep-merge implementations (`mergePixelOptions`, `mergeGridConfigPartials`) into one generic recursive merge, used by both (public signatures unchanged). Fixes a bug where `mergePixelOptions` only shallow-replaced (instead of merging) the `performance`/`effects` config blocks, and a latent risk of merge results sharing object/array references with preset singletons.
+- Fixed a bug where a hybrid mask's auto-derived default timeline (`mask.texts`/`mask.images` without explicit `items`/`steps`) could silently end up fully disabled when more than one unlabeled mask of the same type was provided, due to the same mask being registered twice under the same id. Auto-derivation now references masks by id (`maskTimeline.steps`) instead of redeclaring them (`maskTimeline.items`).
+
+### Docs
+- `API.md`: documented mask id resolution order (plural array first, singular appended last); updated for the `performance.detail` rename.
+
 ## [1.0.21] - 2026-02-24
 
 ### Changed
