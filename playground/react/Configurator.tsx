@@ -432,7 +432,7 @@ export function Configurator() {
                 options={SAMPLE_MODES}
                 onChange={setMaskSampleMode}
               />
-              <SliderControl label="scale" min={0.5} max={4} step={0.1} value={maskScale} onChange={setMaskScale} />
+              <SliderControl label="scale" min={0.1} max={4} step={0.1} value={maskScale} onChange={setMaskScale} />
             </>
           )}
           {maskKind === "none" && (

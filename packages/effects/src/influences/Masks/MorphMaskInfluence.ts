@@ -47,10 +47,13 @@ export class MorphMaskInfluence extends MaskInfluence {
     const bufferA = this.maskA.getBuffer();
     const bufferB = this.maskB.getBuffer();
 
-    const wA = this.maskA.getWidth();
-    const hA = this.maskA.getHeight();
-    const wB = this.maskB.getWidth();
-    const hB = this.maskB.getHeight();
+    // Buffer resolution, not footprint size -- these can differ for a gap-aware
+    // ImageMaskInfluence (see MaskInfluence.getBufferWidth/Height), and buffer
+    // indexing below must match the buffer's actual pixel dimensions.
+    const wA = this.maskA.getBufferWidth();
+    const hA = this.maskA.getBufferHeight();
+    const wB = this.maskB.getBufferWidth();
+    const hB = this.maskB.getBufferHeight();
 
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {

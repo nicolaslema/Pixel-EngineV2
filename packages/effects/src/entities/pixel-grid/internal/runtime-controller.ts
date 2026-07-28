@@ -89,7 +89,8 @@ export function createPixelGridRuntimeController(
         strength: mask.strength ?? 1.5,
         threshold: mask.threshold,
         blurRadius: mask.blurRadius,
-        dithering: mask.dithering
+        dithering: mask.dithering,
+        gap: mask.gap ?? params.config.gap
       }
     )
   }));

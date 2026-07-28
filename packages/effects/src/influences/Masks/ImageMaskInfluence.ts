@@ -13,7 +13,21 @@ export interface ImageMaskOptions {
   threshold?: number;
   blurRadius?: number;
   dithering?: boolean;
+  /**
+   * Grid cell spacing (world units). When provided, the mask buffer is generated
+   * at (up to) the source image's native resolution instead of tied 1:1 to the
+   * on-grid footprint (`scale`), and getInfluence() box-averages a gap-sized
+   * block per query instead of reading one pixel -- fixes fine detail being lost
+   * to nearest-neighbor decimation when a high-resolution image is displayed on
+   * a coarser grid. Omit to keep the previous (footprint == buffer resolution,
+   * single-pixel sampling) behavior unchanged.
+   */
+  gap?: number;
 }
+
+/** Longest side a mask's sampling buffer is allowed to reach, regardless of source
+ * image resolution -- bounds memory (Float32Array) and per-query box-average cost. */
+const MAX_MASK_BUFFER_DIMENSION = 1024;
 
 export class ImageMaskInfluence extends MaskInfluence {
   protected onUpdate(delta: number): void {
@@ -32,6 +46,7 @@ export class ImageMaskInfluence extends MaskInfluence {
   private threshold: number;
   private blurRadius: number;
   private dithering: boolean;
+  private gap?: number;
 
   constructor(
     imageSrc: string,
@@ -46,6 +61,7 @@ export class ImageMaskInfluence extends MaskInfluence {
     this.threshold = options.threshold ?? 0.5;
     this.blurRadius = options.blurRadius ?? 0;
     this.dithering = options.dithering ?? false;
+    this.gap = options.gap;
 
     this.canvas = document.createElement("canvas");
     this.ctx = this.canvas.getContext("2d")!;
@@ -73,6 +89,22 @@ export class ImageMaskInfluence extends MaskInfluence {
     return !this.failed;
   }
 
+  private resolveBufferResolution(): { width: number; height: number } {
+    if (!this.gap) {
+      return { width: this.width, height: this.height };
+    }
+
+    const nativeWidth = this.image.width;
+    const nativeHeight = this.image.height;
+    const longest = Math.max(nativeWidth, nativeHeight);
+    const ratio = longest > MAX_MASK_BUFFER_DIMENSION ? MAX_MASK_BUFFER_DIMENSION / longest : 1;
+
+    return {
+      width: Math.max(1, Math.round(nativeWidth * ratio)),
+      height: Math.max(1, Math.round(nativeHeight * ratio))
+    };
+  }
+
   generateMask(): void {
     if (!this.image.width || !this.image.height) return;
 
@@ -81,17 +113,19 @@ export class ImageMaskInfluence extends MaskInfluence {
 
     if (this.width <= 0 || this.height <= 0) return;
 
-    this.canvas.width = this.width;
-    this.canvas.height = this.height;
+    const { width: bufferWidth, height: bufferHeight } = this.resolveBufferResolution();
 
-    this.ctx.clearRect(0, 0, this.width, this.height);
+    this.canvas.width = bufferWidth;
+    this.canvas.height = bufferHeight;
+
+    this.ctx.clearRect(0, 0, bufferWidth, bufferHeight);
     try {
       this.ctx.drawImage(
         this.image,
         0,
         0,
-        this.width,
-        this.height
+        bufferWidth,
+        bufferHeight
       );
     } catch {
       this.failed = true;
@@ -103,8 +137,8 @@ export class ImageMaskInfluence extends MaskInfluence {
       imageData = this.ctx.getImageData(
         0,
         0,
-        this.width,
-        this.height
+        bufferWidth,
+        bufferHeight
       );
     } catch {
       this.failed = true;
@@ -112,7 +146,7 @@ export class ImageMaskInfluence extends MaskInfluence {
     }
 
     const data = imageData.data;
-    this.buffer = new Float32Array(this.width * this.height);
+    this.buffer = new Float32Array(bufferWidth * bufferHeight);
 
     for (let i = 0; i < this.buffer.length; i++) {
       const index = i * 4;
@@ -151,16 +185,26 @@ export class ImageMaskInfluence extends MaskInfluence {
       this.buffer[i] = Math.max(0, Math.min(1, value));
     }
 
+    this.bufferWidth = bufferWidth;
+    this.bufferHeight = bufferHeight;
+
+    if (this.gap) {
+      this.sampleBlockX = Math.min(8, Math.max(1, Math.round(this.gap * bufferWidth / this.width)));
+      this.sampleBlockY = Math.min(8, Math.max(1, Math.round(this.gap * bufferHeight / this.height)));
+    }
+
     if (this.blurRadius > 0) {
       this.applyBlur();
     }
   }
 
   private applyBlur() {
+    const width = this.bufferWidth;
+    const height = this.bufferHeight;
     const temp = new Float32Array(this.buffer.length);
 
-    for (let y = 0; y < this.height; y++) {
-      for (let x = 0; x < this.width; x++) {
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
 
         let sum = 0;
         let count = 0;
@@ -172,16 +216,16 @@ export class ImageMaskInfluence extends MaskInfluence {
             const ny = y + dy;
 
             if (
-              nx >= 0 && nx < this.width &&
-              ny >= 0 && ny < this.height
+              nx >= 0 && nx < width &&
+              ny >= 0 && ny < height
             ) {
-              sum += this.buffer[ny * this.width + nx];
+              sum += this.buffer[ny * width + nx];
               count++;
             }
           }
         }
 
-        temp[y * this.width + x] = sum / count;
+        temp[y * width + x] = sum / count;
       }
     }
 
