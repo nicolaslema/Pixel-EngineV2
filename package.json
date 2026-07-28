@@ -47,10 +47,11 @@
   ],
   "scripts": {
     "dev": "vite",
+    "dev:react": "vite --open /react.html",
     "build": "tsup",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint \"src/**/*.ts\" \"packages/*/src/**/*.{ts,tsx}\" \"playground/**/*.ts\" \"scripts/**/*.{mjs,cjs}\"",
-    "format": "prettier --write \"src/**/*.ts\" \"packages/*/src/**/*.{ts,tsx}\" \"playground/**/*.ts\" \"scripts/**/*.{mjs,cjs}\"",
+    "lint": "eslint \"src/**/*.ts\" \"packages/*/src/**/*.{ts,tsx}\" \"playground/**/*.{ts,tsx}\" \"scripts/**/*.{mjs,cjs}\"",
+    "format": "prettier --write \"src/**/*.ts\" \"packages/*/src/**/*.{ts,tsx}\" \"playground/**/*.{ts,tsx}\" \"scripts/**/*.{mjs,cjs}\"",
     "build:packages": "npm run build -w @pixel-engine/core && npm run build -w @pixel-engine/effects && npm run build -w @pixel-engine/react",
     "build:all": "npm run build:packages && npm run build",
     "bench:pixelgrid": "npm run build:all && node scripts/bench/pixelgrid-bench.cjs --suite=all --runs=3",

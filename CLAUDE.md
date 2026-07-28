@@ -11,7 +11,7 @@ Pixel Engine: a 2D canvas pixel-grid simulation/effects engine, split into three
 - `@pixel-engine/react` (`packages/react`): hooks and components (`PixelGridCanvas`, `PixelCard`, `PixelSurface`, `usePixelEngine`, `usePixelGridEffect`) for declarative React usage.
 - `pixel-engine` (root package, built from root `src/index.ts`): aggregate compatibility package. It has no implementation of its own — it's a pure re-export (`export * from "@pixel-engine/core"; export * from "@pixel-engine/effects";`), bundled by tsup with those packages left as external (unbundled) imports, resolved by consumers via the aggregate's own npm `dependencies`. Because of this, building the aggregate does **not** require `packages/*` to be built first — but `npm run build:all` builds packages first anyway to match publish order.
 
-There is also `playground/` (a Vite app used as the manual dev/QA harness, not published).
+There is also `playground/` (Vite apps used as the manual dev/QA harness, not published): `playground/main.ts` (vanilla, entry `index.html`) exercises `@pixel-engine/core`/`@pixel-engine/effects` directly; `playground/react/` (entry `react.html`, `npm run dev:react`) exercises `@pixel-engine/react` with two tabs — a **Configurator** (`Configurator.tsx`, full control panel of sliders/selects/color/file inputs around a central `PixelGridCanvas`, covering colors/gap/hover mode+magnetic/ripple/breathing/mask text-or-image) and a **Card in a website** demo (`CardDemo.tsx`, a mock landing page using `PixelCard` as a decorative background behind real overlay content, including `overlayPointerEvents="hybrid"`) — both resolve `@pixel-engine/*` against package source via the same Vite alias as tests, not a packed build, so they're for interactive/visual QA, not a packaging-correctness check (that's `npm run smoke:consumer`, which installs the actual `npm pack` tarballs but only checks imports resolve, not visual/interactive behavior). Root `tsconfig.json` sets `"jsx": "react-jsx"` specifically so Vite/esbuild picks the automatic JSX runtime for `playground/react/**` (the only `.tsx` outside `packages/react`, which sets its own `jsx` option) — without it, JSX under `playground/` fails at runtime with `React is not defined` and renders a blank page, since nothing there imports `React` explicitly.
 
 `packages/core/src` and `packages/effects/src` are the single source of truth for their respective packages — there is no mirrored/duplicated copy elsewhere. (This repo used to hand-maintain a duplicate under root `src/`, verified by a parity-check script; that was removed — root `src/` now only contains `index.ts` and playground assets.)
 
@@ -22,7 +22,8 @@ Vitest and `tsconfig.json` alias `@pixel-engine/core`/`@pixel-engine/effects`/`@
 Run from repo root (npm workspaces; `packages/*` are workspaces).
 
 ```bash
-npm run dev                    # Vite playground at index.html / playground/main.ts
+npm run dev                    # Vite playground at index.html / playground/main.ts (vanilla, @pixel-engine/core+effects)
+npm run dev:react              # Vite playground at react.html / playground/react/ (@pixel-engine/react, manual test surface)
 npm run test                   # vitest (watch)
 npm run test:ci                # vitest run (single pass, used in CI)
 npx vitest run <path>          # run a single test file

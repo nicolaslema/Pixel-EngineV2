@@ -161,7 +161,8 @@ Overlay behavior:
 
 ## Development Scripts
 
-- `npm run dev`: run playground with Vite.
+- `npm run dev`: run the vanilla playground (`@pixel-engine/core`/`effects`) with Vite.
+- `npm run dev:react`: run the React playground (`@pixel-engine/react` components/hooks) with Vite — manual QA surface for `PixelGridCanvas`/`PixelCard`/presets/hover/ripple/breathing.
 - `npm run test`: run Vitest.
 - `npm run lint`: ESLint checks.
 - `npm run format`: apply Prettier formatting.
