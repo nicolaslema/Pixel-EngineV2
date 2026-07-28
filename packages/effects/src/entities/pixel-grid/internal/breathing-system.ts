@@ -12,51 +12,87 @@ interface BreathingParams {
   reactiveTime: number;
 }
 
+export interface BreathingCellContext {
+  breathing: ResolvedPixelGridConfig["breathing"];
+  mouse: { x: number; y: number; inside: boolean };
+  imageMaskWeightCache: Float32Array;
+  textMaskWeightCache: Float32Array;
+  reactiveTime: number;
+  minOpacity: number;
+  maxOpacity: number;
+  speed: number;
+  strength: number;
+}
+
+export function buildBreathingCellContext(
+  params: Pick<
+    BreathingParams,
+    "breathing" | "mouse" | "imageMaskWeightCache" | "textMaskWeightCache" | "reactiveTime"
+  >
+): BreathingCellContext {
+  const minOpacity = clamp(params.breathing.minOpacity, 0, 1);
+  return {
+    breathing: params.breathing,
+    mouse: params.mouse,
+    imageMaskWeightCache: params.imageMaskWeightCache,
+    textMaskWeightCache: params.textMaskWeightCache,
+    reactiveTime: params.reactiveTime,
+    minOpacity,
+    maxOpacity: clamp(params.breathing.maxOpacity, minOpacity, 1),
+    speed: Math.max(0, params.breathing.speed),
+    strength: clamp(params.breathing.strength, 0, 1)
+  };
+}
+
+export function applyBreathingToCell(
+  cell: PixelCell,
+  index: number,
+  ctx: BreathingCellContext
+): void {
+  if (cell.targetSize <= 0.001) return;
+
+  let influenceWeight = 0;
+
+  if (ctx.breathing.affectHover && ctx.mouse.inside) {
+    const dx = cell.x - ctx.mouse.x;
+    const dy = cell.y - ctx.mouse.y;
+
+    const hoverWeight = computeHoverFalloff(dx, dy, {
+      radiusX: ctx.breathing.radius,
+      radiusY: ctx.breathing.radiusY
+    });
+
+    influenceWeight = Math.max(influenceWeight, hoverWeight);
+  }
+
+  if (ctx.breathing.affectImage) {
+    influenceWeight = Math.max(influenceWeight, ctx.imageMaskWeightCache[index]);
+  }
+
+  if (ctx.breathing.affectText) {
+    influenceWeight = Math.max(influenceWeight, ctx.textMaskWeightCache[index]);
+  }
+
+  if (influenceWeight <= 0.001) return;
+
+  const breathWave = cell.getBreathFactor(ctx.reactiveTime, ctx.speed);
+  const randomSlice = Math.floor(ctx.reactiveTime * 0.001 * ctx.speed * 2);
+  const seed = Math.sin((index + 1) * 12.9898 + randomSlice * 78.233) * 43758.5453;
+  const randomPulse = seed - Math.floor(seed);
+  const wave = clamp((breathWave * 0.65) + (randomPulse * 0.35), 0, 1);
+  const breathOpacity =
+    ctx.minOpacity + (ctx.maxOpacity - ctx.minOpacity) * wave;
+  const mix = clamp(influenceWeight * ctx.strength, 0, 1);
+
+  cell.opacity = 1 + (breathOpacity - 1) * mix;
+}
+
 export function applyBreathingSystem(params: BreathingParams): void {
   if (!params.breathing.enabled) return;
 
-  const minOpacity = clamp(params.breathing.minOpacity, 0, 1);
-  const maxOpacity = clamp(params.breathing.maxOpacity, minOpacity, 1);
-  const speed = Math.max(0, params.breathing.speed);
-  const strength = clamp(params.breathing.strength, 0, 1);
+  const ctx = buildBreathingCellContext(params);
 
   for (let i = 0; i < params.cells.length; i++) {
-    const cell = params.cells[i];
-    if (cell.targetSize <= 0.001) continue;
-
-    let influenceWeight = 0;
-
-    if (params.breathing.affectHover && params.mouse.inside) {
-      const dx = cell.x - params.mouse.x;
-      const dy = cell.y - params.mouse.y;
-
-      const hoverWeight = computeHoverFalloff(dx, dy, {
-        radiusX: params.breathing.radius,
-        radiusY: params.breathing.radiusY
-      });
-
-      influenceWeight = Math.max(influenceWeight, hoverWeight);
-    }
-
-    if (params.breathing.affectImage) {
-      influenceWeight = Math.max(influenceWeight, params.imageMaskWeightCache[i]);
-    }
-
-    if (params.breathing.affectText) {
-      influenceWeight = Math.max(influenceWeight, params.textMaskWeightCache[i]);
-    }
-
-    if (influenceWeight <= 0.001) continue;
-
-    const breathWave = cell.getBreathFactor(params.reactiveTime, speed);
-    const randomSlice = Math.floor(params.reactiveTime * 0.001 * speed * 2);
-    const seed = Math.sin((i + 1) * 12.9898 + randomSlice * 78.233) * 43758.5453;
-    const randomPulse = seed - Math.floor(seed);
-    const wave = clamp((breathWave * 0.65) + (randomPulse * 0.35), 0, 1);
-    const breathOpacity =
-      minOpacity + (maxOpacity - minOpacity) * wave;
-    const mix = clamp(influenceWeight * strength, 0, 1);
-
-    cell.opacity = 1 + (breathOpacity - 1) * mix;
+    applyBreathingToCell(params.cells[i], i, ctx);
   }
 }

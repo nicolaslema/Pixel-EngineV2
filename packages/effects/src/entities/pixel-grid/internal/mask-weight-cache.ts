@@ -6,6 +6,15 @@ import { PixelGridRuntimeState } from "./runtime-state";
 export interface MaskWeightCacheCoordinator {
   shouldRecompute(): boolean;
   recompute(): void;
+  /**
+   * Combines shouldRecompute()'s gate check with capturing the current mask
+   * references for writeCellMaskWeights() to read per-cell. Call once per frame,
+   * before iterating cells; use the returned boolean to decide whether to call
+   * writeCellMaskWeights() for each cell.
+   */
+  prepareRecompute(): boolean;
+  /** Stable closure -- reads the masks captured by the last prepareRecompute() call. */
+  writeCellMaskWeights(cell: PixelCell, index: number): void;
 }
 
 interface CreateMaskWeightCacheCoordinatorParams {
@@ -22,6 +31,9 @@ export function createMaskWeightCacheCoordinator(
   params: CreateMaskWeightCacheCoordinatorParams
 ): MaskWeightCacheCoordinator {
   let maskCacheIsZeroed = true;
+  let planImageMask: MaskStateMachine["imageMask"] = null;
+  let planTextMask: MaskStateMachine["textMask"] = null;
+  let planMorphMask: MaskStateMachine["morphMask"] = null;
 
   const zeroCaches = () => {
     if (maskCacheIsZeroed) return;
@@ -59,43 +71,61 @@ export function createMaskWeightCacheCoordinator(
     return true;
   };
 
+  // Shared by recompute() and writeCellMaskWeights() -- keeps the per-cell weight math
+  // (image/text/morph sampling + the textOrMorph max-blend) defined in exactly one place.
+  const writeCellMaskWeightsWith = (
+    cell: PixelCell,
+    index: number,
+    imageMask: MaskStateMachine["imageMask"],
+    textMask: MaskStateMachine["textMask"],
+    morphMask: MaskStateMachine["morphMask"]
+  ): void => {
+    const image = imageMask ? imageMask.getInfluence(cell.x, cell.y, 1) : 0;
+    const text = textMask ? textMask.getInfluence(cell.x, cell.y, 1) : 0;
+    const morph = morphMask ? morphMask.getInfluence(cell.x, cell.y, 1) : 0;
+
+    const textOrMorph = Math.max(text, morph);
+
+    params.runtime.imageMaskWeightCache[index] = image;
+    params.runtime.textMaskWeightCache[index] = textOrMorph;
+    params.runtime.activeMaskWeightCache[index] = Math.max(image, textOrMorph);
+  };
+
   const recompute = () => {
     const imageMask = params.maskState.imageMask;
     const textMask = params.maskState.textMask;
     const morphMask = params.maskState.morphMask;
-    const hasImage = imageMask !== null;
-    const hasText = textMask !== null;
-    const hasMorph = morphMask !== null;
 
-    if (!hasImage && !hasText && !hasMorph) {
+    if (!imageMask && !textMask && !morphMask) {
       zeroCaches();
       return;
     }
 
     for (let i = 0; i < params.cells.length; i++) {
-      const cell = params.cells[i];
-      const image = hasImage
-        ? imageMask!.getInfluence(cell.x, cell.y, 1)
-        : 0;
-      const text = hasText
-        ? textMask!.getInfluence(cell.x, cell.y, 1)
-        : 0;
-      const morph = hasMorph
-        ? morphMask!.getInfluence(cell.x, cell.y, 1)
-        : 0;
-
-      const textOrMorph = Math.max(text, morph);
-
-      params.runtime.imageMaskWeightCache[i] = image;
-      params.runtime.textMaskWeightCache[i] = textOrMorph;
-      params.runtime.activeMaskWeightCache[i] = Math.max(image, textOrMorph);
+      writeCellMaskWeightsWith(params.cells[i], i, imageMask, textMask, morphMask);
     }
 
     maskCacheIsZeroed = false;
   };
 
+  const prepareRecompute = (): boolean => {
+    if (!shouldRecompute()) return false;
+
+    planImageMask = params.maskState.imageMask;
+    planTextMask = params.maskState.textMask;
+    planMorphMask = params.maskState.morphMask;
+    maskCacheIsZeroed = false;
+    return true;
+  };
+
+  const writeCellMaskWeights = (cell: PixelCell, index: number): void => {
+    writeCellMaskWeightsWith(cell, index, planImageMask, planTextMask, planMorphMask);
+  };
+
   return {
     shouldRecompute,
-    recompute
+    recompute,
+    prepareRecompute,
+    writeCellMaskWeights
   };
 }

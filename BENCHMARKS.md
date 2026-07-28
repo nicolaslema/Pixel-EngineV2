@@ -311,6 +311,88 @@ Results:
   - Est. FPS (mean): `46.3`
   - Heap delta MB (mean): `-1.662`
 
+## Official baseline snapshot (2026-07-28) — after Phase 3b.1 (update-pipeline pass fusion)
+
+Measurement command set:
+
+```bash
+node scripts/bench/pixelgrid-bench.cjs --suite=classic --runs=5 --frames=240 --warmup=60
+node scripts/bench/pixelgrid-bench.cjs --suite=stress --runs=5 --frames=240 --warmup=60
+```
+
+### Classic (`classic-comparable`)
+
+Scenario:
+- Viewport: `1000x700`
+- Effect area: `1000x700`
+- Gap: `6`
+- Runs: `5`
+- Frames: `240` (warmup `60`)
+- Quality: `medium`
+
+Result:
+- Cells (estimated): `19539`
+- Avg update ms (mean): `5.149`
+- Avg render ms (mean): `0.224`
+- Avg frame ms (median): `5.434`
+- Avg frame ms (mean): `5.372`
+- Frame p95 ms: `5.621`
+- Est. FPS (median): `184.0`
+- Est. FPS (mean): `186.7`
+- Heap delta MB (mean): `-1.656`
+
+### Stress (`stress-overdraw`)
+
+Scenario:
+- Viewport: `1000x700`
+- Effect area: `1600x1100`
+- Gap: `6`
+- Runs: `5`
+- Frames: `240` (warmup `60`)
+- Qualities: `low`, `medium`, `high`
+
+Results:
+
+- `low`
+  - Cells (estimated): `49128`
+  - Avg update ms (mean): `17.166`
+  - Avg render ms (mean): `0.640`
+  - Avg frame ms (median): `18.744`
+  - Avg frame ms (mean): `17.806`
+  - Frame p95 ms: `19.293`
+  - Est. FPS (median): `53.4`
+  - Est. FPS (mean): `57.4`
+  - Heap delta MB (mean): `-0.367`
+
+- `medium`
+  - Cells (estimated): `49128`
+  - Avg update ms (mean): `18.290`
+  - Avg render ms (mean): `0.666`
+  - Avg frame ms (median): `18.743`
+  - Avg frame ms (mean): `18.956`
+  - Frame p95 ms: `19.727`
+  - Est. FPS (median): `53.4`
+  - Est. FPS (mean): `52.8`
+  - Heap delta MB (mean): `1.823`
+
+- `high`
+  - Cells (estimated): `49128`
+  - Avg update ms (mean): `20.703`
+  - Avg render ms (mean): `0.731`
+  - Avg frame ms (median): `20.608`
+  - Avg frame ms (mean): `21.434`
+  - Frame p95 ms: `24.063`
+  - Est. FPS (median): `48.5`
+  - Est. FPS (mean): `46.9`
+  - Heap delta MB (mean): `1.727`
+
+Comparison vs. the 2026-02-22 baseline (same methodology: `runs=5`, `frames=240`, `warmup=60`):
+- Classic: update mean `5.211 → 5.149ms` (~1% faster, within run-to-run noise). Render mean moved `0.193 → 0.224ms`, expected — 3b.1 only touched the update pipeline (`resetCells`/mask-weight-cache fusion, hover+breathing fusion, `InfluenceManager`'s `compressField`/`smoothField` gate), `render-pass.ts` is untouched.
+- Stress `low`: update mean `17.528 → 17.166ms` (~2% faster).
+- Stress `medium`: update mean `21.039 → 18.290ms` (~13% faster) — the largest single improvement, consistent with this scenario spending more frames where `InfluenceManager.apply()`'s `touchedAny` gate (Target 3) skips `compressField`/`smoothField` entirely.
+- Stress `high`: update mean `21.055 → 20.703ms` (~2% faster).
+- All three stress tiers improved consistently (no regressions), and correctness across all changes is confirmed independently by the full test suite (171/171 passing, including new fusion-equivalence and gating tests) and `visual-baseline.test.ts` passing with **zero snapshot diff** (no `-u` needed) — so these gains reflect real reduced work, not an accepted behavior change.
+
 ## Snapshot template (copy/paste)
 
 Use this structure for future updates:

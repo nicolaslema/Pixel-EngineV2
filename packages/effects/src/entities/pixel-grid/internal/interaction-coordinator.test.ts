@@ -1,10 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { PixelCell } from "../../PixelCell";
 import { createPixelGridRuntimeState } from "./runtime-state";
 import {
+  applyHoverAndBreathingPass,
   applyHoverInteractionsPass,
   applyReactiveRipplePass
 } from "./interaction-coordinator";
+import { applyBreathingSystem } from "./breathing-system";
 import { RippleInfluence } from "../../../influences/RippleInfluence";
 
 describe("interaction-coordinator", () => {
@@ -186,5 +188,134 @@ describe("interaction-coordinator", () => {
 
     expect(cell.targetSize).toBeLessThan(1);
     expect(cell.color).toBe("#00ff00");
+  });
+
+  it("applyHoverAndBreathingPass matches running hover then breathing sequentially, with no ripples (3b.1)", () => {
+    const hoverEffects = {
+      mode: "reactive",
+      interactionScope: "all",
+      radius: 120,
+      strength: 1,
+      deactivate: 0.4,
+      displace: 4,
+      jitter: 1,
+      tintPalette: ["#ff0000"],
+      magnetic: { enabled: true, mode: "attract", strength: 2, radius: 120 }
+    } as any;
+    const breathing = {
+      enabled: true,
+      speed: 1,
+      radius: 100,
+      radiusY: 100,
+      shape: "circle",
+      strength: 1,
+      minOpacity: 0.2,
+      maxOpacity: 0.8,
+      affectHover: false,
+      affectImage: true,
+      affectText: false
+    } as any;
+    const mouse = { x: 0, y: 0, inside: true };
+
+    // breathPhase/breathOffset are seeded from Math.random() at construction -- pin it so
+    // sequentialCell and fusedCell (two separate `new PixelCell(...)` calls) get identical
+    // breathing state and are actually comparable.
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.42);
+    const makeCell = () => {
+      const cell = new PixelCell(20, 0, "#334155", 10, 1);
+      cell.targetSize = 1;
+      return cell;
+    };
+
+    const sequentialCell = makeCell();
+    const sequentialCells = [sequentialCell];
+    const sequentialRuntime = createPixelGridRuntimeState(1);
+    sequentialRuntime.reactiveTime = 90;
+    sequentialRuntime.imageMaskWeightCache[0] = 1;
+
+    applyHoverInteractionsPass({
+      cells: sequentialCells,
+      runtime: sequentialRuntime,
+      hoverEffects,
+      hoverEnabled: true,
+      mouse
+    });
+    applyBreathingSystem({
+      cells: sequentialCells,
+      breathing,
+      mouse,
+      imageMaskWeightCache: sequentialRuntime.imageMaskWeightCache,
+      textMaskWeightCache: sequentialRuntime.textMaskWeightCache,
+      reactiveTime: sequentialRuntime.reactiveTime
+    });
+
+    const fusedCell = makeCell();
+    const fusedCells = [fusedCell];
+    const fusedRuntime = createPixelGridRuntimeState(1);
+    fusedRuntime.reactiveTime = 90;
+    fusedRuntime.imageMaskWeightCache[0] = 1;
+
+    applyHoverAndBreathingPass({
+      cells: fusedCells,
+      runtime: fusedRuntime,
+      hoverEffects,
+      hoverEnabled: true,
+      breathing,
+      mouse
+    });
+
+    randomSpy.mockRestore();
+
+    expect(fusedCell.targetSize).toBeCloseTo(sequentialCell.targetSize, 10);
+    expect(fusedCell.offsetX).toBeCloseTo(sequentialCell.offsetX, 10);
+    expect(fusedCell.offsetY).toBeCloseTo(sequentialCell.offsetY, 10);
+    expect(fusedCell.opacity).toBeCloseTo(sequentialCell.opacity, 10);
+    expect(fusedCell.color).toBe(sequentialCell.color);
+  });
+
+  it("preserves hover-before-breathing ordering: breathing skips a cell hover deactivated below threshold (3b.1 regression)", () => {
+    const cell = new PixelCell(0, 0, "#334155", 10, 1);
+    cell.targetSize = 1;
+    const cells = [cell];
+    const runtime = createPixelGridRuntimeState(1);
+    runtime.imageMaskWeightCache[0] = 1;
+
+    applyHoverAndBreathingPass({
+      cells,
+      runtime,
+      hoverEffects: {
+        mode: "reactive",
+        interactionScope: "all",
+        radius: 120,
+        strength: 1,
+        // deactivate=1 at full strength (dx=dy=0, falloff at its max) drives targetSize to 0,
+        // well below breathing's 0.001 gate.
+        deactivate: 1,
+        displace: 0,
+        jitter: 0,
+        tintPalette: [],
+        magnetic: { enabled: false, mode: "attract", strength: 0, radius: 120 }
+      } as any,
+      hoverEnabled: true,
+      breathing: {
+        enabled: true,
+        speed: 1,
+        radius: 100,
+        radiusY: 100,
+        shape: "circle",
+        strength: 1,
+        minOpacity: 0.2,
+        maxOpacity: 0.8,
+        affectHover: false,
+        affectImage: true,
+        affectText: false
+      } as any,
+      mouse: { x: 0, y: 0, inside: true }
+    });
+
+    expect(cell.targetSize).toBeLessThanOrEqual(0.001);
+    // Breathing must see the post-hover targetSize (already deactivated) within the same
+    // fused iteration and therefore skip this cell -- opacity stays untouched at its default.
+    expect(cell.opacity).toBe(1);
   });
 });

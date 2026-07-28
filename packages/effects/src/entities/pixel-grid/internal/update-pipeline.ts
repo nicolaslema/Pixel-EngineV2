@@ -1,6 +1,6 @@
 import { PixelCell } from "../../PixelCell";
 import { InfluenceManager } from "../../../influences/InfluenceManager";
-import { compactAliveRipples, PixelGridRuntimeState, resetCells } from "./runtime-state";
+import { compactAliveRipples, PixelGridRuntimeState, resetCell } from "./runtime-state";
 import { MaskStateMachine } from "./mask-state-machine";
 
 interface UpdatePipelineParams {
@@ -11,11 +11,9 @@ interface UpdatePipelineParams {
   influenceManager: InfluenceManager;
   maskState: MaskStateMachine;
   getCellIndex: (x: number, y: number) => number;
-  shouldRecomputeMaskWeightCache: () => boolean;
-  updateMaskWeightCache: () => void;
-  applyHoverInteractions: () => void;
-  applyReactiveRippleEffects: () => void;
-  applyBreathing: () => void;
+  prepareMaskWeightRecompute: () => boolean;
+  writeCellMaskWeights: (cell: PixelCell, index: number) => void;
+  applyHoverBreathingAndRipple: () => void;
   applyPostEffects: () => void;
 }
 
@@ -24,8 +22,6 @@ export function runPixelGridUpdatePipeline(
 ): void {
   params.runtime.reactiveTime += params.delta;
 
-  resetCells(params.cells);
-
   params.influenceManager.update(params.delta);
   compactAliveRipples(
     params.runtime.activeRipples,
@@ -33,18 +29,25 @@ export function runPixelGridUpdatePipeline(
   );
   params.maskState.update(params.delta);
 
+  // resetCell() and (conditionally) writeCellMaskWeights() are fused into one full-grid
+  // loop here -- both are independent per-cell operations (resetCell touches only PixelCell
+  // fields, writeCellMaskWeights only the separate mask-weight Float32Arrays), and this is
+  // the earliest point in the frame where the mask-weight recompute gate is decidable
+  // (shouldRecompute() depends on activeRipples.length post-compaction and maskState's
+  // current masks post-update, both finalized just above).
+  const recomputeMaskCache = params.prepareMaskWeightRecompute();
+  for (let i = 0; i < params.cells.length; i++) {
+    const cell = params.cells[i];
+    resetCell(cell);
+    if (recomputeMaskCache) params.writeCellMaskWeights(cell, i);
+  }
+
   params.influenceManager.apply(
     params.cells,
     params.getCellIndex
   );
 
-  if (params.shouldRecomputeMaskWeightCache()) {
-    params.updateMaskWeightCache();
-  }
-
-  params.applyHoverInteractions();
-  params.applyReactiveRippleEffects();
-  params.applyBreathing();
+  params.applyHoverBreathingAndRipple();
   params.applyPostEffects();
 
   for (let i = 0; i < params.cells.length; i++) {

@@ -23,11 +23,15 @@ export function createPixelGridRuntimeState(
   };
 }
 
+export function resetCell(cell: PixelCell): void {
+  cell.snapshotPreviousState();
+  cell.targetSize = 0;
+  cell.resetVisualState();
+}
+
 export function resetCells(cells: PixelCell[]): void {
   for (let i = 0; i < cells.length; i++) {
-    cells[i].snapshotPreviousState();
-    cells[i].targetSize = 0;
-    cells[i].resetVisualState();
+    resetCell(cells[i]);
   }
 }
 

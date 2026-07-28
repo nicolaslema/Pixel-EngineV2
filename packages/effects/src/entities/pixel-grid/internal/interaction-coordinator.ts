@@ -8,12 +8,37 @@ import {
   shouldAffectCell
 } from "./reactive-effects";
 import { PixelGridRuntimeState } from "./runtime-state";
+import {
+  applyBreathingToCell,
+  buildBreathingCellContext,
+  BreathingCellContext
+} from "./breathing-system";
 
 interface HoverInteractionsPassParams {
   cells: PixelCell[];
   runtime: Pick<PixelGridRuntimeState, "activeMaskWeightCache" | "reactiveTime">;
   hoverEffects: ResolvedPixelGridConfig["hoverEffects"];
   hoverEnabled: boolean;
+  mouse: { x: number; y: number; inside: boolean };
+}
+
+export interface HoverCellContext {
+  runtime: Pick<PixelGridRuntimeState, "activeMaskWeightCache" | "reactiveTime">;
+  hoverEffects: ResolvedPixelGridConfig["hoverEffects"];
+  mouse: { x: number; y: number; inside: boolean };
+  applyReactive: boolean;
+  applyMagnetic: boolean;
+}
+
+export interface HoverAndBreathingPassParams {
+  cells: PixelCell[];
+  runtime: Pick<
+    PixelGridRuntimeState,
+    "activeMaskWeightCache" | "imageMaskWeightCache" | "textMaskWeightCache" | "reactiveTime"
+  >;
+  hoverEffects: ResolvedPixelGridConfig["hoverEffects"];
+  hoverEnabled: boolean;
+  breathing: ResolvedPixelGridConfig["breathing"];
   mouse: { x: number; y: number; inside: boolean };
 }
 
@@ -39,6 +64,50 @@ interface ReactiveRipplePassParams {
  * differ from `hoverEffects.radius`) is untouched -- magnetic reach is still implicitly
  * capped by `hoverEffects.radius` via this shared outer gate, exactly like before.
  */
+export function applyHoverToCell(
+  cell: PixelCell,
+  index: number,
+  ctx: HoverCellContext
+): void {
+  if (
+    !shouldAffectCell(
+      ctx.hoverEffects.interactionScope,
+      cell.targetSize,
+      ctx.runtime.activeMaskWeightCache[index]
+    )
+  ) {
+    return;
+  }
+
+  const falloff = getHoverWeight(cell, ctx.mouse, ctx.hoverEffects);
+  if (falloff <= 0) return;
+
+  const interaction = falloff * ctx.hoverEffects.strength;
+
+  if (ctx.applyReactive) {
+    applyReactiveEffectsToCell({
+      cell,
+      cellIndex: index,
+      interaction,
+      originX: ctx.mouse.x,
+      originY: ctx.mouse.y,
+      reactiveTime: ctx.runtime.reactiveTime,
+      hoverEffects: ctx.hoverEffects,
+      tintPalette: ctx.hoverEffects.tintPalette
+    });
+  }
+
+  if (ctx.applyMagnetic) {
+    applyMagneticHoverToCell({
+      cell,
+      interaction,
+      originX: ctx.mouse.x,
+      originY: ctx.mouse.y,
+      hoverEffects: ctx.hoverEffects
+    });
+  }
+}
+
 export function applyHoverInteractionsPass(
   params: HoverInteractionsPassParams
 ): void {
@@ -48,45 +117,64 @@ export function applyHoverInteractionsPass(
   const applyMagnetic = params.hoverEffects.magnetic.enabled;
   if (!applyReactive && !applyMagnetic) return;
 
+  const ctx: HoverCellContext = {
+    runtime: params.runtime,
+    hoverEffects: params.hoverEffects,
+    mouse: params.mouse,
+    applyReactive,
+    applyMagnetic
+  };
+
+  for (let i = 0; i < params.cells.length; i++) {
+    applyHoverToCell(params.cells[i], i, ctx);
+  }
+}
+
+/**
+ * Fused hover + breathing pass -- only safe to use when no ripples are active this frame.
+ * The ripple pass sits between hover and breathing in the original sequence and can mutate
+ * targetSize/offset/color for cells in its AABB; breathing's unconditional targetSize gate
+ * means it observes the post-ripple value today. Skipping over ripple's position is only
+ * behavior-identical when applyReactiveRipplePass would have been a no-op anyway, i.e. when
+ * there are zero active ripples (see applyReactiveRipple's own early return). Callers must
+ * check `runtime.activeRipples.length === 0` before calling this and fall back to running
+ * applyHoverInteractionsPass -> applyReactiveRipplePass -> applyBreathingSystem in sequence
+ * otherwise.
+ */
+export function applyHoverAndBreathingPass(
+  params: HoverAndBreathingPassParams
+): void {
+  const hoverGateOpen = params.hoverEnabled && params.mouse.inside;
+  const applyReactive = hoverGateOpen && params.hoverEffects.mode === "reactive";
+  const applyMagnetic = hoverGateOpen && params.hoverEffects.magnetic.enabled;
+  const hoverActive = applyReactive || applyMagnetic;
+  const breathingActive = params.breathing.enabled;
+  if (!hoverActive && !breathingActive) return;
+
+  const hoverCtx: HoverCellContext | null = hoverActive
+    ? {
+        runtime: params.runtime,
+        hoverEffects: params.hoverEffects,
+        mouse: params.mouse,
+        applyReactive,
+        applyMagnetic
+      }
+    : null;
+
+  const breathingCtx: BreathingCellContext | null = breathingActive
+    ? buildBreathingCellContext({
+        breathing: params.breathing,
+        mouse: params.mouse,
+        imageMaskWeightCache: params.runtime.imageMaskWeightCache,
+        textMaskWeightCache: params.runtime.textMaskWeightCache,
+        reactiveTime: params.runtime.reactiveTime
+      })
+    : null;
+
   for (let i = 0; i < params.cells.length; i++) {
     const cell = params.cells[i];
-    if (
-      !shouldAffectCell(
-        params.hoverEffects.interactionScope,
-        cell.targetSize,
-        params.runtime.activeMaskWeightCache[i]
-      )
-    ) {
-      continue;
-    }
-
-    const falloff = getHoverWeight(cell, params.mouse, params.hoverEffects);
-    if (falloff <= 0) continue;
-
-    const interaction = falloff * params.hoverEffects.strength;
-
-    if (applyReactive) {
-      applyReactiveEffectsToCell({
-        cell,
-        cellIndex: i,
-        interaction,
-        originX: params.mouse.x,
-        originY: params.mouse.y,
-        reactiveTime: params.runtime.reactiveTime,
-        hoverEffects: params.hoverEffects,
-        tintPalette: params.hoverEffects.tintPalette
-      });
-    }
-
-    if (applyMagnetic) {
-      applyMagneticHoverToCell({
-        cell,
-        interaction,
-        originX: params.mouse.x,
-        originY: params.mouse.y,
-        hoverEffects: params.hoverEffects
-      });
-    }
+    if (hoverCtx) applyHoverToCell(cell, i, hoverCtx);
+    if (breathingCtx) applyBreathingToCell(cell, i, breathingCtx);
   }
 }
 

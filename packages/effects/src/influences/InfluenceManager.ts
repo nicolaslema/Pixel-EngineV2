@@ -98,6 +98,8 @@ export class InfluenceManager {
       this.dirty = false;
     }
 
+    let touchedAny = false;
+
     for (let i = 0; i < this.influences.length; i++) {
 
       const influence = this.influences[i];
@@ -122,6 +124,7 @@ export class InfluenceManager {
           );
 
           if (value <= 0) continue;
+          touchedAny = true;
 
           switch (influence.blendMode) {
 
@@ -147,10 +150,18 @@ export class InfluenceManager {
       }
     }
 
-    this.compressField(cells);
+    // If no influence actually wrote into any cell this frame, every cell's targetSize is
+    // still exactly 0 (apply() is always called on a freshly reset frame -- see
+    // update-pipeline.ts). compressField(0) === 0 and smoothField of an all-zero field is a
+    // no-op, so skipping both here is behavior-identical, not an approximation -- it just
+    // avoids two full-grid passes (smoothField especially, the more expensive of the two)
+    // on frames where nothing is actually influencing the grid.
+    if (touchedAny) {
+      this.compressField(cells);
 
-    if (this.enableSmoothing) {
-      this.smoothField(cells, getCellIndex);
+      if (this.enableSmoothing) {
+        this.smoothField(cells, getCellIndex);
+      }
     }
   }
 

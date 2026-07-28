@@ -17,6 +17,7 @@ import { DEFAULT_PIXEL_GRID_RUNTIME_TUNING } from "./runtime-tuning";
 import { createMaskWeightCacheCoordinator } from "./mask-weight-cache";
 import { createPixelGridEffectsPipeline } from "./effects/pipeline";
 import {
+  applyHoverAndBreathingPass,
   applyHoverInteractionsPass,
   applyReactiveRipplePass
 } from "./interaction-coordinator";
@@ -190,9 +191,27 @@ export function createPixelGridRuntimeController(
   // inverseGap/columns/rows, maskWeightCache, effectsPipeline) is stable for the controller's
   // lifetime. Only `delta` genuinely varies per frame, so it's written onto `pipelineParams`
   // right before each call instead of being captured by a freshly allocated closure.
-  const shouldRecomputeMaskWeightCache = (): boolean => maskWeightCache.shouldRecompute();
-  const updateMaskWeightCache = (): void => maskWeightCache.recompute();
-  const applyHoverInteractions = (): void => {
+  const prepareMaskWeightRecompute = (): boolean => maskWeightCache.prepareRecompute();
+  const writeCellMaskWeights = (cell: PixelCell, index: number): void =>
+    maskWeightCache.writeCellMaskWeights(cell, index);
+  // Fuses the hover + breathing passes into one full-grid loop whenever it's safe to do so
+  // (no active ripples -- see applyHoverAndBreathingPass's doc comment for why ripple
+  // activity forces the unfused fallback), keeping the fused-vs-fallback decision in the
+  // controller rather than update-pipeline.ts, matching this file's existing convention of
+  // owning orchestration decisions.
+  const applyHoverBreathingAndRipple = (): void => {
+    if (runtime.activeRipples.length === 0) {
+      applyHoverAndBreathingPass({
+        cells,
+        runtime,
+        hoverEffects: params.resolvedConfig.hoverEffects,
+        hoverEnabled: !!params.influenceOptions.hover,
+        breathing: params.resolvedConfig.breathing,
+        mouse: params.engine.mouse
+      });
+      return;
+    }
+
     applyHoverInteractionsPass({
       cells,
       runtime,
@@ -200,8 +219,6 @@ export function createPixelGridRuntimeController(
       hoverEnabled: !!params.influenceOptions.hover,
       mouse: params.engine.mouse
     });
-  };
-  const applyReactiveRippleEffects = (): void => {
     applyReactiveRipplePass({
       cells,
       runtime,
@@ -213,8 +230,6 @@ export function createPixelGridRuntimeController(
       rippleEffects: params.resolvedConfig.rippleEffects,
       getCellIndex
     });
-  };
-  const applyBreathing = (): void => {
     applyBreathingSystem({
       cells,
       breathing: params.resolvedConfig.breathing,
@@ -240,11 +255,9 @@ export function createPixelGridRuntimeController(
     influenceManager,
     maskState,
     getCellIndex,
-    shouldRecomputeMaskWeightCache,
-    updateMaskWeightCache,
-    applyHoverInteractions,
-    applyReactiveRippleEffects,
-    applyBreathing,
+    prepareMaskWeightRecompute,
+    writeCellMaskWeights,
+    applyHoverBreathingAndRipple,
     applyPostEffects
   };
 

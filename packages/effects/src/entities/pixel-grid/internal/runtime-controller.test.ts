@@ -4,6 +4,7 @@ import { resolvePixelGridConfig } from "../normalizeConfig";
 import { createPixelGridRuntimeController } from "./runtime-controller";
 import { PixelGridConfig } from "../types";
 import * as updatePipeline from "./update-pipeline";
+import * as interactionCoordinator from "./interaction-coordinator";
 
 describe("createPixelGridRuntimeController", () => {
   beforeEach(() => {
@@ -142,11 +143,9 @@ describe("createPixelGridRuntimeController", () => {
     expect(secondCallParams).toBe(firstCallParams);
     // Every callback field is the same function reference across frames -- proves the
     // closures aren't recreated per update() call either.
-    expect(secondCallParams.shouldRecomputeMaskWeightCache).toBe(firstCallParams.shouldRecomputeMaskWeightCache);
-    expect(secondCallParams.updateMaskWeightCache).toBe(firstCallParams.updateMaskWeightCache);
-    expect(secondCallParams.applyHoverInteractions).toBe(firstCallParams.applyHoverInteractions);
-    expect(secondCallParams.applyReactiveRippleEffects).toBe(firstCallParams.applyReactiveRippleEffects);
-    expect(secondCallParams.applyBreathing).toBe(firstCallParams.applyBreathing);
+    expect(secondCallParams.prepareMaskWeightRecompute).toBe(firstCallParams.prepareMaskWeightRecompute);
+    expect(secondCallParams.writeCellMaskWeights).toBe(firstCallParams.writeCellMaskWeights);
+    expect(secondCallParams.applyHoverBreathingAndRipple).toBe(firstCallParams.applyHoverBreathingAndRipple);
     expect(secondCallParams.applyPostEffects).toBe(firstCallParams.applyPostEffects);
     // Each call saw the correct current-frame delta at the time it ran -- this is exactly
     // what applyPostEffects reads (via pipelineParams.delta) instead of a per-call `delta`
@@ -154,6 +153,48 @@ describe("createPixelGridRuntimeController", () => {
     expect(deltaSeenAtCall).toEqual([16, 32]);
 
     spy.mockRestore();
+    engine.destroy();
+  });
+
+  it("fuses hover+breathing when idle, and falls back to the unfused sequence while ripples are active (3b.1)", () => {
+    const fusedSpy = vi.spyOn(interactionCoordinator, "applyHoverAndBreathingPass");
+    const unfusedHoverSpy = vi.spyOn(interactionCoordinator, "applyHoverInteractionsPass");
+
+    const canvas = document.createElement("canvas");
+    const engine = new PixelEngine({
+      canvas,
+      width: 200,
+      height: 120
+    });
+
+    const config: PixelGridConfig = {
+      colors: ["#334155", "#475569", "#64748b"],
+      gap: 8,
+      expandEase: 0.08,
+      breathSpeed: 1
+    };
+
+    const runtime = createPixelGridRuntimeController({
+      engine,
+      width: 200,
+      height: 120,
+      config,
+      influenceOptions: { hover: true, ripple: true, organic: false },
+      resolvedConfig: resolvePixelGridConfig(config)
+    });
+
+    runtime.update(16);
+    expect(fusedSpy).toHaveBeenCalledTimes(1);
+    expect(unfusedHoverSpy).not.toHaveBeenCalled();
+
+    runtime.triggerRipple(100, 60);
+    runtime.update(16);
+    expect(unfusedHoverSpy).toHaveBeenCalledTimes(1);
+    // No new fused call while the ripple is alive -- still just the one from the first frame.
+    expect(fusedSpy).toHaveBeenCalledTimes(1);
+
+    fusedSpy.mockRestore();
+    unfusedHoverSpy.mockRestore();
     engine.destroy();
   });
 });
