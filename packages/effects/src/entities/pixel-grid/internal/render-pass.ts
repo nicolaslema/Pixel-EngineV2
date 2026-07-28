@@ -1,5 +1,5 @@
 import { IRenderer } from "@pixel-engine/core";
-import { PixelCell } from "../../PixelCell";
+import { PixelCellBuffer } from "./cell-buffer";
 
 export interface PixelRenderViewport {
   minX: number;
@@ -10,28 +10,32 @@ export interface PixelRenderViewport {
 
 export function renderPixelCells(
   renderer: IRenderer,
-  cells: PixelCell[],
+  buffer: PixelCellBuffer,
   minRenderableSize = 0.5,
   viewport?: PixelRenderViewport,
   alpha = 1
 ): void {
   const ctx = renderer.getContext();
   const renderAlpha = Math.max(0, Math.min(1, alpha));
+  const gap = buffer.gap;
   let currentColor = "";
   let currentOpacity = -1;
 
-  for (let i = 0; i < cells.length; i++) {
-    const cell = cells[i];
-    const size = cell.getInterpolatedSize(renderAlpha);
+  for (let i = 0; i < buffer.count; i++) {
+    const previousSize = buffer.previousSize[i];
+    const size = previousSize + (buffer.size[i] - previousSize) * renderAlpha;
     if (size <= minRenderableSize) continue;
 
-    const offsetX = cell.getInterpolatedOffsetX(renderAlpha);
-    const offsetY = cell.getInterpolatedOffsetY(renderAlpha);
-    const opacity = cell.getInterpolatedOpacity(renderAlpha);
+    const previousOffsetX = buffer.previousOffsetX[i];
+    const offsetX = previousOffsetX + (buffer.offsetX[i] - previousOffsetX) * renderAlpha;
+    const previousOffsetY = buffer.previousOffsetY[i];
+    const offsetY = previousOffsetY + (buffer.offsetY[i] - previousOffsetY) * renderAlpha;
+    const previousOpacity = buffer.previousOpacity[i];
+    const opacity = previousOpacity + (buffer.opacity[i] - previousOpacity) * renderAlpha;
 
-    const offset = (cell.gap - size) * 0.5;
-    const drawX = cell.x + offsetX + offset;
-    const drawY = cell.y + offsetY + offset;
+    const offset = (gap - size) * 0.5;
+    const drawX = buffer.x[i] + offsetX + offset;
+    const drawY = buffer.y[i] + offsetY + offset;
 
     if (viewport) {
       const drawMaxX = drawX + size;
@@ -46,8 +50,9 @@ export function renderPixelCells(
       }
     }
 
-    if (cell.color !== currentColor) {
-      currentColor = cell.color;
+    const color = buffer.color[i];
+    if (color !== currentColor) {
+      currentColor = color;
       ctx.fillStyle = currentColor;
     }
 

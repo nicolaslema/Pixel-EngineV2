@@ -1,12 +1,12 @@
-import { PixelCell } from "../../PixelCell";
+import { PixelCellBuffer } from "./cell-buffer";
 import { RippleInfluence } from "../../../influences/RippleInfluence";
 import { computeHoverFalloff } from "../../../influences/HoverShape";
 import { ResolvedPixelGridConfig } from "../types";
 
 interface ReactiveCellOptions {
   interaction: number;
-  cellIndex: number;
-  cell: PixelCell;
+  index: number;
+  buffer: PixelCellBuffer;
   originX: number;
   originY: number;
   reactiveTime: number;
@@ -24,14 +24,15 @@ interface ReactiveCellOptions {
 const DEFAULT_MULTIPLIERS = { deactivate: 1, displace: 1, jitter: 1 } as const;
 
 export function getHoverWeight(
-  cell: PixelCell,
+  buffer: PixelCellBuffer,
+  index: number,
   mouse: { x: number; y: number; inside: boolean },
   hoverEffects: ResolvedPixelGridConfig["hoverEffects"]
 ): number {
   if (!mouse.inside) return 0;
 
-  const dx = cell.x - mouse.x;
-  const dy = cell.y - mouse.y;
+  const dx = buffer.x[index] - mouse.x;
+  const dy = buffer.y[index] - mouse.y;
   return computeHoverFalloff(dx, dy, {
     radiusX: hoverEffects.radius,
     radiusY: hoverEffects.radius
@@ -40,7 +41,8 @@ export function getHoverWeight(
 
 export function applyMagneticHoverToCell(
   options: {
-    cell: PixelCell;
+    buffer: PixelCellBuffer;
+    index: number;
     interaction: number;
     originX: number;
     originY: number;
@@ -50,8 +52,8 @@ export function applyMagneticHoverToCell(
   const magnetic = options.hoverEffects.magnetic;
   if (!magnetic.enabled) return;
 
-  const dx = options.originX - options.cell.x;
-  const dy = options.originY - options.cell.y;
+  const dx = options.originX - options.buffer.x[options.index];
+  const dy = options.originY - options.buffer.y[options.index];
   const radius = magnetic.radius;
   const falloff = computeHoverFalloff(dx, dy, {
     radiusX: radius,
@@ -63,8 +65,8 @@ export function applyMagneticHoverToCell(
   const direction = magnetic.mode === "attract" ? 1 : -1;
   const pull = magnetic.strength * options.interaction * falloff * direction;
 
-  options.cell.offsetX += (dx / len) * pull;
-  options.cell.offsetY += (dy / len) * pull;
+  options.buffer.offsetX[options.index] += (dx / len) * pull;
+  options.buffer.offsetY[options.index] += (dy / len) * pull;
 }
 
 export function shouldAffectCell(
@@ -88,36 +90,38 @@ export function applyReactiveEffectsToCell(
   const displace = options.hoverEffects.displace * multipliers.displace;
   const jitter = options.hoverEffects.jitter * multipliers.jitter;
 
+  const { buffer, index } = options;
+
   if (deactivate > 0) {
-    options.cell.targetSize *= Math.max(0, 1 - deactivate * strength);
+    buffer.targetSize[index] *= Math.max(0, 1 - deactivate * strength);
   }
 
   if (displace > 0) {
-    const dx = options.cell.x - options.originX;
-    const dy = options.cell.y - options.originY;
+    const dx = buffer.x[index] - options.originX;
+    const dy = buffer.y[index] - options.originY;
     const len = Math.sqrt(dx * dx + dy * dy) || 1;
     const dirX = dx / len;
     const dirY = dy / len;
 
     const noise =
-      Math.sin((options.cellIndex + 1) * 12.9898 + options.reactiveTime * 0.01) * 0.5 + 0.5;
+      Math.sin((index + 1) * 12.9898 + options.reactiveTime * 0.01) * 0.5 + 0.5;
 
     const jitterTerm = (noise - 0.5) * 2 * jitter * strength;
 
-    options.cell.offsetX += dirX * displace * strength + jitterTerm;
-    options.cell.offsetY += dirY * displace * strength - jitterTerm;
+    buffer.offsetX[index] += dirX * displace * strength + jitterTerm;
+    buffer.offsetY[index] += dirY * displace * strength - jitterTerm;
   }
 
   if (options.tintPalette.length > 0) {
     const normalized = Math.max(0, Math.min(0.999, strength));
     const colorIndex = Math.floor(normalized * options.tintPalette.length);
-    options.cell.color = options.tintPalette[colorIndex];
+    buffer.color[index] = options.tintPalette[colorIndex];
   }
 }
 
 export function applyReactiveRipple(
   params: {
-    cells: PixelCell[];
+    buffer: PixelCellBuffer;
     activeRipples: RippleInfluence[];
     inverseGap: number;
     columns: number;
@@ -148,18 +152,18 @@ export function applyReactiveRipple(
     for (let x = minCol; x <= maxCol; x++) {
       for (let y = minRow; y <= maxRow; y++) {
         const index = params.getCellIndex(x, y);
-        const cell = params.cells[index];
+        const { buffer } = params;
 
-        if (!shouldAffectCell(params.hoverEffects.interactionScope, cell.targetSize, params.activeMaskWeightCache[index])) {
+        if (!shouldAffectCell(params.hoverEffects.interactionScope, buffer.targetSize[index], params.activeMaskWeightCache[index])) {
           continue;
         }
 
-        const factor = ripple.getRingFactorAt(cell.x, cell.y);
+        const factor = ripple.getRingFactorAt(buffer.x[index], buffer.y[index]);
         if (factor <= 0) continue;
 
         applyReactiveEffectsToCell({
-          cell,
-          cellIndex: index,
+          buffer,
+          index,
           interaction: factor * params.hoverEffects.strength,
           originX: ripple.getOriginX(),
           originY: ripple.getOriginY(),

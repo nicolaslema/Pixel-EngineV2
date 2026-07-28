@@ -1,4 +1,4 @@
-import { PixelCell } from "../../PixelCell";
+import { PixelCellBuffer } from "./cell-buffer";
 import { ResolvedPixelGridConfig } from "../types";
 import {
   applyMagneticHoverToCell,
@@ -15,7 +15,7 @@ import {
 } from "./breathing-system";
 
 interface HoverInteractionsPassParams {
-  cells: PixelCell[];
+  buffer: PixelCellBuffer;
   runtime: Pick<PixelGridRuntimeState, "activeMaskWeightCache" | "reactiveTime">;
   hoverEffects: ResolvedPixelGridConfig["hoverEffects"];
   hoverEnabled: boolean;
@@ -31,7 +31,7 @@ export interface HoverCellContext {
 }
 
 export interface HoverAndBreathingPassParams {
-  cells: PixelCell[];
+  buffer: PixelCellBuffer;
   runtime: Pick<
     PixelGridRuntimeState,
     "activeMaskWeightCache" | "imageMaskWeightCache" | "textMaskWeightCache" | "reactiveTime"
@@ -43,7 +43,7 @@ export interface HoverAndBreathingPassParams {
 }
 
 interface ReactiveRipplePassParams {
-  cells: PixelCell[];
+  buffer: PixelCellBuffer;
   runtime: Pick<PixelGridRuntimeState, "activeMaskWeightCache" | "activeRipples" | "reactiveTime">;
   rippleEnabled: boolean;
   inverseGap: number;
@@ -65,29 +65,29 @@ interface ReactiveRipplePassParams {
  * capped by `hoverEffects.radius` via this shared outer gate, exactly like before.
  */
 export function applyHoverToCell(
-  cell: PixelCell,
+  buffer: PixelCellBuffer,
   index: number,
   ctx: HoverCellContext
 ): void {
   if (
     !shouldAffectCell(
       ctx.hoverEffects.interactionScope,
-      cell.targetSize,
+      buffer.targetSize[index],
       ctx.runtime.activeMaskWeightCache[index]
     )
   ) {
     return;
   }
 
-  const falloff = getHoverWeight(cell, ctx.mouse, ctx.hoverEffects);
+  const falloff = getHoverWeight(buffer, index, ctx.mouse, ctx.hoverEffects);
   if (falloff <= 0) return;
 
   const interaction = falloff * ctx.hoverEffects.strength;
 
   if (ctx.applyReactive) {
     applyReactiveEffectsToCell({
-      cell,
-      cellIndex: index,
+      buffer,
+      index,
       interaction,
       originX: ctx.mouse.x,
       originY: ctx.mouse.y,
@@ -99,7 +99,8 @@ export function applyHoverToCell(
 
   if (ctx.applyMagnetic) {
     applyMagneticHoverToCell({
-      cell,
+      buffer,
+      index,
       interaction,
       originX: ctx.mouse.x,
       originY: ctx.mouse.y,
@@ -125,8 +126,8 @@ export function applyHoverInteractionsPass(
     applyMagnetic
   };
 
-  for (let i = 0; i < params.cells.length; i++) {
-    applyHoverToCell(params.cells[i], i, ctx);
+  for (let i = 0; i < params.buffer.count; i++) {
+    applyHoverToCell(params.buffer, i, ctx);
   }
 }
 
@@ -171,10 +172,9 @@ export function applyHoverAndBreathingPass(
       })
     : null;
 
-  for (let i = 0; i < params.cells.length; i++) {
-    const cell = params.cells[i];
-    if (hoverCtx) applyHoverToCell(cell, i, hoverCtx);
-    if (breathingCtx) applyBreathingToCell(cell, i, breathingCtx);
+  for (let i = 0; i < params.buffer.count; i++) {
+    if (hoverCtx) applyHoverToCell(params.buffer, i, hoverCtx);
+    if (breathingCtx) applyBreathingToCell(params.buffer, i, breathingCtx);
   }
 }
 
@@ -184,7 +184,7 @@ export function applyReactiveRipplePass(
   if (!params.rippleEnabled) return;
 
   applyReactiveRipple({
-    cells: params.cells,
+    buffer: params.buffer,
     activeRipples: params.runtime.activeRipples,
     inverseGap: params.inverseGap,
     columns: params.columns,

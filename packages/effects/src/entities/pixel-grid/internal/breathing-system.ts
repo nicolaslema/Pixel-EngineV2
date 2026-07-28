@@ -1,10 +1,10 @@
-import { PixelCell } from "../../PixelCell";
+import { getBreathFactor, PixelCellBuffer } from "./cell-buffer";
 import { computeHoverFalloff } from "../../../influences/HoverShape";
 import { clamp } from "../../../utils/math";
 import { ResolvedPixelGridConfig } from "../types";
 
 interface BreathingParams {
-  cells: PixelCell[];
+  buffer: PixelCellBuffer;
   breathing: ResolvedPixelGridConfig["breathing"];
   mouse: { x: number; y: number; inside: boolean };
   imageMaskWeightCache: Float32Array;
@@ -45,17 +45,17 @@ export function buildBreathingCellContext(
 }
 
 export function applyBreathingToCell(
-  cell: PixelCell,
+  buffer: PixelCellBuffer,
   index: number,
   ctx: BreathingCellContext
 ): void {
-  if (cell.targetSize <= 0.001) return;
+  if (buffer.targetSize[index] <= 0.001) return;
 
   let influenceWeight = 0;
 
   if (ctx.breathing.affectHover && ctx.mouse.inside) {
-    const dx = cell.x - ctx.mouse.x;
-    const dy = cell.y - ctx.mouse.y;
+    const dx = buffer.x[index] - ctx.mouse.x;
+    const dy = buffer.y[index] - ctx.mouse.y;
 
     const hoverWeight = computeHoverFalloff(dx, dy, {
       radiusX: ctx.breathing.radius,
@@ -75,7 +75,7 @@ export function applyBreathingToCell(
 
   if (influenceWeight <= 0.001) return;
 
-  const breathWave = cell.getBreathFactor(ctx.reactiveTime, ctx.speed);
+  const breathWave = getBreathFactor(buffer, index, ctx.reactiveTime, ctx.speed);
   const randomSlice = Math.floor(ctx.reactiveTime * 0.001 * ctx.speed * 2);
   const seed = Math.sin((index + 1) * 12.9898 + randomSlice * 78.233) * 43758.5453;
   const randomPulse = seed - Math.floor(seed);
@@ -84,7 +84,7 @@ export function applyBreathingToCell(
     ctx.minOpacity + (ctx.maxOpacity - ctx.minOpacity) * wave;
   const mix = clamp(influenceWeight * ctx.strength, 0, 1);
 
-  cell.opacity = 1 + (breathOpacity - 1) * mix;
+  buffer.opacity[index] = 1 + (breathOpacity - 1) * mix;
 }
 
 export function applyBreathingSystem(params: BreathingParams): void {
@@ -92,7 +92,7 @@ export function applyBreathingSystem(params: BreathingParams): void {
 
   const ctx = buildBreathingCellContext(params);
 
-  for (let i = 0; i < params.cells.length; i++) {
-    applyBreathingToCell(params.cells[i], i, ctx);
+  for (let i = 0; i < params.buffer.count; i++) {
+    applyBreathingToCell(params.buffer, i, ctx);
   }
 }

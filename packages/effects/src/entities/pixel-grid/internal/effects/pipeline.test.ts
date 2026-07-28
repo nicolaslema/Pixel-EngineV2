@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { PixelCell } from "../../../PixelCell";
 import { ResolvedPixelGridEffectsOptions } from "../../types";
 import { createPixelGridEffectsPipeline } from "./pipeline";
+import { createTestCellBuffer, CellInit } from "../test-utils/cell-buffer";
 
-function createCells(): PixelCell[] {
-  return [
-    new PixelCell(0, 0, "#111111", 10, 1),
-    new PixelCell(10, 0, "#222222", 10, 1)
-  ];
+function createBuffer() {
+  return createTestCellBuffer([
+    { x: 0, y: 0, color: "#111111", gap: 10 },
+    { x: 10, y: 0, color: "#222222", gap: 10 }
+  ]);
 }
 
 function createEffects(
@@ -45,9 +45,9 @@ function createEffects(
 
 describe("createPixelGridEffectsPipeline", () => {
   it("dissolves active pixels when enabled", () => {
-    const cells = createCells();
+    const buffer = createBuffer();
     const pipeline = createPixelGridEffectsPipeline({
-      cells,
+      buffer,
       pointer: { x: 0, y: 0, inside: true, down: false },
       effects: createEffects({
         dissolve: {
@@ -60,28 +60,33 @@ describe("createPixelGridEffectsPipeline", () => {
       })
     });
 
-    cells[0].targetSize = 1;
-    cells[0].opacity = 1;
+    buffer.targetSize[0] = 1;
+    buffer.opacity[0] = 1;
 
     pipeline.update(16);
-    pipeline.apply(cells);
+    pipeline.apply(buffer);
 
-    expect(cells[0].targetSize).toBeCloseTo(0.15);
-    expect(cells[0].opacity).toBeCloseTo(0.25);
+    expect(buffer.targetSize[0]).toBeCloseTo(0.15);
+    expect(buffer.opacity[0]).toBeCloseTo(0.25);
     pipeline.dispose();
   });
 
   it("applies shockwave burst boost after pointer down trigger", () => {
-    const cells: PixelCell[] = [];
+    const cells: CellInit[] = [];
     for (let x = 0; x < 4; x++) {
       for (let y = 0; y < 4; y++) {
-        cells.push(new PixelCell(x * 10, y * 10, "#111111", 10, 1));
+        cells.push({ x: x * 10, y: y * 10, color: "#111111", gap: 10 });
       }
+    }
+    const buffer = createTestCellBuffer(cells);
+    for (let i = 0; i < buffer.count; i++) {
+      buffer.targetSize[i] = 1;
+      buffer.opacity[i] = 0.2;
     }
     const pointer = { x: 10, y: 10, inside: true, down: false };
 
     const pipeline = createPixelGridEffectsPipeline({
-      cells,
+      buffer,
       pointer,
       effects: createEffects({
         shockwaveBurst: {
@@ -96,26 +101,21 @@ describe("createPixelGridEffectsPipeline", () => {
       })
     });
 
-    for (let i = 0; i < cells.length; i++) {
-      cells[i].targetSize = 1;
-      cells[i].opacity = 0.2;
-    }
-
     pointer.down = true;
     pipeline.update(16);
     pointer.down = false;
     pipeline.update(48);
-    pipeline.apply(cells);
+    pipeline.apply(buffer);
 
-    const boostedCell = cells.find((cell) => cell.targetSize > 1);
-    expect(boostedCell).toBeDefined();
+    const boostedIndex = Array.from(buffer.targetSize).findIndex((v) => v > 1);
+    expect(boostedIndex).toBeGreaterThanOrEqual(0);
     pipeline.dispose();
   });
 
   it("cycles palette colors for active cells when enabled", () => {
-    const cells = createCells();
+    const buffer = createBuffer();
     const pipeline = createPixelGridEffectsPipeline({
-      cells,
+      buffer,
       pointer: { x: 0, y: 0, inside: true, down: false },
       effects: createEffects({
         paletteCycle: {
@@ -128,15 +128,15 @@ describe("createPixelGridEffectsPipeline", () => {
       })
     });
 
-    const inactiveBaseColor = cells[1].baseColor;
-    cells[0].targetSize = 1;
-    cells[1].targetSize = 0;
+    const inactiveBaseColor = buffer.baseColor[1];
+    buffer.targetSize[0] = 1;
+    buffer.targetSize[1] = 0;
 
     pipeline.update(1000);
-    pipeline.apply(cells);
+    pipeline.apply(buffer);
 
-    expect(cells[0].color).toBe("#222222");
-    expect(cells[1].color).toBe(inactiveBaseColor);
+    expect(buffer.color[0]).toBe("#222222");
+    expect(buffer.color[1]).toBe(inactiveBaseColor);
     pipeline.dispose();
   });
 });

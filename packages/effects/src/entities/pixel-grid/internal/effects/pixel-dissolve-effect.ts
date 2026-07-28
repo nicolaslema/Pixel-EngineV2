@@ -1,4 +1,4 @@
-import { PixelCell } from "../../../PixelCell";
+import { PixelCellBuffer } from "../cell-buffer";
 import { ResolvedPixelDissolveEffectOptions } from "../../types";
 import { PixelGridPostEffect } from "./types";
 
@@ -16,7 +16,7 @@ export class PixelDissolveEffect implements PixelGridPostEffect {
     this.phase += delta * 0.001 * this.options.speed;
   }
 
-  apply(cells: PixelCell[]): void {
+  apply(buffer: PixelCellBuffer): void {
     const amount = this.options.amount;
     if (amount <= 0) return;
 
@@ -24,9 +24,8 @@ export class PixelDissolveEffect implements PixelGridPostEffect {
     const scope = this.options.scope;
     const time = this.phase;
 
-    for (let i = 0; i < cells.length; i++) {
-      const cell = cells[i];
-      const isActive = cell.targetSize > threshold;
+    for (let i = 0; i < buffer.count; i++) {
+      const isActive = buffer.targetSize[i] > threshold;
       if (scope === "activeOnly" && !isActive) {
         continue;
       }
@@ -34,8 +33,8 @@ export class PixelDissolveEffect implements PixelGridPostEffect {
       const noise = hash(i, time);
       if (noise >= amount) continue;
 
-      cell.targetSize *= 0.15;
-      cell.opacity *= 0.25;
+      buffer.targetSize[i] *= 0.15;
+      buffer.opacity[i] *= 0.25;
     }
   }
 }
@@ -44,4 +43,3 @@ function hash(index: number, time: number): number {
   const value = Math.sin((index + 1) * 12.9898 + time * 78.233) * 43758.5453;
   return value - Math.floor(value);
 }
-

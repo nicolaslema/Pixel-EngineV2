@@ -1,18 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
-import { PixelCell } from "../../PixelCell";
+import { PixelCellBuffer } from "./cell-buffer";
 import { runPixelGridUpdatePipeline } from "./update-pipeline";
 import { createPixelGridRuntimeState } from "./runtime-state";
+import { createTestCellBuffer } from "./test-utils/cell-buffer";
 import * as runtimeState from "./runtime-state";
 
 describe("runPixelGridUpdatePipeline", () => {
   it("calls dependencies in the expected order and fuses resetCell + mask-weight writes into one loop (3b.1)", () => {
     const compactSpy = vi.spyOn(runtimeState, "compactAliveRipples");
     const order: string[] = [];
-    const cells = [
-      new PixelCell(0, 0, "#fff", 10, 1),
-      new PixelCell(10, 0, "#fff", 10, 1)
-    ];
-    const runtime = createPixelGridRuntimeState(cells.length);
+    const buffer = createTestCellBuffer([
+      { x: 0, y: 0, color: "#fff", gap: 10 },
+      { x: 10, y: 0, color: "#fff", gap: 10 }
+    ]);
+    const runtime = createPixelGridRuntimeState(buffer.count);
 
     const influenceManager = {
       update: vi.fn(() => order.push("influenceManager.update")),
@@ -23,7 +24,7 @@ describe("runPixelGridUpdatePipeline", () => {
       update: vi.fn(() => order.push("maskState.update"))
     } as any;
 
-    const writeCellMaskWeights = vi.fn((_cell: PixelCell, index: number) =>
+    const writeCellMaskWeights = vi.fn((_buffer: PixelCellBuffer, index: number) =>
       order.push(`writeCellMaskWeights:${index}`)
     );
     const prepareMaskWeightRecompute = vi.fn(() => {
@@ -37,7 +38,7 @@ describe("runPixelGridUpdatePipeline", () => {
 
     runPixelGridUpdatePipeline({
       delta: 16,
-      cells,
+      buffer,
       expandEase: 0.1,
       runtime,
       influenceManager,
@@ -59,21 +60,21 @@ describe("runPixelGridUpdatePipeline", () => {
       "applyHoverBreathingAndRipple",
       "applyPostEffects"
     ]);
-    expect(writeCellMaskWeights).toHaveBeenCalledTimes(cells.length);
+    expect(writeCellMaskWeights).toHaveBeenCalledTimes(buffer.count);
     expect(compactSpy).toHaveBeenCalledTimes(1);
 
     compactSpy.mockRestore();
   });
 
   it("skips writeCellMaskWeights entirely when prepareMaskWeightRecompute returns false", () => {
-    const cells = [new PixelCell(0, 0, "#fff", 10, 1)];
-    const runtime = createPixelGridRuntimeState(cells.length);
+    const buffer = createTestCellBuffer([{ x: 0, y: 0, color: "#fff", gap: 10 }]);
+    const runtime = createPixelGridRuntimeState(buffer.count);
 
     const writeCellMaskWeights = vi.fn();
 
     runPixelGridUpdatePipeline({
       delta: 16,
-      cells,
+      buffer,
       expandEase: 0.1,
       runtime,
       influenceManager: { update: vi.fn(), apply: vi.fn() } as any,
@@ -89,20 +90,17 @@ describe("runPixelGridUpdatePipeline", () => {
   });
 
   it("still resets and eases every cell's size toward targetSize regardless of the mask-weight gate", () => {
-    const cell = new PixelCell(0, 0, "#fff", 10, 1);
-    cell.size = 0;
-    const cells = [cell];
-    const runtime = createPixelGridRuntimeState(cells.length);
+    const buffer = createTestCellBuffer([{ x: 0, y: 0, color: "#fff", gap: 10, size: 0 }]);
 
     runPixelGridUpdatePipeline({
       delta: 16,
-      cells,
+      buffer,
       expandEase: 0.5,
-      runtime,
+      runtime: createPixelGridRuntimeState(buffer.count),
       influenceManager: {
         update: vi.fn(),
         apply: vi.fn(() => {
-          cell.targetSize = 10;
+          buffer.targetSize[0] = 10;
         })
       } as any,
       maskState: { update: vi.fn() } as any,
@@ -113,6 +111,6 @@ describe("runPixelGridUpdatePipeline", () => {
       applyPostEffects: vi.fn()
     });
 
-    expect(cell.size).toBeCloseTo(5, 10);
+    expect(buffer.size[0]).toBeCloseTo(5, 10);
   });
 });

@@ -393,6 +393,86 @@ Comparison vs. the 2026-02-22 baseline (same methodology: `runs=5`, `frames=240`
 - Stress `high`: update mean `21.055 → 20.703ms` (~2% faster).
 - All three stress tiers improved consistently (no regressions), and correctness across all changes is confirmed independently by the full test suite (171/171 passing, including new fusion-equivalence and gating tests) and `visual-baseline.test.ts` passing with **zero snapshot diff** (no `-u` needed) — so these gains reflect real reduced work, not an accepted behavior change.
 
+## Official baseline snapshot (2026-07-28b) — after Phase 3b.2 (SoA `PixelCellBuffer`)
+
+Measurement command set:
+
+```bash
+node scripts/bench/pixelgrid-bench.cjs --suite=classic --runs=5 --frames=240 --warmup=60
+node scripts/bench/pixelgrid-bench.cjs --suite=stress --runs=5 --frames=240 --warmup=60
+```
+
+### Classic (`classic-comparable`)
+
+Scenario:
+- Viewport: `1000x700`
+- Effect area: `1000x700`
+- Gap: `6`
+- Runs: `5`
+- Frames: `240` (warmup `60`)
+- Quality: `medium`
+
+Result:
+- Cells (estimated): `19539`
+- Avg update ms (mean): `5.529`
+- Avg render ms (mean): `0.290`
+- Avg frame ms (median): `5.784`
+- Avg frame ms (mean): `5.819`
+- Frame p95 ms: `6.505`
+- Est. FPS (median): `172.9`
+- Est. FPS (mean): `173.0`
+- Heap delta MB (mean): `-0.029`
+
+### Stress (`stress-overdraw`)
+
+Scenario:
+- Viewport: `1000x700`
+- Effect area: `1600x1100`
+- Gap: `6`
+- Runs: `5`
+- Frames: `240` (warmup `60`)
+- Qualities: `low`, `medium`, `high`
+
+Results:
+
+- `low`
+  - Cells (estimated): `49128`
+  - Avg update ms (mean): `14.317`
+  - Avg render ms (mean): `0.550`
+  - Avg frame ms (median): `15.300`
+  - Avg frame ms (mean): `14.867`
+  - Frame p95 ms: `15.847`
+  - Est. FPS (median): `65.4`
+  - Est. FPS (mean): `67.7`
+  - Heap delta MB (mean): `0.250`
+
+- `medium`
+  - Cells (estimated): `49128`
+  - Avg update ms (mean): `14.764`
+  - Avg render ms (mean): `0.591`
+  - Avg frame ms (median): `15.414`
+  - Avg frame ms (mean): `15.354`
+  - Frame p95 ms: `15.537`
+  - Est. FPS (median): `64.9`
+  - Est. FPS (mean): `65.1`
+  - Heap delta MB (mean): `-0.244`
+
+- `high`
+  - Cells (estimated): `49128`
+  - Avg update ms (mean): `14.554`
+  - Avg render ms (mean): `0.556`
+  - Avg frame ms (median): `15.059`
+  - Avg frame ms (mean): `15.110`
+  - Frame p95 ms: `15.296`
+  - Est. FPS (median): `66.4`
+  - Est. FPS (mean): `66.2`
+  - Heap delta MB (mean): `-1.090`
+
+Comparison vs. the 2026-07-28 (Phase 3b.1) baseline, same methodology:
+- **Stress (49128 cells) — the scenario this rewrite specifically targets — improved substantially and consistently across all three quality tiers**: `low` update mean `17.166 → 14.317ms` (~17% faster), `medium` `18.290 → 14.764ms` (~19% faster), `high` `20.703 → 14.554ms` (~30% faster). This is the expected outcome of converting from array-of-structs (`PixelCell[]`, ~50k heap objects, pointer-chasing across the ~5-7 full-grid passes per frame) to structure-of-arrays (parallel `Float32Array`s, sequential memory access) — the effect is most pronounced exactly where cell count is highest.
+- **Classic (19539 cells) regressed slightly**: update mean `5.149 → 5.529ms` (~7% slower). At this smaller cell count, the SoA conversion's cache-locality win is smaller and may be offset by the extra `buffer.field[index]` indirection replacing a direct object-field read in a few hot spots (e.g. `render-pass.ts`'s per-cell array reads vs. the old method-call-based interpolation). Given this repo's own documented run-to-run noise on this machine (past snapshots have differed by up to ~27% on the same scenario), a single 7% delta on the smaller scenario is not conclusive evidence of a real regression on its own — but it's reported honestly here rather than omitted, since it doesn't fit the SoA hypothesis as cleanly as the stress results do.
+- Correctness across all changes is confirmed independently of these numbers: full test suite (43/43 files, 180/180 tests) and `visual-baseline.test.ts` passing with **zero snapshot diff** (no `-u` needed) — including through the critical `PixelGridEffect` private-field rename that the snapshot test reflects into and the exact `Math.random()` call-order requirement for seeded determinism (see implementation notes above).
+
 ## Snapshot template (copy/paste)
 
 Use this structure for future updates:

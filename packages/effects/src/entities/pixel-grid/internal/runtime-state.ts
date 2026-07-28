@@ -1,4 +1,4 @@
-import { PixelCell } from "../../PixelCell";
+import { PixelCellBuffer, resetVisualState, snapshotPreviousState } from "./cell-buffer";
 import { RippleInfluence } from "../../../influences/RippleInfluence";
 
 export interface PixelGridRuntimeState {
@@ -23,15 +23,15 @@ export function createPixelGridRuntimeState(
   };
 }
 
-export function resetCell(cell: PixelCell): void {
-  cell.snapshotPreviousState();
-  cell.targetSize = 0;
-  cell.resetVisualState();
+export function resetCell(buffer: PixelCellBuffer, index: number): void {
+  snapshotPreviousState(buffer, index);
+  buffer.targetSize[index] = 0;
+  resetVisualState(buffer, index);
 }
 
-export function resetCells(cells: PixelCell[]): void {
-  for (let i = 0; i < cells.length; i++) {
-    resetCell(cells[i]);
+export function resetCells(buffer: PixelCellBuffer): void {
+  for (let i = 0; i < buffer.count; i++) {
+    resetCell(buffer, i);
   }
 }
 

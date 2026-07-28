@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { PixelEngine, IRenderer } from "@pixel-engine/core";
 import { PixelGridEffect } from "../PixelGridEffect";
-import { PixelCell } from "../PixelCell";
+import { PixelCellBuffer } from "./internal/cell-buffer";
 
 function makeMockRenderer(): IRenderer {
   return {
@@ -33,30 +33,33 @@ function round(value: number): number {
 }
 
 function captureCellsSnapshot(effect: PixelGridEffect) {
-  const cells = (effect as unknown as { cells: PixelCell[] }).cells;
-  const sample = cells.slice(0, 28).map((cell) => ({
-    s: round(cell.size),
-    t: round(cell.targetSize),
-    ox: round(cell.offsetX),
-    oy: round(cell.offsetY),
-    o: round(cell.opacity),
-    c: cell.color
-  }));
+  const buffer = (effect as unknown as { cellBuffer: PixelCellBuffer }).cellBuffer;
+  const sampleCount = Math.min(28, buffer.count);
+  const sample = [];
+  for (let i = 0; i < sampleCount; i++) {
+    sample.push({
+      s: round(buffer.size[i]),
+      t: round(buffer.targetSize[i]),
+      ox: round(buffer.offsetX[i]),
+      oy: round(buffer.offsetY[i]),
+      o: round(buffer.opacity[i]),
+      c: buffer.color[i]
+    });
+  }
 
   let active = 0;
   let totalSize = 0;
   let totalOpacity = 0;
-  for (let i = 0; i < cells.length; i++) {
-    const cell = cells[i];
-    if (cell.targetSize > 0.01) active++;
-    totalSize += cell.size;
-    totalOpacity += cell.opacity;
+  for (let i = 0; i < buffer.count; i++) {
+    if (buffer.targetSize[i] > 0.01) active++;
+    totalSize += buffer.size[i];
+    totalOpacity += buffer.opacity[i];
   }
 
   return {
     active,
-    avgSize: round(totalSize / cells.length),
-    avgOpacity: round(totalOpacity / cells.length),
+    avgSize: round(totalSize / buffer.count),
+    avgOpacity: round(totalOpacity / buffer.count),
     sample
   };
 }

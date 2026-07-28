@@ -1,5 +1,5 @@
 import { IRenderer, type EnginePointerSource } from "@pixel-engine/core";
-import { PixelCell } from "../../PixelCell";
+import { createCellBuffer, PixelCellBuffer } from "./cell-buffer";
 import {
   PixelGridConfig,
   PixelGridInfluenceOptions,
@@ -32,7 +32,7 @@ export interface PixelGridRuntimeController {
   render(renderer: IRenderer, alpha: number): void;
   triggerRipple(x: number, y: number): void;
   destroy(): void;
-  getCellsForDebug(): PixelCell[];
+  getCellBufferForDebug(): PixelCellBuffer;
   getDebugSnapshot(): {
     totalCells: number;
     activeCells: number;
@@ -65,10 +65,9 @@ export function createPixelGridRuntimeController(
   const inverseGap = 1 / params.config.gap;
   const cacheSize = columns * rows;
   const runtime = createPixelGridRuntimeState(cacheSize);
-  const cells: PixelCell[] = [];
   const getCellIndex = (x: number, y: number): number => x * rows + y;
 
-  createGrid(cells, columns, rows, params.config);
+  const buffer = createCellBuffer(columns, rows, params.config.gap, params.config.colors);
 
   const influenceManager = new InfluenceManager(
     params.config.gap,
@@ -118,7 +117,7 @@ export function createPixelGridRuntimeController(
     textMasks
   });
   const maskWeightCache = createMaskWeightCacheCoordinator({
-    cells,
+    buffer,
     runtime,
     maskState,
     hoverEffects: params.resolvedConfig.hoverEffects,
@@ -133,7 +132,7 @@ export function createPixelGridRuntimeController(
     maxY: 0
   };
   const effectsPipeline = createPixelGridEffectsPipeline({
-    cells,
+    buffer,
     pointer: params.engine.mouse,
     effects: params.resolvedConfig.effects
   });
@@ -186,14 +185,14 @@ export function createPixelGridRuntimeController(
   };
 
   // Pipeline dependency closures + the params object are created once (not per frame):
-  // every value they close over (cells, runtime, params.resolvedConfig/influenceOptions,
+  // every value they close over (buffer, runtime, params.resolvedConfig/influenceOptions,
   // params.engine.mouse -- a live reference PixelEngine mutates in place, never reassigns --
   // inverseGap/columns/rows, maskWeightCache, effectsPipeline) is stable for the controller's
   // lifetime. Only `delta` genuinely varies per frame, so it's written onto `pipelineParams`
   // right before each call instead of being captured by a freshly allocated closure.
   const prepareMaskWeightRecompute = (): boolean => maskWeightCache.prepareRecompute();
-  const writeCellMaskWeights = (cell: PixelCell, index: number): void =>
-    maskWeightCache.writeCellMaskWeights(cell, index);
+  const writeCellMaskWeights = (targetBuffer: PixelCellBuffer, index: number): void =>
+    maskWeightCache.writeCellMaskWeights(targetBuffer, index);
   // Fuses the hover + breathing passes into one full-grid loop whenever it's safe to do so
   // (no active ripples -- see applyHoverAndBreathingPass's doc comment for why ripple
   // activity forces the unfused fallback), keeping the fused-vs-fallback decision in the
@@ -202,7 +201,7 @@ export function createPixelGridRuntimeController(
   const applyHoverBreathingAndRipple = (): void => {
     if (runtime.activeRipples.length === 0) {
       applyHoverAndBreathingPass({
-        cells,
+        buffer,
         runtime,
         hoverEffects: params.resolvedConfig.hoverEffects,
         hoverEnabled: !!params.influenceOptions.hover,
@@ -213,14 +212,14 @@ export function createPixelGridRuntimeController(
     }
 
     applyHoverInteractionsPass({
-      cells,
+      buffer,
       runtime,
       hoverEffects: params.resolvedConfig.hoverEffects,
       hoverEnabled: !!params.influenceOptions.hover,
       mouse: params.engine.mouse
     });
     applyReactiveRipplePass({
-      cells,
+      buffer,
       runtime,
       rippleEnabled: !!params.influenceOptions.ripple,
       inverseGap,
@@ -231,7 +230,7 @@ export function createPixelGridRuntimeController(
       getCellIndex
     });
     applyBreathingSystem({
-      cells,
+      buffer,
       breathing: params.resolvedConfig.breathing,
       mouse: params.engine.mouse,
       imageMaskWeightCache: runtime.imageMaskWeightCache,
@@ -244,12 +243,12 @@ export function createPixelGridRuntimeController(
   // to capture, unlike the old per-frame closure it replaces.
   const applyPostEffects = (): void => {
     effectsPipeline.update(pipelineParams.delta);
-    effectsPipeline.apply(cells);
+    effectsPipeline.apply(buffer);
   };
 
   const pipelineParams: Parameters<typeof runPixelGridUpdatePipeline>[0] = {
     delta: 0,
-    cells,
+    buffer,
     expandEase: params.config.expandEase,
     runtime,
     influenceManager,
@@ -279,7 +278,7 @@ export function createPixelGridRuntimeController(
 
           renderPixelCells(
             renderer,
-            cells,
+            buffer,
             params.resolvedConfig.performance.minRenderableSize,
             renderViewport,
             alpha
@@ -290,7 +289,7 @@ export function createPixelGridRuntimeController(
 
       renderPixelCells(
         renderer,
-        cells,
+        buffer,
         params.resolvedConfig.performance.minRenderableSize,
         undefined,
         alpha
@@ -333,8 +332,8 @@ export function createPixelGridRuntimeController(
       effectsPipeline.dispose();
     },
 
-    getCellsForDebug(): PixelCell[] {
-      return cells;
+    getCellBufferForDebug(): PixelCellBuffer {
+      return buffer;
     },
 
     getDebugSnapshot(): {
@@ -344,12 +343,12 @@ export function createPixelGridRuntimeController(
       timeline: { playing: boolean; stepIndex: number };
     } {
       let activeCells = 0;
-      for (let index = 0; index < cells.length; index++) {
-        if (cells[index].targetSize > 0.01) activeCells++;
+      for (let index = 0; index < buffer.count; index++) {
+        if (buffer.targetSize[index] > 0.01) activeCells++;
       }
 
       return {
-        totalCells: cells.length,
+        totalCells: buffer.count,
         activeCells,
         activeRipples: runtime.activeRipples.length,
         timeline: {
@@ -378,26 +377,4 @@ export function createPixelGridRuntimeController(
       };
     }
   };
-}
-
-function createGrid(
-  cells: PixelCell[],
-  columns: number,
-  rows: number,
-  config: PixelGridConfig
-): void {
-  const { colors, gap } = config;
-
-  for (let x = 0; x < columns; x++) {
-    for (let y = 0; y < rows; y++) {
-      const px = x * gap;
-      const py = y * gap;
-      const color =
-        colors[Math.floor(Math.random() * colors.length)];
-
-      cells.push(
-        new PixelCell(px, py, color, gap, 1)
-      );
-    }
-  }
 }

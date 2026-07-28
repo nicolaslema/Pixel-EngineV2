@@ -1,4 +1,4 @@
-import { PixelCell } from "../../../PixelCell";
+import { PixelCellBuffer } from "../cell-buffer";
 import { ResolvedPaletteCycleEffectOptions } from "../../types";
 import { PixelGridPostEffect } from "./types";
 
@@ -12,10 +12,10 @@ export class PaletteCycleEffect implements PixelGridPostEffect {
 
   constructor(
     private readonly options: ResolvedPaletteCycleEffectOptions,
-    cells: PixelCell[]
+    buffer: PixelCellBuffer
   ) {
     this.palette = options.palette;
-    this.baseIndices = new Uint32Array(cells.length);
+    this.baseIndices = new Uint32Array(buffer.count);
 
     const paletteIndexByColor = new Map<string, number>();
     for (let i = 0; i < this.palette.length; i++) {
@@ -24,8 +24,8 @@ export class PaletteCycleEffect implements PixelGridPostEffect {
       }
     }
 
-    for (let i = 0; i < cells.length; i++) {
-      const baseColorIndex = paletteIndexByColor.get(cells[i].baseColor);
+    for (let i = 0; i < buffer.count; i++) {
+      const baseColorIndex = paletteIndexByColor.get(buffer.baseColor[i]);
       this.baseIndices[i] = baseColorIndex ?? (i % Math.max(1, this.palette.length));
     }
   }
@@ -34,20 +34,18 @@ export class PaletteCycleEffect implements PixelGridPostEffect {
     this.phase += delta * 0.001 * this.options.speed;
   }
 
-  apply(cells: PixelCell[]): void {
+  apply(buffer: PixelCellBuffer): void {
     if (this.palette.length < 2) return;
 
     const threshold = this.options.activationThreshold;
     const shift = Math.floor(this.phase * this.palette.length) % this.palette.length;
-    for (let i = 0; i < cells.length; i++) {
-      const cell = cells[i];
-      if (this.options.scope === "activeOnly" && cell.targetSize <= threshold) {
+    for (let i = 0; i < buffer.count; i++) {
+      if (this.options.scope === "activeOnly" && buffer.targetSize[i] <= threshold) {
         continue;
       }
 
       const colorIndex = (this.baseIndices[i] + shift) % this.palette.length;
-      cell.color = this.palette[colorIndex];
+      buffer.color[i] = this.palette[colorIndex];
     }
   }
 }
-

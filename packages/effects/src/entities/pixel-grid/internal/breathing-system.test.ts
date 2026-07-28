@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { applyBreathingSystem } from "./breathing-system";
-import { PixelCell } from "../../PixelCell";
+import { createTestCellBuffer } from "./test-utils/cell-buffer";
 
 describe("pixel-grid breathing-system", () => {
   it("changes opacity when breathing is enabled", () => {
-    const cell = new PixelCell(10, 10, "#fff", 5, 1);
-    cell.targetSize = 1;
-    const cells = [cell];
+    const buffer = createTestCellBuffer([
+      { x: 10, y: 10, color: "#fff", gap: 5, targetSize: 1 }
+    ]);
 
     applyBreathingSystem({
-      cells,
+      buffer,
       breathing: {
         enabled: true,
         speed: 1,
@@ -29,7 +29,7 @@ describe("pixel-grid breathing-system", () => {
       reactiveTime: 100
     });
 
-    expect(cell.opacity).toBeLessThanOrEqual(1);
-    expect(cell.opacity).toBeGreaterThanOrEqual(0.2);
+    expect(buffer.opacity[0]).toBeLessThanOrEqual(1);
+    expect(buffer.opacity[0]).toBeGreaterThanOrEqual(0.2);
   });
 });

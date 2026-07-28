@@ -1,4 +1,3 @@
-export * from "./entities/PixelCell";
 export * from "./entities/PixelGridEffect";
 export * from "./entities/pixel-grid/types";
 

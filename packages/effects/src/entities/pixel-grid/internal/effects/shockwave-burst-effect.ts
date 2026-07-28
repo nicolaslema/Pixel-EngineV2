@@ -1,4 +1,4 @@
-import { PixelCell } from "../../../PixelCell";
+import { PixelCellBuffer } from "../cell-buffer";
 import { ResolvedShockwaveBurstEffectOptions } from "../../types";
 import { PixelGridPostEffect } from "./types";
 
@@ -19,14 +19,14 @@ export class ShockwaveBurstEffect implements PixelGridPostEffect {
 
   constructor(
     private readonly options: ResolvedShockwaveBurstEffectOptions,
-    cells: PixelCell[],
+    buffer: PixelCellBuffer,
     private readonly pointer: { x: number; y: number; inside: boolean; down: boolean }
   ) {
     let maxX = 0;
     let maxY = 0;
-    for (let i = 0; i < cells.length; i++) {
-      if (cells[i].x > maxX) maxX = cells[i].x;
-      if (cells[i].y > maxY) maxY = cells[i].y;
+    for (let i = 0; i < buffer.count; i++) {
+      if (buffer.x[i] > maxX) maxX = buffer.x[i];
+      if (buffer.y[i] > maxY) maxY = buffer.y[i];
     }
     this.maxRadius = Math.hypot(maxX, maxY) + this.options.thickness * 2;
   }
@@ -59,22 +59,22 @@ export class ShockwaveBurstEffect implements PixelGridPostEffect {
     this.bursts.length = write;
   }
 
-  apply(cells: PixelCell[]): void {
+  apply(buffer: PixelCellBuffer): void {
     if (this.bursts.length === 0) return;
 
     const thickness = this.options.thickness;
     const threshold = this.options.activationThreshold;
     const strength = this.options.strength;
+    const maxSize = buffer.maxSize;
 
-    for (let i = 0; i < cells.length; i++) {
-      const cell = cells[i];
-      if (cell.targetSize <= threshold) continue;
+    for (let i = 0; i < buffer.count; i++) {
+      if (buffer.targetSize[i] <= threshold) continue;
 
       let wavePeak = 0;
       for (let b = 0; b < this.bursts.length; b++) {
         const burst = this.bursts[b];
-        const dx = cell.x - burst.x;
-        const dy = cell.y - burst.y;
+        const dx = buffer.x[i] - burst.x;
+        const dy = buffer.y[i] - burst.y;
         const distance = Math.hypot(dx, dy);
         const diff = Math.abs(distance - burst.radius);
         if (diff > thickness) continue;
@@ -83,11 +83,11 @@ export class ShockwaveBurstEffect implements PixelGridPostEffect {
       }
 
       if (wavePeak <= 0) continue;
-      const boosted = cell.targetSize + cell.maxSize * strength * wavePeak;
-      cell.targetSize = Math.min(cell.maxSize, boosted);
+      const boosted = buffer.targetSize[i] + maxSize * strength * wavePeak;
+      buffer.targetSize[i] = Math.min(maxSize, boosted);
       const opacityBoost = 0.45 + wavePeak * 0.55;
-      if (opacityBoost > cell.opacity) {
-        cell.opacity = opacityBoost;
+      if (opacityBoost > buffer.opacity[i]) {
+        buffer.opacity[i] = opacityBoost;
       }
     }
   }
@@ -99,4 +99,3 @@ export class ShockwaveBurstEffect implements PixelGridPostEffect {
     this.bursts.push({ x, y, radius: 0 });
   }
 }
-

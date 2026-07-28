@@ -1,16 +1,10 @@
 import { Influence } from "./Influence";
+import { PixelCellBuffer } from "../entities/pixel-grid/internal/cell-buffer";
 
 interface InfluenceManagerOptions {
   compressionStrength?: number;
   enableSmoothing?: boolean;
   smoothingRadius?: number;
-}
-
-export interface InfluenceCell {
-  x: number;
-  y: number;
-  maxSize: number;
-  targetSize: number;
 }
 
 export class InfluenceManager {
@@ -87,7 +81,7 @@ export class InfluenceManager {
   // ----------------------------------------
 
   apply(
-    cells: InfluenceCell[],
+    buffer: PixelCellBuffer,
     getCellIndex: (x: number, y: number) => number
   ): void {
 
@@ -98,6 +92,7 @@ export class InfluenceManager {
       this.dirty = false;
     }
 
+    const maxSize = buffer.maxSize;
     let touchedAny = false;
 
     for (let i = 0; i < this.influences.length; i++) {
@@ -115,12 +110,11 @@ export class InfluenceManager {
         for (let y = minRow; y <= maxRow; y++) {
 
           const index = getCellIndex(x, y);
-          const cell = cells[index];
 
           const value = influence.getInfluence(
-            cell.x,
-            cell.y,
-            cell.maxSize
+            buffer.x[index],
+            buffer.y[index],
+            maxSize
           );
 
           if (value <= 0) continue;
@@ -129,21 +123,21 @@ export class InfluenceManager {
           switch (influence.blendMode) {
 
             case "max":
-              cell.targetSize = Math.max(cell.targetSize, value);
+              buffer.targetSize[index] = Math.max(buffer.targetSize[index], value);
               break;
 
             case "add":
-              cell.targetSize += value;
+              buffer.targetSize[index] += value;
               break;
 
             case "multiply":
-              cell.targetSize = cell.targetSize === 0
+              buffer.targetSize[index] = buffer.targetSize[index] === 0
                 ? value
-                : cell.targetSize * value;
+                : buffer.targetSize[index] * value;
               break;
 
             case "override":
-              cell.targetSize = value;
+              buffer.targetSize[index] = value;
               break;
           }
         }
@@ -157,10 +151,10 @@ export class InfluenceManager {
     // avoids two full-grid passes (smoothField especially, the more expensive of the two)
     // on frames where nothing is actually influencing the grid.
     if (touchedAny) {
-      this.compressField(cells);
+      this.compressField(buffer);
 
       if (this.enableSmoothing) {
-        this.smoothField(cells, getCellIndex);
+        this.smoothField(buffer, getCellIndex);
       }
     }
   }
@@ -169,22 +163,21 @@ export class InfluenceManager {
   // COMPRESIÓN
   // ----------------------------------------
 
-  private compressField(cells: InfluenceCell[]): void {
+  private compressField(buffer: PixelCellBuffer): void {
 
     const k = this.compressionStrength;
+    const max = buffer.maxSize;
 
-    for (let i = 0; i < cells.length; i++) {
+    for (let i = 0; i < buffer.count; i++) {
 
-      const cell = cells[i];
-      const max = cell.maxSize;
-      const value = cell.targetSize;
+      const value = buffer.targetSize[i];
 
       if (value <= 0) {
-        cell.targetSize = 0;
+        buffer.targetSize[i] = 0;
         continue;
       }
 
-      cell.targetSize =
+      buffer.targetSize[i] =
         max * (1 - Math.exp(-k * value / max));
     }
   }
@@ -194,11 +187,11 @@ export class InfluenceManager {
   // ----------------------------------------
 
   private smoothField(
-    cells: InfluenceCell[],
+    buffer: PixelCellBuffer,
     getCellIndex: (x: number, y: number) => number
   ): void {
-    if (this.smoothingBuffer.length !== cells.length) {
-      this.smoothingBuffer = new Float32Array(cells.length);
+    if (this.smoothingBuffer.length !== buffer.count) {
+      this.smoothingBuffer = new Float32Array(buffer.count);
     }
     const temp = this.smoothingBuffer;
 
@@ -221,7 +214,7 @@ export class InfluenceManager {
               ny >= 0 && ny < this.rows
             ) {
               const nIndex = getCellIndex(nx, ny);
-              sum += cells[nIndex].targetSize;
+              sum += buffer.targetSize[nIndex];
               count++;
             }
           }
@@ -231,8 +224,8 @@ export class InfluenceManager {
       }
     }
 
-    for (let i = 0; i < cells.length; i++) {
-      cells[i].targetSize = temp[i];
+    for (let i = 0; i < buffer.count; i++) {
+      buffer.targetSize[i] = temp[i];
     }
   }
 }

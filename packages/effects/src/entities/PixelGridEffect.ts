@@ -1,5 +1,5 @@
 import { Entity, IRenderer, type EnginePointerSource } from "@pixel-engine/core";
-import { PixelCell } from "./PixelCell";
+import { PixelCellBuffer } from "./pixel-grid/internal/cell-buffer";
 import {
   PixelGridConfig,
   PixelGridInfluenceOptions,
@@ -20,7 +20,7 @@ export interface PixelGridDebugSnapshot {
 
 export class PixelGridEffect extends Entity {
   private runtime: PixelGridRuntimeController;
-  private cells: PixelCell[];
+  private cellBuffer: PixelCellBuffer;
   private readonly influenceOptions: PixelGridInfluenceOptions;
   private readonly resolvedConfig: ResolvedPixelGridConfig;
   /**
@@ -67,7 +67,7 @@ export class PixelGridEffect extends Entity {
       influenceOptions: this.influenceOptions,
       resolvedConfig: this.resolvedConfig
     });
-    this.cells = this.runtime.getCellsForDebug();
+    this.cellBuffer = this.runtime.getCellBufferForDebug();
   }
 
   private applyCanvasBackgroundFromConfig(): void {
@@ -112,7 +112,7 @@ export class PixelGridEffect extends Entity {
       influenceOptions: this.influenceOptions,
       resolvedConfig: this.resolvedConfig
     });
-    this.cells = this.runtime.getCellsForDebug();
+    this.cellBuffer = this.runtime.getCellBufferForDebug();
   }
 
   onDestroy(): void {

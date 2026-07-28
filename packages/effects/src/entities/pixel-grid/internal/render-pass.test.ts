@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { PixelCell } from "../../PixelCell";
 import { renderPixelCells } from "./render-pass";
+import { createTestCellBuffer } from "./test-utils/cell-buffer";
 
 describe("renderPixelCells", () => {
   it("renders only cells that pass size threshold", () => {
@@ -11,18 +11,16 @@ describe("renderPixelCells", () => {
       fillRect
     } as unknown as CanvasRenderingContext2D;
 
-    const cells = [
-      new PixelCell(10, 10, "#ffffff", 8, 1),
-      new PixelCell(24, 10, "#ffffff", 8, 1)
-    ];
-    cells[0].size = 0.4;
-    cells[1].size = 2;
+    const buffer = createTestCellBuffer([
+      { x: 10, y: 10, color: "#ffffff", gap: 8, size: 0.4, previousSize: 0.4 },
+      { x: 24, y: 10, color: "#ffffff", gap: 8, size: 2, previousSize: 2 }
+    ]);
 
     renderPixelCells(
       {
         getContext: () => ctx
       } as any,
-      cells,
+      buffer,
       0.5
     );
 
@@ -37,16 +35,16 @@ describe("renderPixelCells", () => {
       fillRect
     } as unknown as CanvasRenderingContext2D;
 
-    const inside = new PixelCell(10, 10, "#ffffff", 8, 1);
-    inside.size = 4;
-    const outside = new PixelCell(400, 400, "#ffffff", 8, 1);
-    outside.size = 4;
+    const buffer = createTestCellBuffer([
+      { x: 10, y: 10, color: "#ffffff", gap: 8, size: 4, previousSize: 4 },
+      { x: 400, y: 400, color: "#ffffff", gap: 8, size: 4, previousSize: 4 }
+    ]);
 
     renderPixelCells(
       {
         getContext: () => ctx
       } as any,
-      [inside, outside],
+      buffer,
       0.5,
       {
         minX: 0,
@@ -67,21 +65,28 @@ describe("renderPixelCells", () => {
       fillRect
     } as unknown as CanvasRenderingContext2D;
 
-    const cell = new PixelCell(10, 10, "#ffffff", 8, 1);
-    cell.previousSize = 0;
-    cell.size = 8;
-    cell.previousOffsetX = 0;
-    cell.offsetX = 4;
-    cell.previousOffsetY = 0;
-    cell.offsetY = 2;
-    cell.previousOpacity = 0.4;
-    cell.opacity = 1;
+    const buffer = createTestCellBuffer([
+      {
+        x: 10,
+        y: 10,
+        color: "#ffffff",
+        gap: 8,
+        previousSize: 0,
+        size: 8,
+        previousOffsetX: 0,
+        offsetX: 4,
+        previousOffsetY: 0,
+        offsetY: 2,
+        previousOpacity: 0.4,
+        opacity: 1
+      }
+    ]);
 
     renderPixelCells(
       {
         getContext: () => ctx
       } as any,
-      [cell],
+      buffer,
       0.5,
       undefined,
       0.5

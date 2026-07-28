@@ -1,4 +1,4 @@
-import { PixelCell } from "../../../PixelCell";
+import { PixelCellBuffer } from "../cell-buffer";
 import { ResolvedPixelGridEffectsOptions } from "../../types";
 import { PaletteCycleEffect } from "./palette-cycle-effect";
 import { PixelDissolveEffect } from "./pixel-dissolve-effect";
@@ -7,12 +7,12 @@ import { PixelGridPostEffect } from "./types";
 
 export interface PixelGridEffectsPipeline {
   update(delta: number): void;
-  apply(cells: PixelCell[]): void;
+  apply(buffer: PixelCellBuffer): void;
   dispose(): void;
 }
 
 interface CreatePixelGridEffectsPipelineParams {
-  cells: PixelCell[];
+  buffer: PixelCellBuffer;
   pointer: { x: number; y: number; inside: boolean; down: boolean };
   effects: ResolvedPixelGridEffectsOptions;
 }
@@ -32,7 +32,7 @@ export function createPixelGridEffectsPipeline(
     pipelineEffects.push(
       new ShockwaveBurstEffect(
         params.effects.shockwaveBurst,
-        params.cells,
+        params.buffer,
         params.pointer
       )
     );
@@ -40,7 +40,7 @@ export function createPixelGridEffectsPipeline(
 
   if (params.effects.paletteCycle.enabled) {
     pipelineEffects.push(
-      new PaletteCycleEffect(params.effects.paletteCycle, params.cells)
+      new PaletteCycleEffect(params.effects.paletteCycle, params.buffer)
     );
   }
 
@@ -53,9 +53,9 @@ export function createPixelGridEffectsPipeline(
       }
     },
 
-    apply(cells: PixelCell[]): void {
+    apply(buffer: PixelCellBuffer): void {
       for (let i = 0; i < pipelineEffects.length; i++) {
-        pipelineEffects[i].apply(cells);
+        pipelineEffects[i].apply(buffer);
       }
     },
 

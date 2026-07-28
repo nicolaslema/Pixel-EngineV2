@@ -1,5 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
-import { PixelCell } from "../../PixelCell";
+import { describe, expect, it } from "vitest";
 import { createPixelGridRuntimeState } from "./runtime-state";
 import {
   applyHoverAndBreathingPass,
@@ -7,18 +6,19 @@ import {
   applyReactiveRipplePass
 } from "./interaction-coordinator";
 import { applyBreathingSystem } from "./breathing-system";
+import { createTestCellBuffer } from "./test-utils/cell-buffer";
 import { RippleInfluence } from "../../../influences/RippleInfluence";
 
 describe("interaction-coordinator", () => {
   it("applies reactive hover effects to eligible cells (magnetic disabled)", () => {
-    const cell = new PixelCell(0, 0, "#334155", 10, 1);
-    cell.targetSize = 1;
-    const cells = [cell];
-    const runtime = createPixelGridRuntimeState(cells.length);
+    const buffer = createTestCellBuffer([
+      { x: 0, y: 0, color: "#334155", gap: 10, targetSize: 1 }
+    ]);
+    const runtime = createPixelGridRuntimeState(buffer.count);
     runtime.reactiveTime = 120;
 
     applyHoverInteractionsPass({
-      cells,
+      buffer,
       runtime,
       hoverEffects: {
         mode: "reactive",
@@ -40,20 +40,20 @@ describe("interaction-coordinator", () => {
       mouse: { x: 0, y: 0, inside: true }
     });
 
-    expect(cell.targetSize).toBeLessThan(1);
-    expect(Math.abs(cell.offsetX) + Math.abs(cell.offsetY)).toBeGreaterThan(0);
-    expect(cell.color).toBe("#ff0000");
+    expect(buffer.targetSize[0]).toBeLessThan(1);
+    expect(Math.abs(buffer.offsetX[0]) + Math.abs(buffer.offsetY[0])).toBeGreaterThan(0);
+    expect(buffer.color[0]).toBe("#ff0000");
   });
 
   it("applies magnetic hover pass in classic mode (reactive effect off)", () => {
-    const cell = new PixelCell(30, 0, "#334155", 10, 1);
-    cell.targetSize = 1;
-    const cells = [cell];
-    const runtime = createPixelGridRuntimeState(cells.length);
+    const buffer = createTestCellBuffer([
+      { x: 30, y: 0, color: "#334155", gap: 10, targetSize: 1 }
+    ]);
+    const runtime = createPixelGridRuntimeState(buffer.count);
     runtime.activeMaskWeightCache[0] = 1;
 
     applyHoverInteractionsPass({
-      cells,
+      buffer,
       runtime,
       hoverEffects: {
         mode: "classic",
@@ -75,7 +75,7 @@ describe("interaction-coordinator", () => {
       mouse: { x: 0, y: 0, inside: true }
     });
 
-    expect(cell.offsetX).toBeLessThan(0);
+    expect(buffer.offsetX[0]).toBeLessThan(0);
   });
 
   it("applies both reactive and magnetic hover effects in the same pass when both are enabled", () => {
@@ -83,15 +83,15 @@ describe("interaction-coordinator", () => {
     // full-grid passes; fused into applyHoverInteractionsPass. This is the one scenario
     // that was never exercised before (each was only ever tested in isolation) -- confirms
     // the fused pass still applies both effects to a cell that qualifies for both.
-    const cell = new PixelCell(30, 0, "#334155", 10, 1);
-    cell.targetSize = 1;
-    const cells = [cell];
-    const runtime = createPixelGridRuntimeState(cells.length);
+    const buffer = createTestCellBuffer([
+      { x: 30, y: 0, color: "#334155", gap: 10, targetSize: 1 }
+    ]);
+    const runtime = createPixelGridRuntimeState(buffer.count);
     runtime.reactiveTime = 90;
     runtime.activeMaskWeightCache[0] = 1;
 
     applyHoverInteractionsPass({
-      cells,
+      buffer,
       runtime,
       hoverEffects: {
         mode: "reactive",
@@ -116,20 +116,20 @@ describe("interaction-coordinator", () => {
     });
 
     // Reactive effect landed: targetSize reduced and tint applied.
-    expect(cell.targetSize).toBeLessThan(1);
-    expect(cell.color).toBe("#ff0000");
+    expect(buffer.targetSize[0]).toBeLessThan(1);
+    expect(buffer.color[0]).toBe("#ff0000");
     // Magnetic effect landed too: pulled toward the origin (negative offsetX, cell at x=30).
-    expect(cell.offsetX).toBeLessThan(0);
+    expect(buffer.offsetX[0]).toBeLessThan(0);
   });
 
   it("does nothing when the pointer is outside the canvas", () => {
-    const cell = new PixelCell(0, 0, "#334155", 10, 1);
-    cell.targetSize = 1;
-    const cells = [cell];
-    const runtime = createPixelGridRuntimeState(cells.length);
+    const buffer = createTestCellBuffer([
+      { x: 0, y: 0, color: "#334155", gap: 10, targetSize: 1 }
+    ]);
+    const runtime = createPixelGridRuntimeState(buffer.count);
 
     applyHoverInteractionsPass({
-      cells,
+      buffer,
       runtime,
       hoverEffects: {
         mode: "reactive",
@@ -146,23 +146,23 @@ describe("interaction-coordinator", () => {
       mouse: { x: 0, y: 0, inside: false }
     });
 
-    expect(cell.targetSize).toBe(1);
-    expect(cell.offsetX).toBe(0);
-    expect(cell.offsetY).toBe(0);
+    expect(buffer.targetSize[0]).toBe(1);
+    expect(buffer.offsetX[0]).toBe(0);
+    expect(buffer.offsetY[0]).toBe(0);
   });
 
   it("applies reactive ripple effects when ripples are active", () => {
-    const cell = new PixelCell(0, 0, "#475569", 10, 1);
-    cell.targetSize = 1;
-    const cells = [cell];
-    const runtime = createPixelGridRuntimeState(cells.length);
+    const buffer = createTestCellBuffer([
+      { x: 0, y: 0, color: "#475569", gap: 10, targetSize: 1 }
+    ]);
+    const runtime = createPixelGridRuntimeState(buffer.count);
     runtime.reactiveTime = 64;
     runtime.activeRipples.push(
       new RippleInfluence(0, 0, 0, 10, 1, 100)
     );
 
     applyReactiveRipplePass({
-      cells,
+      buffer,
       runtime,
       rippleEnabled: true,
       inverseGap: 1,
@@ -186,8 +186,8 @@ describe("interaction-coordinator", () => {
       getCellIndex: () => 0
     });
 
-    expect(cell.targetSize).toBeLessThan(1);
-    expect(cell.color).toBe("#00ff00");
+    expect(buffer.targetSize[0]).toBeLessThan(1);
+    expect(buffer.color[0]).toBe("#00ff00");
   });
 
   it("applyHoverAndBreathingPass matches running hover then breathing sequentially, with no ripples (3b.1)", () => {
@@ -217,31 +217,25 @@ describe("interaction-coordinator", () => {
     } as any;
     const mouse = { x: 0, y: 0, inside: true };
 
-    // breathPhase/breathOffset are seeded from Math.random() at construction -- pin it so
-    // sequentialCell and fusedCell (two separate `new PixelCell(...)` calls) get identical
-    // breathing state and are actually comparable.
-    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.42);
-    const makeCell = () => {
-      const cell = new PixelCell(20, 0, "#334155", 10, 1);
-      cell.targetSize = 1;
-      return cell;
-    };
+    // createTestCellBuffer's breathPhase/breathOffset default to 0 deterministically (no
+    // Math.random involved), so sequentialBuffer and fusedBuffer are directly comparable.
+    const makeBuffer = () =>
+      createTestCellBuffer([{ x: 20, y: 0, color: "#334155", gap: 10, targetSize: 1 }]);
 
-    const sequentialCell = makeCell();
-    const sequentialCells = [sequentialCell];
+    const sequentialBuffer = makeBuffer();
     const sequentialRuntime = createPixelGridRuntimeState(1);
     sequentialRuntime.reactiveTime = 90;
     sequentialRuntime.imageMaskWeightCache[0] = 1;
 
     applyHoverInteractionsPass({
-      cells: sequentialCells,
+      buffer: sequentialBuffer,
       runtime: sequentialRuntime,
       hoverEffects,
       hoverEnabled: true,
       mouse
     });
     applyBreathingSystem({
-      cells: sequentialCells,
+      buffer: sequentialBuffer,
       breathing,
       mouse,
       imageMaskWeightCache: sequentialRuntime.imageMaskWeightCache,
@@ -249,14 +243,13 @@ describe("interaction-coordinator", () => {
       reactiveTime: sequentialRuntime.reactiveTime
     });
 
-    const fusedCell = makeCell();
-    const fusedCells = [fusedCell];
+    const fusedBuffer = makeBuffer();
     const fusedRuntime = createPixelGridRuntimeState(1);
     fusedRuntime.reactiveTime = 90;
     fusedRuntime.imageMaskWeightCache[0] = 1;
 
     applyHoverAndBreathingPass({
-      cells: fusedCells,
+      buffer: fusedBuffer,
       runtime: fusedRuntime,
       hoverEffects,
       hoverEnabled: true,
@@ -264,24 +257,22 @@ describe("interaction-coordinator", () => {
       mouse
     });
 
-    randomSpy.mockRestore();
-
-    expect(fusedCell.targetSize).toBeCloseTo(sequentialCell.targetSize, 10);
-    expect(fusedCell.offsetX).toBeCloseTo(sequentialCell.offsetX, 10);
-    expect(fusedCell.offsetY).toBeCloseTo(sequentialCell.offsetY, 10);
-    expect(fusedCell.opacity).toBeCloseTo(sequentialCell.opacity, 10);
-    expect(fusedCell.color).toBe(sequentialCell.color);
+    expect(fusedBuffer.targetSize[0]).toBeCloseTo(sequentialBuffer.targetSize[0], 10);
+    expect(fusedBuffer.offsetX[0]).toBeCloseTo(sequentialBuffer.offsetX[0], 10);
+    expect(fusedBuffer.offsetY[0]).toBeCloseTo(sequentialBuffer.offsetY[0], 10);
+    expect(fusedBuffer.opacity[0]).toBeCloseTo(sequentialBuffer.opacity[0], 10);
+    expect(fusedBuffer.color[0]).toBe(sequentialBuffer.color[0]);
   });
 
   it("preserves hover-before-breathing ordering: breathing skips a cell hover deactivated below threshold (3b.1 regression)", () => {
-    const cell = new PixelCell(0, 0, "#334155", 10, 1);
-    cell.targetSize = 1;
-    const cells = [cell];
+    const buffer = createTestCellBuffer([
+      { x: 0, y: 0, color: "#334155", gap: 10, targetSize: 1 }
+    ]);
     const runtime = createPixelGridRuntimeState(1);
     runtime.imageMaskWeightCache[0] = 1;
 
     applyHoverAndBreathingPass({
-      cells,
+      buffer,
       runtime,
       hoverEffects: {
         mode: "reactive",
@@ -313,9 +304,9 @@ describe("interaction-coordinator", () => {
       mouse: { x: 0, y: 0, inside: true }
     });
 
-    expect(cell.targetSize).toBeLessThanOrEqual(0.001);
+    expect(buffer.targetSize[0]).toBeLessThanOrEqual(0.001);
     // Breathing must see the post-hover targetSize (already deactivated) within the same
     // fused iteration and therefore skip this cell -- opacity stays untouched at its default.
-    expect(cell.opacity).toBe(1);
+    expect(buffer.opacity[0]).toBe(1);
   });
 });

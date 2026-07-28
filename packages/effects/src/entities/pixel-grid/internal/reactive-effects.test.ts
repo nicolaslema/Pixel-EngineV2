@@ -5,7 +5,7 @@ import {
   getHoverWeight,
   shouldAffectCell
 } from "./reactive-effects";
-import { PixelCell } from "../../PixelCell";
+import { createTestCell } from "./test-utils/cell-buffer";
 
 const hoverEffects = {
   mode: "reactive" as const,
@@ -34,20 +34,19 @@ describe("pixel-grid reactive-effects", () => {
   });
 
   it("computes hover weight from mouse state", () => {
-    const cell = new PixelCell(10, 10, "#fff", 5, 1);
-    const weightInside = getHoverWeight(cell, { x: 10, y: 10, inside: true }, hoverEffects);
-    const weightOutside = getHoverWeight(cell, { x: 10, y: 10, inside: false }, hoverEffects);
+    const { buffer, index } = createTestCell({ x: 10, y: 10, color: "#fff", gap: 5 });
+    const weightInside = getHoverWeight(buffer, index, { x: 10, y: 10, inside: true }, hoverEffects);
+    const weightOutside = getHoverWeight(buffer, index, { x: 10, y: 10, inside: false }, hoverEffects);
     expect(weightInside).toBeGreaterThan(0);
     expect(weightOutside).toBe(0);
   });
 
   it("applies reactive color and deactivation", () => {
-    const cell = new PixelCell(0, 0, "#abc", 5, 1);
-    cell.targetSize = 1;
+    const { buffer, index } = createTestCell({ x: 0, y: 0, color: "#abc", gap: 5, targetSize: 1 });
 
     applyReactiveEffectsToCell({
-      cell,
-      cellIndex: 0,
+      buffer,
+      index,
       interaction: 1,
       originX: 0,
       originY: 0,
@@ -56,12 +55,12 @@ describe("pixel-grid reactive-effects", () => {
       tintPalette: ["#123"]
     });
 
-    expect(cell.targetSize).toBeLessThan(1);
-    expect(cell.color).toBe("#123");
+    expect(buffer.targetSize[index]).toBeLessThan(1);
+    expect(buffer.color[index]).toBe("#123");
   });
 
   it("applies magnetic hover pull when enabled", () => {
-    const cell = new PixelCell(10, 0, "#abc", 5, 1);
+    const { buffer, index } = createTestCell({ x: 10, y: 0, color: "#abc", gap: 5 });
     const hoverWithMagnetic = {
       ...hoverEffects,
       magnetic: {
@@ -73,13 +72,14 @@ describe("pixel-grid reactive-effects", () => {
     };
 
     applyMagneticHoverToCell({
-      cell,
+      buffer,
+      index,
       interaction: 1,
       originX: 0,
       originY: 0,
       hoverEffects: hoverWithMagnetic as any
     });
 
-    expect(cell.offsetX).toBeLessThan(0);
+    expect(buffer.offsetX[index]).toBeLessThan(0);
   });
 });

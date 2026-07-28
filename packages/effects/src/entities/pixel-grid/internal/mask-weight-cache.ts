@@ -1,4 +1,4 @@
-import { PixelCell } from "../../PixelCell";
+import { PixelCellBuffer } from "./cell-buffer";
 import { PixelGridInfluenceOptions, ResolvedPixelGridConfig } from "../types";
 import { MaskStateMachine } from "./mask-state-machine";
 import { PixelGridRuntimeState } from "./runtime-state";
@@ -14,11 +14,11 @@ export interface MaskWeightCacheCoordinator {
    */
   prepareRecompute(): boolean;
   /** Stable closure -- reads the masks captured by the last prepareRecompute() call. */
-  writeCellMaskWeights(cell: PixelCell, index: number): void;
+  writeCellMaskWeights(buffer: PixelCellBuffer, index: number): void;
 }
 
 interface CreateMaskWeightCacheCoordinatorParams {
-  cells: PixelCell[];
+  buffer: PixelCellBuffer;
   runtime: PixelGridRuntimeState;
   maskState: MaskStateMachine;
   hoverEffects: ResolvedPixelGridConfig["hoverEffects"];
@@ -74,15 +74,17 @@ export function createMaskWeightCacheCoordinator(
   // Shared by recompute() and writeCellMaskWeights() -- keeps the per-cell weight math
   // (image/text/morph sampling + the textOrMorph max-blend) defined in exactly one place.
   const writeCellMaskWeightsWith = (
-    cell: PixelCell,
+    buffer: PixelCellBuffer,
     index: number,
     imageMask: MaskStateMachine["imageMask"],
     textMask: MaskStateMachine["textMask"],
     morphMask: MaskStateMachine["morphMask"]
   ): void => {
-    const image = imageMask ? imageMask.getInfluence(cell.x, cell.y, 1) : 0;
-    const text = textMask ? textMask.getInfluence(cell.x, cell.y, 1) : 0;
-    const morph = morphMask ? morphMask.getInfluence(cell.x, cell.y, 1) : 0;
+    const x = buffer.x[index];
+    const y = buffer.y[index];
+    const image = imageMask ? imageMask.getInfluence(x, y, 1) : 0;
+    const text = textMask ? textMask.getInfluence(x, y, 1) : 0;
+    const morph = morphMask ? morphMask.getInfluence(x, y, 1) : 0;
 
     const textOrMorph = Math.max(text, morph);
 
@@ -101,8 +103,8 @@ export function createMaskWeightCacheCoordinator(
       return;
     }
 
-    for (let i = 0; i < params.cells.length; i++) {
-      writeCellMaskWeightsWith(params.cells[i], i, imageMask, textMask, morphMask);
+    for (let i = 0; i < params.buffer.count; i++) {
+      writeCellMaskWeightsWith(params.buffer, i, imageMask, textMask, morphMask);
     }
 
     maskCacheIsZeroed = false;
@@ -118,8 +120,8 @@ export function createMaskWeightCacheCoordinator(
     return true;
   };
 
-  const writeCellMaskWeights = (cell: PixelCell, index: number): void => {
-    writeCellMaskWeightsWith(cell, index, planImageMask, planTextMask, planMorphMask);
+  const writeCellMaskWeights = (buffer: PixelCellBuffer, index: number): void => {
+    writeCellMaskWeightsWith(buffer, index, planImageMask, planTextMask, planMorphMask);
   };
 
   return {
