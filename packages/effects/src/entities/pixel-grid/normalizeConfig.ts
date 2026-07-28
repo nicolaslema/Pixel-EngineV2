@@ -25,7 +25,7 @@ export function resolvePixelGridConfig(
 
   // Required scalars have no fallback at the type level; this is the safety net for
   // consumers constructing PixelGridEffect directly (bypassing @pixel-engine/react's
-  // own preset-aware validation), so an invalid value never reaches GridBuilder math.
+  // own preset-aware validation), so an invalid value never reaches createCellBuffer's math.
   const hasValidColors = Array.isArray(config.colors) && config.colors.length > 0;
   if (!hasValidColors) {
     warnings.push("colors must be a non-empty array. Falling back to default colors.");

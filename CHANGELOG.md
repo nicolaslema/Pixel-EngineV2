@@ -22,8 +22,18 @@ All notable changes to this project are documented in this file.
 - Consolidated the two independent deep-merge implementations (`mergePixelOptions`, `mergeGridConfigPartials`) into one generic recursive merge, used by both (public signatures unchanged). Fixes a bug where `mergePixelOptions` only shallow-replaced (instead of merging) the `performance`/`effects` config blocks, and a latent risk of merge results sharing object/array references with preset singletons.
 - Fixed a bug where a hybrid mask's auto-derived default timeline (`mask.texts`/`mask.images` without explicit `items`/`steps`) could silently end up fully disabled when more than one unlabeled mask of the same type was provided, due to the same mask being registered twice under the same id. Auto-derivation now references masks by id (`maskTimeline.steps`) instead of redeclaring them (`maskTimeline.items`).
 
+### Performance
+- Pixel-grid update pipeline: eliminated a per-cell allocation on the reactive-hover path; fused the reactive-hover and magnetic-hover passes into one full-grid loop (which now also skips entirely when the pointer is outside the canvas, instead of looping the full grid to no-op); stopped reallocating the update pipeline's callback closures every frame (was ~7 allocations/frame, now 0).
+- Fused the per-frame cell reset and mask-weight-cache recompute into a single loop; fused the hover and breathing passes into one loop whenever no ripple is active (falls back to the previous unfused sequence while a ripple is active, since ripple can change state breathing's gate needs to see). `InfluenceManager` now skips its saturation/smoothing passes entirely on frames where no influence actually wrote anything, instead of running them unconditionally.
+- Rewrote pixel-grid cell storage from an array of `PixelCell` objects (array-of-structs) to `PixelCellBuffer`, a structure-of-arrays layout (parallel typed arrays, no per-cell heap objects). Update time in the stress benchmark (~49k cells) improved 17-30% depending on quality tier; no measurable change in the classic benchmark (~19.5k cells) once run-to-run noise is accounted for. See `BENCHMARKS.md` for full numbers and methodology.
+
+### Removed
+- **Breaking:** `@pixel-engine/effects` no longer exports `PixelCell`. Replaced internally by `PixelCellBuffer` (not exported — internal runtime detail, same as everything else under `entities/pixel-grid/internal/`). `PixelCell` had zero known consumers outside the package itself. See `MIGRATION.md`.
+- **Breaking:** `@pixel-engine/core` no longer exports `GridBuilder`, `PixelBuffer`, or `BufferUtils`. This was dead code: an alternate typed-array grid data structure that was never wired into `PixelGridEffect` or any other runtime path, exercised only by its own unit tests. See `MIGRATION.md`.
+
 ### Docs
 - `API.md`: documented mask id resolution order (plural array first, singular appended last); updated for the `performance.detail` rename.
+- `CLAUDE.md`: updated the effects-layer architecture and performance-notes sections to describe `PixelCellBuffer`/structure-of-arrays instead of the removed `PixelCell`/array-of-structs design and the removed dead `grid/` module.
 
 ## [1.0.21] - 2026-02-24
 

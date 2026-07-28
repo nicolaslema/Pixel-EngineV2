@@ -2,6 +2,18 @@
 
 This guide covers migration to the formal v1 stable baseline and the new package split.
 
+## Update: Unreleased — `PixelCell` removed from `@pixel-engine/effects` (2026-07-28)
+
+- `PixelCell` (previously exported from `@pixel-engine/effects`, one class instance per grid cell) has been removed. Cell storage was rewritten as `PixelCellBuffer`, a structure-of-arrays layout (parallel typed arrays instead of one heap object per cell), for update/render performance at high cell counts. `PixelCellBuffer` is **not** exported — it is internal runtime detail, same as everything else under `entities/pixel-grid/internal/`.
+- Reason: `PixelCell` had zero known consumers outside the package itself (confirmed via a full repo grep before removing it) — it was reachable from the public API but not part of any documented usage pattern. `PixelGridEffect`'s only debug-facing method, `getDebugSnapshot()`, already returned a plain summary object, never a `PixelCell`.
+- Migration: if you were importing `PixelCell` directly from `@pixel-engine/effects` for typing purposes, there is no drop-in replacement — construct grid state through `PixelGridEffect`/`PixelGridCanvas` as normal; nothing about the public config or component API changed. No other consumer-facing behavior changed (`visual-baseline.test.ts`'s snapshot passed unmodified through this rewrite, confirming identical runtime output).
+
+## Update: Unreleased — dead `grid/` module removed from `@pixel-engine/core` (2026-07-28)
+
+- `@pixel-engine/core` no longer exports `GridBuilder`, `PixelBuffer`, or `BufferUtils`.
+- Reason: this was dead code. It defined an alternate typed-array (structure-of-arrays) grid data structure that was never wired into `PixelGridEffect` or any other runtime path — it was only exercised by its own unit tests, and its field layout didn't actually match what the effects layer needed (confirmed during the unrelated `PixelCellBuffer` rewrite above, which needed a different set of fields).
+- Migration: if you imported any of these three names directly from `@pixel-engine/core`, there is no replacement — they were unused by the rest of the engine and had no effect on `PixelGridEffect` behavior either way.
+
 ## Update: Unreleased — `performance.quality` renamed to `performance.detail` (2026-07-27)
 
 - `PixelGridConfig.performance.quality` is renamed to `PixelGridConfig.performance.detail` (same values: `"low" | "medium" | "high"`). The exported type `PixelGridQualityLevel` is renamed to `PixelGridDetailLevel`.
