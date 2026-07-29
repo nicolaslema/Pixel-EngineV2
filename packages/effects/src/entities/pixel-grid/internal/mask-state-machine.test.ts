@@ -349,6 +349,139 @@ describe("pixel-grid mask-state-machine", () => {
     expect(poolStats.allocations).toBeLessThanOrEqual(4);
   });
 
+  it("activates an image + text combo simultaneously (item 1.9)", () => {
+    const manager = new InfluenceManager(1, 1, 1);
+    const imageMask = imageEntry("hero-image");
+    const textMask = textEntry("hero-text");
+
+    const machine = createMaskStateMachine({
+      influenceManager: manager,
+      maskTimeline: {
+        enabled: true,
+        autoplay: false,
+        loop: true,
+        initialStep: 0,
+        steps: [
+          {
+            mask: "image",
+            maskRef: { id: "hero-image", type: "image" },
+            maskRefs: [
+              { id: "hero-image", type: "image" },
+              { id: "hero-text", type: "text" }
+            ],
+            holdMs: 10,
+            transition: { mode: "morph", durationMs: 10, seed: 1 }
+          }
+        ]
+      },
+      initialMask: "image",
+      imageMasks: [imageMask],
+      textMasks: [textMask]
+    });
+
+    expect(machine.imageMask).not.toBeNull();
+    expect(machine.textMask).not.toBeNull();
+    const influences = (manager as unknown as { influences: unknown[] }).influences;
+    expect(influences).toHaveLength(2);
+  });
+
+  it("hard-cuts into a combo step instead of morphing (item 1.9)", () => {
+    const manager = new InfluenceManager(1, 1, 1);
+    const imageMaskA = imageEntry("image-a");
+    const textMaskA = textEntry("text-a");
+
+    const machine = createMaskStateMachine({
+      influenceManager: manager,
+      maskTimeline: {
+        enabled: true,
+        autoplay: true,
+        loop: true,
+        initialStep: 0,
+        steps: [
+          {
+            mask: "image",
+            maskRef: { id: "image-a", type: "image" },
+            holdMs: 5,
+            transition: { mode: "morph", durationMs: 20, seed: 1 }
+          },
+          {
+            mask: "image",
+            maskRef: { id: "image-a", type: "image" },
+            maskRefs: [
+              { id: "image-a", type: "image" },
+              { id: "text-a", type: "text" }
+            ],
+            holdMs: 5,
+            transition: { mode: "morph", durationMs: 20, seed: 2 }
+          }
+        ]
+      },
+      initialMask: "image",
+      imageMasks: [imageMaskA],
+      textMasks: [textMaskA]
+    });
+
+    expect(machine.getCurrentStepIndex()).toBe(0);
+    expect(machine.textMask).toBeNull();
+
+    machine.update(5);
+    expect(machine.getCurrentStepIndex()).toBe(1);
+    expect(machine.morphMask).toBeNull();
+    expect(machine.imageMask).not.toBeNull();
+    expect(machine.textMask).not.toBeNull();
+  });
+
+  it("hard-cuts out of a combo step into a different single mask instead of morphing (item 1.9 regression)", () => {
+    const manager = new InfluenceManager(1, 1, 1);
+    const imageMaskA = imageEntry("image-a");
+    const textMaskA = textEntry("text-a");
+    const imageMaskB = imageEntry("image-b");
+
+    const machine = createMaskStateMachine({
+      influenceManager: manager,
+      maskTimeline: {
+        enabled: true,
+        autoplay: true,
+        loop: true,
+        initialStep: 0,
+        steps: [
+          {
+            mask: "image",
+            maskRef: { id: "image-a", type: "image" },
+            maskRefs: [
+              { id: "image-a", type: "image" },
+              { id: "text-a", type: "text" }
+            ],
+            holdMs: 5,
+            transition: { mode: "morph", durationMs: 20, seed: 1 }
+          },
+          {
+            mask: "image",
+            maskRef: { id: "image-b", type: "image" },
+            holdMs: 5,
+            transition: { mode: "morph", durationMs: 20, seed: 2 }
+          }
+        ]
+      },
+      initialMask: "image",
+      imageMasks: [imageMaskA, imageMaskB],
+      textMasks: [textMaskA]
+    });
+
+    expect(machine.imageMask).not.toBeNull();
+    expect(machine.textMask).not.toBeNull();
+
+    machine.update(5);
+    expect(machine.getCurrentStepIndex()).toBe(1);
+    // Without the combo-guard running first, currentMask.id ("image-a") would still
+    // differ from nextMask.id ("image-b"), so this would fall through to build a real
+    // morph from the combo's *primary* mask only -- silently dropping the secondary
+    // text mask without any fade instead of hard-cutting. Assert both didn't happen.
+    expect(machine.morphMask).toBeNull();
+    expect(machine.textMask).toBeNull();
+    expect(machine.imageMask).not.toBeNull();
+  });
+
   it("falls back safely when timeline step refs are invalid", () => {
     const manager = new InfluenceManager(1, 1, 1);
     const machine = createMaskStateMachine({

@@ -383,11 +383,15 @@ function resolveMaskTimeline(
   masks: NormalizedMaskCollections,
   warnings: string[]
 ): ResolvedPixelGridConfig["maskTimeline"] {
-  type TimelineSourceStep = {
+  type MaskRefEntry = {
     mask?: "image" | "text";
     assetId?: string;
     maskId?: string;
     maskType?: "image" | "text";
+  };
+
+  type TimelineSourceStep = MaskRefEntry & {
+    masks?: MaskRefEntry[];
     holdMs?: number;
     mode?: "morph" | "fade" | "dissolve";
     durationMs?: number;
@@ -480,15 +484,14 @@ function resolveMaskTimeline(
     return masks.firstByType.image ?? masks.firstByType.text ?? null;
   };
 
-  const resolveStepMaskRef = (
-    step: TimelineSourceStep,
-    index: number
+  const resolveMaskRefEntry = (
+    entry: MaskRefEntry,
+    sourcePath: string
   ): { mask: InitialMask; maskRef: ResolvedMaskRef | null } => {
-    const sourcePath = `maskTimeline.steps[${index}]`;
-    const preferredType = step.maskType ?? step.mask;
+    const preferredType = entry.maskType ?? entry.mask;
 
-    const rawAssetId = typeof step.assetId === "string" ? step.assetId : undefined;
-    const rawMaskId = typeof step.maskId === "string" ? step.maskId : undefined;
+    const rawAssetId = typeof entry.assetId === "string" ? entry.assetId : undefined;
+    const rawMaskId = typeof entry.maskId === "string" ? entry.maskId : undefined;
 
     if (rawAssetId !== undefined && rawAssetId.trim().length === 0) {
       warnings.push(`${sourcePath}: empty "assetId" is not allowed.`);
@@ -545,15 +548,56 @@ function resolveMaskTimeline(
     };
   };
 
-  const resolvedSteps = sourceSteps.map((step, index) => ({
-    ...resolveStepMaskRef(step, index),
-    holdMs: Math.max(0, step.holdMs ?? defaultHoldMs),
-    transition: {
-      mode: step.transition?.mode ?? step.mode ?? defaultTransition.mode,
-      durationMs: Math.max(1, step.transition?.durationMs ?? step.durationMs ?? defaultTransition.durationMs),
-      seed: step.transition?.seed ?? defaultTransition.seed + index * 97
-    }
-  }));
+  const resolveStepMaskRef = (
+    step: TimelineSourceStep,
+    index: number
+  ): { mask: InitialMask; maskRef: ResolvedMaskRef | null } =>
+    resolveMaskRefEntry(step, `maskTimeline.steps[${index}]`);
+
+  // Resolves a step's `masks` combo entries (up to one per type), for a static
+  // image+text-simultaneously step. Returns [] when the step doesn't use `masks`.
+  const resolveComboMaskRefs = (step: TimelineSourceStep, index: number): ResolvedMaskRef[] => {
+    const entries = step.masks ?? [];
+    if (entries.length === 0) return [];
+
+    const seenTypes = new Set<InitialMask>();
+    const refs: ResolvedMaskRef[] = [];
+
+    entries.forEach((entry, entryIndex) => {
+      const sourcePath = `maskTimeline.steps[${index}].masks[${entryIndex}]`;
+      const { maskRef } = resolveMaskRefEntry(entry, sourcePath);
+      if (!maskRef) return;
+      if (seenTypes.has(maskRef.type)) {
+        warnings.push(
+          `${sourcePath}: only one "${maskRef.type}" mask is supported per step; extra ignored.`
+        );
+        return;
+      }
+      seenTypes.add(maskRef.type);
+      refs.push(maskRef);
+    });
+
+    return refs;
+  };
+
+  const resolvedSteps = sourceSteps.map((step, index) => {
+    const maskRefs = resolveComboMaskRefs(step, index);
+    const singular =
+      maskRefs.length > 0
+        ? { mask: maskRefs[0].type, maskRef: maskRefs[0] }
+        : resolveStepMaskRef(step, index);
+
+    return {
+      ...singular,
+      ...(maskRefs.length > 0 ? { maskRefs } : {}),
+      holdMs: Math.max(0, step.holdMs ?? defaultHoldMs),
+      transition: {
+        mode: step.transition?.mode ?? step.mode ?? defaultTransition.mode,
+        durationMs: Math.max(1, step.transition?.durationMs ?? step.durationMs ?? defaultTransition.durationMs),
+        seed: step.transition?.seed ?? defaultTransition.seed + index * 97
+      }
+    };
+  });
 
   const initialStep =
     resolvedSteps.length === 0

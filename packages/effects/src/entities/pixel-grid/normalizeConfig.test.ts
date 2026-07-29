@@ -246,6 +246,84 @@ describe("resolvePixelGridConfig", () => {
     ).toBe(true);
   });
 
+  it("resolves a step's masks[] combo into maskRefs, deriving singular mask/maskRef and suppressing the missing-reference warning (item 1.9)", () => {
+    const resolved = resolvePixelGridConfig({
+      colors: ["#fff"],
+      gap: 5,
+      expandEase: 0.1,
+      breathSpeed: 1,
+      imageMasks: [{ id: "hero-image", src: "/hero.png" }],
+      textMasks: [{ id: "hero-text", text: "Hero", font: "bold 40px Arial" }],
+      maskTimeline: {
+        enabled: true,
+        steps: [
+          {
+            masks: [{ assetId: "hero-image" }, { assetId: "hero-text" }]
+          }
+        ]
+      }
+    });
+
+    const step = resolved.maskTimeline.steps[0];
+    expect(step.maskRefs).toHaveLength(2);
+    expect(step.maskRefs?.map((ref) => ref.id).sort()).toEqual(["hero-image", "hero-text"]);
+    expect(step.mask).toBe("image");
+    expect(step.maskRef?.id).toBe("hero-image");
+    expect(
+      resolved.warnings.some((warning) => warning.includes("missing mask reference"))
+    ).toBe(false);
+  });
+
+  it("caps a step's masks[] combo at one mask per type, warning and dropping extras (item 1.9)", () => {
+    const resolved = resolvePixelGridConfig({
+      colors: ["#fff"],
+      gap: 5,
+      expandEase: 0.1,
+      breathSpeed: 1,
+      imageMasks: [
+        { id: "image-a", src: "/a.png" },
+        { id: "image-b", src: "/b.png" }
+      ],
+      textMasks: [],
+      maskTimeline: {
+        enabled: true,
+        steps: [
+          {
+            masks: [{ assetId: "image-a" }, { assetId: "image-b" }]
+          }
+        ]
+      }
+    });
+
+    const step = resolved.maskTimeline.steps[0];
+    expect(step.maskRefs).toHaveLength(1);
+    expect(step.maskRefs?.[0].id).toBe("image-a");
+    expect(
+      resolved.warnings.some((warning) =>
+        warning.includes("only one \"image\" mask is supported per step")
+      )
+    ).toBe(true);
+  });
+
+  it("leaves maskRefs empty for a normal step without masks[] (item 1.9 regression)", () => {
+    const resolved = resolvePixelGridConfig({
+      colors: ["#fff"],
+      gap: 5,
+      expandEase: 0.1,
+      breathSpeed: 1,
+      imageMasks: [{ id: "hero-image", src: "/hero.png" }],
+      maskTimeline: {
+        enabled: true,
+        steps: [{ assetId: "hero-image" }]
+      }
+    });
+
+    const step = resolved.maskTimeline.steps[0];
+    expect(step.maskRefs ?? []).toHaveLength(0);
+    expect(step.mask).toBe("image");
+    expect(step.maskRef?.id).toBe("hero-image");
+  });
+
   it("builds timeline steps from maskTimeline.items automatically", () => {
     const resolved = resolvePixelGridConfig({
       colors: ["#fff"],

@@ -349,6 +349,13 @@ Timeline authoring rules:
 - `steps[].mode` and `steps[].durationMs`: aliases for transition setup.
 - `steps[].transition`: optional explicit override (includes `seed`).
 - If `steps[]` is omitted and `items[]` exists, steps are generated in item order.
+- `steps[].masks`: activates up to one image + one text mask *simultaneously* for that step (e.g. text superimposed over an image), instead of the step's single `assetId`/`mask`:
+  ```ts
+  steps: [
+    { masks: [{ assetId: "catA" }, { assetId: "headline" }], holdMs: 1200 }
+  ]
+  ```
+  Both masks blend via the same fixed `"max"` (union) mode every mask uses. At most one mask per type is honored — extra entries of the same type are dropped with a console warning. Transitions (`morph`/`fade`/`dissolve`) into or out of a step using `masks` always hard-cut (no animation); only single-mask-to-single-mask steps support an animated transition.
 
 ### 4) Custom config with helpers
 

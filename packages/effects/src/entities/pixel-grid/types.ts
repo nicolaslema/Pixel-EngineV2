@@ -88,11 +88,27 @@ export interface MaskTimelineTransitionOptions {
   seed?: number;
 }
 
+export interface MaskTimelineStepMaskRefOptions {
+  mask?: InitialMask;
+  assetId?: string;
+  maskId?: string;
+  maskType?: InitialMask;
+}
+
 export interface MaskTimelineStepOptions {
   mask?: InitialMask;
   assetId?: string;
   maskId?: string;
   maskType?: InitialMask;
+  /**
+   * Activates up to one image + one text mask simultaneously for this step (e.g. text
+   * superimposed over an image), blended via the existing "max" (union) blend mode --
+   * no InfluenceManager changes needed. Transitions (morph/fade/dissolve) into or out of
+   * a step using `masks` always hard-cut; only single-mask-to-single-mask steps support
+   * animated transitions. At most one entry per type (image/text) is honored -- extras
+   * are dropped with a warning.
+   */
+  masks?: MaskTimelineStepMaskRefOptions[];
   holdMs?: number;
   mode?: MaskTimelineTransitionMode;
   durationMs?: number;
@@ -136,6 +152,11 @@ export interface ResolvedMaskRef {
 export interface ResolvedMaskTimelineStep {
   mask: InitialMask;
   maskRef: ResolvedMaskRef | null;
+  /**
+   * Present (non-empty) only for a step whose `masks` option resolved to at least one
+   * mask -- absent/empty for every normal single-mask step. See MaskTimelineStepOptions.
+   */
+  maskRefs?: ResolvedMaskRef[];
   holdMs: number;
   transition: ResolvedMaskTimelineTransition;
 }
