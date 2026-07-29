@@ -109,7 +109,8 @@ export function resolvePixelGridConfig(
       0.1,
       config.performance?.minRenderableSize ?? detailDefaults.minRenderableSize
     ),
-    maxRipplesCap: detailDefaults.maxRipplesCap
+    maxRipplesCap: detailDefaults.maxRipplesCap,
+    maxCellsCap: detailDefaults.maxCellsCap
   };
   const resolvedEffects: ResolvedPixelGridConfig["effects"] = {
     paletteCycle: {
@@ -576,7 +577,8 @@ function getDetailDefaults(detail: ResolvedPixelGridConfig["performance"]["detai
       viewportCulling: true,
       cullingPadding: 12,
       minRenderableSize: 1,
-      maxRipplesCap: 24
+      maxRipplesCap: 24,
+      maxCellsCap: 120_000
     };
   }
 
@@ -585,7 +587,8 @@ function getDetailDefaults(detail: ResolvedPixelGridConfig["performance"]["detai
       viewportCulling: true,
       cullingPadding: 28,
       minRenderableSize: 0.5,
-      maxRipplesCap: 80
+      maxRipplesCap: 80,
+      maxCellsCap: 320_000
     };
   }
 
@@ -593,7 +596,8 @@ function getDetailDefaults(detail: ResolvedPixelGridConfig["performance"]["detai
     viewportCulling: true,
     cullingPadding: 20,
     minRenderableSize: 0.75,
-    maxRipplesCap: 48
+    maxRipplesCap: 48,
+    maxCellsCap: 200_000
   };
 }
 

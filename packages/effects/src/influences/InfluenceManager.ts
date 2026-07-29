@@ -1,10 +1,38 @@
-import { Influence } from "./Influence";
+import { Influence, BlendMode } from "./Influence";
 import { PixelCellBuffer } from "../entities/pixel-grid/internal/cell-buffer";
 
 interface InfluenceManagerOptions {
   compressionStrength?: number;
   enableSmoothing?: boolean;
   smoothingRadius?: number;
+}
+
+function applyBlendedInfluenceValue(
+  buffer: PixelCellBuffer,
+  index: number,
+  blendMode: BlendMode,
+  value: number
+): void {
+  switch (blendMode) {
+
+    case "max":
+      buffer.targetSize[index] = Math.max(buffer.targetSize[index], value);
+      break;
+
+    case "add":
+      buffer.targetSize[index] += value;
+      break;
+
+    case "multiply":
+      buffer.targetSize[index] = buffer.targetSize[index] === 0
+        ? value
+        : buffer.targetSize[index] * value;
+      break;
+
+    case "override":
+      buffer.targetSize[index] = value;
+      break;
+  }
 }
 
 export class InfluenceManager {
@@ -16,6 +44,7 @@ export class InfluenceManager {
   private enableSmoothing: boolean;
   private smoothingRadius: number;
   private smoothingBuffer = new Float32Array(0);
+  private rowRangeScratch = new Float64Array(4);
 
   constructor(
     private gap: number,
@@ -106,6 +135,15 @@ export class InfluenceManager {
       const minRow = Math.max(0, Math.floor(bounds.minY / this.gap));
       const maxRow = Math.min(this.rows - 1, Math.floor(bounds.maxY / this.gap));
 
+      if (influence.getRowRange) {
+        if (this.applyInfluenceWithRowRange(
+          influence, buffer, getCellIndex, maxSize, minCol, maxCol, minRow, maxRow
+        )) {
+          touchedAny = true;
+        }
+        continue;
+      }
+
       for (let x = minCol; x <= maxCol; x++) {
         for (let y = minRow; y <= maxRow; y++) {
 
@@ -119,27 +157,7 @@ export class InfluenceManager {
 
           if (value <= 0) continue;
           touchedAny = true;
-
-          switch (influence.blendMode) {
-
-            case "max":
-              buffer.targetSize[index] = Math.max(buffer.targetSize[index], value);
-              break;
-
-            case "add":
-              buffer.targetSize[index] += value;
-              break;
-
-            case "multiply":
-              buffer.targetSize[index] = buffer.targetSize[index] === 0
-                ? value
-                : buffer.targetSize[index] * value;
-              break;
-
-            case "override":
-              buffer.targetSize[index] = value;
-              break;
-          }
+          applyBlendedInfluenceValue(buffer, index, influence.blendMode, value);
         }
       }
     }
@@ -157,6 +175,58 @@ export class InfluenceManager {
         this.smoothField(buffer, getCellIndex);
       }
     }
+  }
+
+  /**
+   * Row-major counterpart of apply()'s inner double loop, used only for influences that
+   * implement getRowRange (e.g. RippleInfluence, whose square AABB can grow to cover the
+   * whole grid while the actual ring stays thin -- see Influence.getRowRange's contract
+   * doc). Row-outer / column-inner (rather than apply()'s column-outer / row-inner) is
+   * required so getRowRange(y) -- which only depends on the row -- is computed once per
+   * row instead of once per cell. Safe: within a single influence's own pass, the set of
+   * cells visited (and the blend math applied to each) doesn't depend on visit order --
+   * only cross-influence ordering (via the priority sort in apply()) matters, and that's
+   * untouched here.
+   */
+  private applyInfluenceWithRowRange(
+    influence: Influence,
+    buffer: PixelCellBuffer,
+    getCellIndex: (x: number, y: number) => number,
+    maxSize: number,
+    minCol: number,
+    maxCol: number,
+    minRow: number,
+    maxRow: number
+  ): boolean {
+    const getRowRange = (influence.getRowRange as NonNullable<Influence["getRowRange"]>).bind(influence);
+    const scratch = this.rowRangeScratch;
+    let touchedAny = false;
+
+    for (let row = minRow; row <= maxRow; row++) {
+      const worldY = row * this.gap;
+      const count = getRowRange(worldY, scratch);
+
+      for (let p = 0; p < count; p++) {
+        const colStart = Math.max(minCol, Math.floor(scratch[p * 2] / this.gap));
+        const colEnd = Math.min(maxCol, Math.floor(scratch[p * 2 + 1] / this.gap));
+
+        for (let col = colStart; col <= colEnd; col++) {
+          const index = getCellIndex(col, row);
+
+          const value = influence.getInfluence(
+            buffer.x[index],
+            buffer.y[index],
+            maxSize
+          );
+
+          if (value <= 0) continue;
+          touchedAny = true;
+          applyBlendedInfluenceValue(buffer, index, influence.blendMode, value);
+        }
+      }
+    }
+
+    return touchedAny;
   }
 
   // ----------------------------------------

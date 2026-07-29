@@ -58,6 +58,7 @@
     "bench:pixelgrid:classic": "npm run build:all && node scripts/bench/pixelgrid-bench.cjs --suite=classic --runs=5",
     "bench:pixelgrid:stress": "npm run build:all && node scripts/bench/pixelgrid-bench.cjs --suite=stress --runs=5",
     "bench:pixelgrid:all": "npm run build:all && node scripts/bench/pixelgrid-bench.cjs --suite=all --runs=5",
+    "bench:pixelgrid:ripplestorm": "npm run build:all && node scripts/bench/pixelgrid-bench.cjs --suite=rippleStorm --runs=5",
     "bench:transition": "npm run build:all && node scripts/bench/pixelgrid-transition-bench.cjs --mode=all --scenario=all --runs=3",
     "bench:transition:all": "npm run build:all && node scripts/bench/pixelgrid-transition-bench.cjs --mode=all --scenario=all --runs=5",
     "bench:transition:legacy": "npm run build:all && node scripts/bench/pixelgrid-transition-bench.cjs --mode=all --scenario=text-image --runs=5",

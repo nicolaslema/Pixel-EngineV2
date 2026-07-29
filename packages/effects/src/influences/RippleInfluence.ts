@@ -59,6 +59,38 @@ export class RippleInfluence implements Influence {
     return falloff * maxSize * this.strength;
   }
 
+  /**
+   * Per-row narrowing hook (see Influence.getRowRange's contract). getRingFactorAt is
+   * nonzero iff max(0, radius-thickness) <= sqrt(dx^2+dy^2) <= radius+thickness, so for a
+   * fixed row (fixed dy) this solves to 0, 1, or 2 intervals of dx -- a safe (never
+   * narrower) superset of where this row's ring factor is actually nonzero.
+   */
+  getRowRange(y: number, out: Float64Array): number {
+    const dy = y - this.originY;
+    const dySq = dy * dy;
+
+    const high = this.radius + this.thickness;
+    const hiSq = high * high - dySq;
+    if (hiSq < 0) return 0;
+
+    const low = Math.max(0, this.radius - this.thickness);
+    const loSqRaw = low * low - dySq;
+    const hiDx = Math.sqrt(hiSq);
+
+    if (loSqRaw <= 0) {
+      out[0] = this.originX - hiDx;
+      out[1] = this.originX + hiDx;
+      return 1;
+    }
+
+    const loDx = Math.sqrt(loSqRaw);
+    out[0] = this.originX - hiDx;
+    out[1] = this.originX - loDx;
+    out[2] = this.originX + loDx;
+    out[3] = this.originX + hiDx;
+    return 2;
+  }
+
   getRingFactorAt(x: number, y: number): number {
     const dx = x - this.originX;
     const dy = y - this.originY;

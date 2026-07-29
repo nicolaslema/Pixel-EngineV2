@@ -46,6 +46,7 @@ interface ReactiveRipplePassParams {
   buffer: PixelCellBuffer;
   runtime: Pick<PixelGridRuntimeState, "activeMaskWeightCache" | "activeRipples" | "reactiveTime">;
   rippleEnabled: boolean;
+  gap: number;
   inverseGap: number;
   columns: number;
   rows: number;
@@ -186,6 +187,7 @@ export function applyReactiveRipplePass(
   applyReactiveRipple({
     buffer: params.buffer,
     activeRipples: params.runtime.activeRipples,
+    gap: params.gap,
     inverseGap: params.inverseGap,
     columns: params.columns,
     rows: params.rows,

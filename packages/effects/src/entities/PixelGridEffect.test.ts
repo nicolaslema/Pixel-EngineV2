@@ -251,6 +251,74 @@ describe("PixelGridEffect", () => {
     engine.destroy();
   });
 
+  it("should clamp the effective gap and warn when width/height/gap produce an extreme cell count (item 1.1 safety net)", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const canvas = document.createElement("canvas");
+    const engine = new PixelEngine({
+      canvas,
+      width: 3000,
+      height: 2000
+    });
+
+    // Uncapped estimate: ceil(3000/2)*ceil(2000/2) = 1,500,000 cells -- far above the
+    // default medium-tier cap (200,000).
+    const effect = new PixelGridEffect(engine, 3000, 2000, {
+      colors: ["#334155", "#475569", "#64748b"],
+      gap: 2,
+      expandEase: 0.08,
+      breathSpeed: 1
+    });
+
+    const snapshot = effect.getDebugSnapshot();
+    expect(Number.isFinite(snapshot.totalCells)).toBe(true);
+    expect(snapshot.totalCells).toBeLessThanOrEqual(200_000);
+    expect(warnSpy).toHaveBeenCalled();
+    const warnedAboutCellCount = warnSpy.mock.calls.some(
+      (call) => typeof call[0] === "string" && call[0].includes("cell")
+    );
+    expect(warnedAboutCellCount).toBe(true);
+
+    warnSpy.mockRestore();
+    engine.destroy();
+  });
+
+  it("warns again on resize() into an extreme cell count, and stops warning once resized back down (item 1.1)", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const canvas = document.createElement("canvas");
+    const engine = new PixelEngine({
+      canvas,
+      width: 200,
+      height: 120
+    });
+
+    const effect = new PixelGridEffect(engine, 200, 120, {
+      colors: ["#334155", "#475569", "#64748b"],
+      gap: 8,
+      expandEase: 0.08,
+      breathSpeed: 1
+    });
+
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    // gap stays at the original 8 across resize() (sanitizedConfig is reused unmutated) --
+    // ceil(6000/8)*ceil(4000/8) = 375,000 cells, well above the 200,000 default cap.
+    effect.resize(6000, 4000);
+    expect(warnSpy).toHaveBeenCalled();
+    expect(effect.getDebugSnapshot().totalCells).toBeLessThanOrEqual(200_000);
+
+    warnSpy.mockClear();
+
+    effect.resize(200, 120);
+    expect(warnSpy).not.toHaveBeenCalled();
+    // Back at a safe size, using the original requested gap=8 (not a compounded/stuck
+    // clamp from the earlier extreme resize).
+    const expectedCells = Math.ceil(200 / 8) * Math.ceil(120 / 8);
+    expect(effect.getDebugSnapshot().totalCells).toBe(expectedCells);
+
+    warnSpy.mockRestore();
+    engine.destroy();
+  });
+
   it("should expose runtime debug snapshot", () => {
     const canvas = document.createElement("canvas");
     const engine = new PixelEngine({

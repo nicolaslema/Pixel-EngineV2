@@ -15,6 +15,7 @@ import { runPixelGridUpdatePipeline } from "./update-pipeline";
 import { setupBaseInfluences } from "./influence-setup";
 import { DEFAULT_PIXEL_GRID_RUNTIME_TUNING } from "./runtime-tuning";
 import { createMaskWeightCacheCoordinator } from "./mask-weight-cache";
+import { resolveGuardedGridDimensions } from "./cell-count-guard";
 import { createPixelGridEffectsPipeline } from "./effects/pipeline";
 import {
   applyHoverAndBreathingPass,
@@ -43,6 +44,7 @@ export interface PixelGridRuntimeController {
   pauseMaskTimeline(): void;
   resetMaskTimeline(): void;
   getMaskTimelineState(): { playing: boolean; stepIndex: number };
+  getWarnings(): string[];
 }
 
 interface CreatePixelGridRuntimeControllerParams {
@@ -60,17 +62,24 @@ export function createPixelGridRuntimeController(
   const centerX = params.width * 0.5;
   const centerY = params.height * 0.5;
 
-  const columns = Math.ceil(params.width / params.config.gap);
-  const rows = Math.ceil(params.height / params.config.gap);
-  const inverseGap = 1 / params.config.gap;
+  const gridDimensions = resolveGuardedGridDimensions(
+    params.width,
+    params.height,
+    params.config.gap,
+    params.resolvedConfig.performance.maxCellsCap
+  );
+  const effectiveGap = gridDimensions.gap;
+  const columns = gridDimensions.columns;
+  const rows = gridDimensions.rows;
+  const inverseGap = 1 / effectiveGap;
   const cacheSize = columns * rows;
   const runtime = createPixelGridRuntimeState(cacheSize);
   const getCellIndex = (x: number, y: number): number => x * rows + y;
 
-  const buffer = createCellBuffer(columns, rows, params.config.gap, params.config.colors);
+  const buffer = createCellBuffer(columns, rows, effectiveGap, params.config.colors);
 
   const influenceManager = new InfluenceManager(
-    params.config.gap,
+    effectiveGap,
     columns,
     rows,
     DEFAULT_PIXEL_GRID_RUNTIME_TUNING
@@ -90,7 +99,7 @@ export function createPixelGridRuntimeController(
         threshold: mask.threshold,
         blurRadius: mask.blurRadius,
         dithering: mask.dithering,
-        gap: mask.gap ?? params.config.gap
+        gap: mask.gap ?? effectiveGap
       }
     )
   }));
@@ -223,6 +232,7 @@ export function createPixelGridRuntimeController(
       buffer,
       runtime,
       rippleEnabled: !!params.influenceOptions.ripple,
+      gap: effectiveGap,
       inverseGap,
       columns,
       rows,
@@ -376,6 +386,10 @@ export function createPixelGridRuntimeController(
         playing: maskState.isPlaying(),
         stepIndex: maskState.getCurrentStepIndex()
       };
+    },
+
+    getWarnings(): string[] {
+      return gridDimensions.warnings;
     }
   };
 }

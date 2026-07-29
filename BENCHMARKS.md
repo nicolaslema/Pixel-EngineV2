@@ -474,6 +474,118 @@ Comparison vs. the 2026-07-28 (Phase 3b.1) baseline, same methodology:
   - **Follow-up (2026-07-28c):** re-ran the classic scenario alone (same `--runs=5 --frames=240 --warmup=60` methodology) to check whether this was noise: update mean came back at `5.239ms` — within ~1.7% of the pre-3b.2 baseline (`5.149ms`) and clearly below the `5.529ms` figure that looked like a regression. This confirms the original 7% delta was run-to-run measurement noise on this machine, not a real regression introduced by 3b.2. No further action needed.
 - Correctness across all changes is confirmed independently of these numbers: full test suite (43/43 files, 180/180 tests) and `visual-baseline.test.ts` passing with **zero snapshot diff** (no `-u` needed) — including through the critical `PixelGridEffect` private-field rename that the snapshot test reflects into and the exact `Math.random()` call-order requirement for seeded determinism (see implementation notes above).
 
+## Official baseline snapshot (2026-07-28d) — after Etapa 1 items 1.1 + 1.2 (ripple row-range narrowing + cell-count guard)
+
+Measurement command set:
+
+```bash
+node scripts/bench/pixelgrid-bench.cjs --suite=classic --runs=5 --frames=240 --warmup=60
+node scripts/bench/pixelgrid-bench.cjs --suite=stress --runs=5 --frames=240 --warmup=60
+```
+
+### Classic (`classic-comparable`)
+
+Scenario:
+- Viewport: `1000x700`
+- Effect area: `1000x700`
+- Gap: `6`
+- Runs: `5`
+- Frames: `240` (warmup `60`)
+- Quality: `medium`
+
+Result:
+- Cells (estimated): `19539`
+- Avg update ms (mean): `3.319`
+- Avg render ms (mean): `0.266`
+- Avg frame ms (median): `3.644`
+- Avg frame ms (mean): `3.584`
+- Frame p95 ms: `3.678`
+- Est. FPS (median): `274.5`
+- Est. FPS (mean): `279.4`
+- Heap delta MB (mean): `-0.244`
+
+### Stress (`stress-overdraw`)
+
+Scenario:
+- Viewport: `1000x700`
+- Effect area: `1600x1100`
+- Gap: `6`
+- Runs: `5`
+- Frames: `240` (warmup `60`)
+- Qualities: `low`, `medium`, `high`
+
+Results:
+
+- `low`
+  - Cells (estimated): `49128`
+  - Avg update ms (mean): `8.012`
+  - Avg render ms (mean): `0.560`
+  - Avg frame ms (median): `8.630`
+  - Avg frame ms (mean): `8.572`
+  - Frame p95 ms: `8.755`
+  - Est. FPS (median): `115.9`
+  - Est. FPS (mean): `116.7`
+  - Heap delta MB (mean): `-0.149`
+
+- `medium`
+  - Cells (estimated): `49128`
+  - Avg update ms (mean): `7.965`
+  - Avg render ms (mean): `0.567`
+  - Avg frame ms (median): `8.493`
+  - Avg frame ms (mean): `8.532`
+  - Frame p95 ms: `8.672`
+  - Est. FPS (median): `117.7`
+  - Est. FPS (mean): `117.2`
+  - Heap delta MB (mean): `-1.082`
+
+- `high`
+  - Cells (estimated): `49128`
+  - Avg update ms (mean): `7.990`
+  - Avg render ms (mean): `0.587`
+  - Avg frame ms (median): `8.476`
+  - Avg frame ms (mean): `8.577`
+  - Frame p95 ms: `8.807`
+  - Est. FPS (median): `118.0`
+  - Est. FPS (mean): `116.6`
+  - Heap delta MB (mean): `-2.682`
+
+Comparison vs. the 2026-07-28b (Phase 3b.2) baseline, same methodology: both standard scenarios improved substantially, even though neither is the targeted repro (both trigger only one ripple every 12 frames, but ripples persist and grow toward `maxRadius = max(width,height)*1.2` before dying, so the pre-fix `O(radius²)` scan cost was already material here too, not just in extreme rapid-click scenarios). **Classic** update mean `5.529 → 3.319ms` (~40% faster). **Stress** update mean (all tiers) `~14.3-14.8ms → ~7.97-8.01ms` (~46% faster). Root cause and fix: see the targeted `ripple-storm-dense-gap` benchmark below.
+
+### Targeted benchmark: `ripple-storm-dense-gap` (items 1.1 + 1.2 repro)
+
+Neither `classic` nor `stress` isolates the specific reported bug (gap≤3 with several large-radius ripples active simultaneously from rapid clicking), so a new scenario was added specifically for it — see `Docs/pixel-engine.md` Etapa 1 items 1.1/1.2 for the root-cause writeup (`RippleInfluence`'s square AABB grows to cover the whole grid while its actual ring stays thin, wasting `O(radius²)` work to find `O(radius·thickness)` useful cells — fixed via an optional `Influence.getRowRange()` per-row narrowing hook, implemented for `RippleInfluence` and used by both `InfluenceManager.apply()` and `reactive-effects.ts`'s `applyReactiveRipple()`).
+
+Measurement command:
+
+```bash
+node scripts/bench/pixelgrid-bench.cjs --suite=rippleStorm --runs=5 --frames=240 --warmup=60
+```
+
+Scenario:
+- Viewport: `1000x700`
+- Effect area: `1500x1000`
+- Gap: `3`
+- Ripple trigger interval: every `3` frames (vs. `12` in `classic`/`stress`), `maxRipples: 48`
+- Qualities: `medium`, `high` (`low`'s 120,000-cell cap sits below this scenario's ~166,944 cells and would trigger item 1.1's clamp, conflating the two fixes in one measurement — deliberately excluded)
+
+Results, before (pre-1.1/1.2, same commit as the 2026-07-28b baseline) vs. after:
+
+- `medium`
+  - Cells (estimated): `167000` (both)
+  - Avg update ms (mean): `121.783 → 57.651` (~53% faster)
+  - Avg frame ms (median): `127.054 → 59.715`
+  - Est. FPS (median): `7.9 → 16.7`
+
+- `high`
+  - Cells (estimated): `167000` (both)
+  - Avg update ms (mean): `125.385 → 58.191` (~54% faster)
+  - Avg frame ms (median): `127.136 → 59.784`
+  - Est. FPS (median): `7.9 → 16.7`
+
+The fix roughly halves update time in this deliberately extreme repro (48 simultaneous large-radius ripples, rapid-fire clicking every 3 frames on a gap=3 grid) — a real, substantial improvement, and enough to turn an outright freeze (~8fps) into something usable (~17fps), though not proportional to the `O(radius²) → O(radius·thickness)` theoretical improvement for the ripple scan itself. The remainder of the per-frame cost is the other full-grid passes that already ran once per frame regardless of ripple count (reset, mask-weight cache, hover/breathing, `InfluenceManager`'s `compressField`/`smoothField`, post-effects, final ease) — those are unrelated to items 1.1/1.2 and become the new bottleneck once the ripple-scan pathology is fixed; further gains there would need a separate future item, not bundled into this one.
+
+Correctness confirmed independently of these numbers: full test suite (43/43 files, 204/204 tests) and `visual-baseline.test.ts` passing with **zero snapshot diff** (no `-u` needed).
+
 ## Snapshot template (copy/paste)
 
 Use this structure for future updates:

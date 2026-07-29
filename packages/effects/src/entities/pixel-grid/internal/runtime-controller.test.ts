@@ -197,4 +197,94 @@ describe("createPixelGridRuntimeController", () => {
     unfusedHoverSpy.mockRestore();
     engine.destroy();
   });
+
+  describe("cell-count guard (item 1.1)", () => {
+    it("clamps the effective gap and reports a warning when the cap is exceeded", () => {
+      const canvas = document.createElement("canvas");
+      const engine = new PixelEngine({ canvas, width: 400, height: 300 });
+
+      const config: PixelGridConfig = {
+        colors: ["#334155", "#475569", "#64748b"],
+        gap: 2,
+        expandEase: 0.08,
+        breathSpeed: 1
+      };
+
+      const resolvedConfig = resolvePixelGridConfig(config);
+      // 400/2 * 300/2 = 30000 cells; inject a small test cap well below that.
+      resolvedConfig.performance.maxCellsCap = 5_000;
+
+      const runtime = createPixelGridRuntimeController({
+        engine,
+        width: 400,
+        height: 300,
+        config,
+        influenceOptions: { hover: true, ripple: true, organic: false },
+        resolvedConfig
+      });
+
+      const warnings = runtime.getWarnings();
+      expect(warnings.length).toBe(1);
+      expect(warnings[0]).toContain("5000");
+      expect(runtime.getCellBufferForDebug().count).toBeLessThanOrEqual(5_000);
+
+      engine.destroy();
+    });
+
+    it("reports no warnings when the cell count is under the cap", () => {
+      const canvas = document.createElement("canvas");
+      const engine = new PixelEngine({ canvas, width: 200, height: 120 });
+
+      const config: PixelGridConfig = {
+        colors: ["#334155", "#475569", "#64748b"],
+        gap: 8,
+        expandEase: 0.08,
+        breathSpeed: 1
+      };
+
+      const runtime = createPixelGridRuntimeController({
+        engine,
+        width: 200,
+        height: 120,
+        config,
+        influenceOptions: { hover: true, ripple: true, organic: false },
+        resolvedConfig: resolvePixelGridConfig(config)
+      });
+
+      expect(runtime.getWarnings()).toEqual([]);
+
+      engine.destroy();
+    });
+
+    it("keeps the buffer's gap consistent with its actual cell count after a clamp", () => {
+      const canvas = document.createElement("canvas");
+      const engine = new PixelEngine({ canvas, width: 400, height: 300 });
+
+      const config: PixelGridConfig = {
+        colors: ["#334155", "#475569", "#64643b"],
+        gap: 2,
+        expandEase: 0.08,
+        breathSpeed: 1
+      };
+
+      const resolvedConfig = resolvePixelGridConfig(config);
+      resolvedConfig.performance.maxCellsCap = 5_000;
+
+      const runtime = createPixelGridRuntimeController({
+        engine,
+        width: 400,
+        height: 300,
+        config,
+        influenceOptions: { hover: true, ripple: true, organic: false },
+        resolvedConfig
+      });
+
+      const buffer = runtime.getCellBufferForDebug();
+      const expectedCount = Math.ceil(400 / buffer.gap) * Math.ceil(300 / buffer.gap);
+      expect(buffer.count).toBe(expectedCount);
+      expect(buffer.gap).toBeGreaterThan(2);
+
+      engine.destroy();
+    });
+  });
 });

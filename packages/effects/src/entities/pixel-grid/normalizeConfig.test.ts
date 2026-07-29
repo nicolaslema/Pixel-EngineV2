@@ -21,6 +21,7 @@ describe("resolvePixelGridConfig", () => {
     expect(resolved.performance.viewportCulling).toBe(true);
     expect(resolved.performance.minRenderableSize).toBe(0.75);
     expect(resolved.performance.maxRipplesCap).toBe(48);
+    expect(resolved.performance.maxCellsCap).toBe(200_000);
     expect(resolved.effects.paletteCycle.enabled).toBe(false);
     expect(resolved.effects.dissolve.enabled).toBe(false);
     expect(resolved.effects.shockwaveBurst.enabled).toBe(false);
@@ -88,7 +89,22 @@ describe("resolvePixelGridConfig", () => {
     expect(resolved.performance.cullingPadding).toBe(0);
     expect(resolved.performance.minRenderableSize).toBe(0.1);
     expect(resolved.performance.maxRipplesCap).toBe(24);
+    expect(resolved.performance.maxCellsCap).toBe(120_000);
     expect(resolved.initialMask).toBe("text");
+  });
+
+  it("uses the high-detail tier's maxCellsCap", () => {
+    const resolved = resolvePixelGridConfig({
+      colors: ["#fff"],
+      gap: 5,
+      expandEase: 0.1,
+      breathSpeed: 1,
+      performance: {
+        detail: "high"
+      }
+    });
+
+    expect(resolved.performance.maxCellsCap).toBe(320_000);
   });
 
   it("resolves explicit timeline schema and clamps values", () => {

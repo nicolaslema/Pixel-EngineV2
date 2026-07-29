@@ -23,6 +23,12 @@ interface ReactiveCellOptions {
 // the caller doesn't pass explicit multipliers -- e.g. the reactive-hover path.
 const DEFAULT_MULTIPLIERS = { deactivate: 1, displace: 1, jitter: 1 } as const;
 
+// Reused across calls/ripples/rows/frames -- safe because JS is single-threaded and this
+// is only touched synchronously within one applyReactiveRipple() call at a time (same
+// reuse rationale as DEFAULT_MULTIPLIERS above, and as InfluenceManager's own
+// rowRangeScratch field).
+const rowRangeScratch = new Float64Array(4);
+
 export function getHoverWeight(
   buffer: PixelCellBuffer,
   index: number,
@@ -123,6 +129,7 @@ export function applyReactiveRipple(
   params: {
     buffer: PixelCellBuffer;
     activeRipples: RippleInfluence[];
+    gap: number;
     inverseGap: number;
     columns: number;
     rows: number;
@@ -149,33 +156,41 @@ export function applyReactiveRipple(
     const minRow = Math.max(0, Math.floor(bounds.minY * params.inverseGap));
     const maxRow = Math.min(params.rows - 1, Math.floor(bounds.maxY * params.inverseGap));
 
-    for (let x = minCol; x <= maxCol; x++) {
-      for (let y = minRow; y <= maxRow; y++) {
-        const index = params.getCellIndex(x, y);
-        const { buffer } = params;
+    for (let row = minRow; row <= maxRow; row++) {
+      const worldY = row * params.gap;
+      const count = ripple.getRowRange(worldY, rowRangeScratch);
 
-        if (!shouldAffectCell(params.hoverEffects.interactionScope, buffer.targetSize[index], params.activeMaskWeightCache[index])) {
-          continue;
-        }
+      for (let p = 0; p < count; p++) {
+        const colStart = Math.max(minCol, Math.floor(rowRangeScratch[p * 2] * params.inverseGap));
+        const colEnd = Math.min(maxCol, Math.floor(rowRangeScratch[p * 2 + 1] * params.inverseGap));
 
-        const factor = ripple.getRingFactorAt(buffer.x[index], buffer.y[index]);
-        if (factor <= 0) continue;
+        for (let x = colStart; x <= colEnd; x++) {
+          const index = params.getCellIndex(x, row);
+          const { buffer } = params;
 
-        applyReactiveEffectsToCell({
-          buffer,
-          index,
-          interaction: factor * params.hoverEffects.strength,
-          originX: ripple.getOriginX(),
-          originY: ripple.getOriginY(),
-          reactiveTime: params.reactiveTime,
-          hoverEffects: params.hoverEffects,
-          tintPalette: palette,
-          multipliers: {
-            deactivate: params.rippleEffects.deactivateMultiplier,
-            displace: params.rippleEffects.displaceMultiplier,
-            jitter: params.rippleEffects.jitterMultiplier
+          if (!shouldAffectCell(params.hoverEffects.interactionScope, buffer.targetSize[index], params.activeMaskWeightCache[index])) {
+            continue;
           }
-        });
+
+          const factor = ripple.getRingFactorAt(buffer.x[index], buffer.y[index]);
+          if (factor <= 0) continue;
+
+          applyReactiveEffectsToCell({
+            buffer,
+            index,
+            interaction: factor * params.hoverEffects.strength,
+            originX: ripple.getOriginX(),
+            originY: ripple.getOriginY(),
+            reactiveTime: params.reactiveTime,
+            hoverEffects: params.hoverEffects,
+            tintPalette: palette,
+            multipliers: {
+              deactivate: params.rippleEffects.deactivateMultiplier,
+              displace: params.rippleEffects.displaceMultiplier,
+              jitter: params.rippleEffects.jitterMultiplier
+            }
+          });
+        }
       }
     }
   }

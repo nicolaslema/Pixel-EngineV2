@@ -227,6 +227,7 @@ export interface ResolvedPerformanceOptions {
   cullingPadding: number;
   minRenderableSize: number;
   maxRipplesCap: number;
+  maxCellsCap: number;
 }
 
 export interface PixelGridTextMaskConfig {

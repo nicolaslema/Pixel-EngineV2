@@ -165,6 +165,7 @@ describe("interaction-coordinator", () => {
       buffer,
       runtime,
       rippleEnabled: true,
+      gap: 1,
       inverseGap: 1,
       columns: 1,
       rows: 1,

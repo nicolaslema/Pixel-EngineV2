@@ -41,8 +41,8 @@ function parseOptions(args) {
   }
 
   const suite = entries.get("suite") ?? "all";
-  if (!["all", "classic", "stress"].includes(suite)) {
-    throw new Error(`Invalid --suite value "${suite}". Expected all|classic|stress.`);
+  if (!["all", "classic", "stress", "rippleStorm"].includes(suite)) {
+    throw new Error(`Invalid --suite value "${suite}". Expected all|classic|stress|rippleStorm.`);
   }
 
   const runs = Math.max(1, Number.parseInt(entries.get("runs") ?? "5", 10) || 5);
@@ -112,6 +112,22 @@ function createScenarios() {
       qualityModes: ["low", "medium", "high"],
       performance: {},
       rippleMax: 64
+    },
+    rippleStorm: {
+      title: "ripple-storm-dense-gap",
+      description: "Dense grid (gap=3) with several large-radius ripples active simultaneously -- the reported gap<=3 + rapid-click freeze scenario (items 1.1/1.2).",
+      viewportWidth: 1000,
+      viewportHeight: 700,
+      effectWidth: 1500,
+      effectHeight: 1000,
+      gap: 3,
+      // Deliberately excludes "low": low tier's maxCellsCap (120,000) is below this
+      // scenario's ~166,944 cells and would get gap-clamped by item 1.1's safety net,
+      // conflating the two fixes' effects in one measurement.
+      qualityModes: ["medium", "high"],
+      performance: {},
+      rippleMax: 48,
+      rippleTriggerInterval: 3
     }
   };
 }
@@ -175,7 +191,7 @@ function runSinglePass(scenario, quality) {
       },
       performance: {
         ...scenario.performance,
-        quality
+        detail: quality
       }
     },
     { ripple: true, hover: true, organic: false }
@@ -183,11 +199,12 @@ function runSinglePass(scenario, quality) {
 
   const renderer = createFakeRenderer();
   const estimatedCells = Math.ceil(effectWidth / gap) * Math.ceil(effectHeight / gap);
+  const rippleTriggerInterval = scenario.rippleTriggerInterval ?? 12;
 
   for (let i = 0; i < warmupFrames; i++) {
     enginePointer.mouse.x = (Math.sin(i * 0.07) * 0.4 + 0.5) * viewportWidth;
     enginePointer.mouse.y = (Math.cos(i * 0.09) * 0.4 + 0.5) * viewportHeight;
-    if (i % 12 === 0) {
+    if (i % rippleTriggerInterval === 0) {
       effect.triggerRipple(enginePointer.mouse.x, enginePointer.mouse.y);
     }
     effect.update(16.67);
@@ -201,7 +218,7 @@ function runSinglePass(scenario, quality) {
   for (let i = 0; i < frames; i++) {
     enginePointer.mouse.x = (Math.sin(i * 0.07) * 0.4 + 0.5) * viewportWidth;
     enginePointer.mouse.y = (Math.cos(i * 0.09) * 0.4 + 0.5) * viewportHeight;
-    if (i % 12 === 0) {
+    if (i % rippleTriggerInterval === 0) {
       effect.triggerRipple(enginePointer.mouse.x, enginePointer.mouse.y);
     }
 
@@ -271,6 +288,7 @@ function runScenario(scenarioKey, scenario) {
 function getScenarioKeys(suite) {
   if (suite === "classic") return ["classic"];
   if (suite === "stress") return ["stress"];
+  if (suite === "rippleStorm") return ["rippleStorm"];
   return ["classic", "stress"];
 }
 

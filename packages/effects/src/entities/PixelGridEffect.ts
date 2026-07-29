@@ -67,6 +67,7 @@ export class PixelGridEffect extends Entity {
       influenceOptions: this.influenceOptions,
       resolvedConfig: this.resolvedConfig
     });
+    this.emitConfigWarnings(this.runtime.getWarnings());
     this.cellBuffer = this.runtime.getCellBufferForDebug();
   }
 
@@ -112,6 +113,7 @@ export class PixelGridEffect extends Entity {
       influenceOptions: this.influenceOptions,
       resolvedConfig: this.resolvedConfig
     });
+    this.emitConfigWarnings(this.runtime.getWarnings());
     this.cellBuffer = this.runtime.getCellBufferForDebug();
   }
 
