@@ -261,12 +261,23 @@ export interface ResolvedPixelGridImageMaskConfig extends PixelGridImageMaskConf
   src: string;
 }
 
+export interface PixelGridMaskErrorEvent {
+  maskId: string;
+  src: string;
+  reason: string;
+}
+
 export interface PixelGridConfig {
   colors: string[];
   gap: number;
   expandEase: number;
   breathSpeed: number;
   canvasBackground?: string | null;
+  /**
+   * Whether breathing/ripple/magnetic-hover/jitter motion should be disabled when the
+   * user's OS/browser signals `prefers-reduced-motion: reduce`. Default true.
+   */
+  respectReducedMotion?: boolean;
 
   organicRadius?: number;
   organicStrength?: number;
@@ -298,6 +309,7 @@ export interface ResolvedPixelGridConfig {
   gap: number;
   expandEase: number;
   breathSpeed: number;
+  respectReducedMotion: boolean;
   hoverEffects: ResolvedHoverEffectsOptions;
   rippleEffects: Required<RippleEffectsOptions>;
   breathing: Required<BreathingOptions>;

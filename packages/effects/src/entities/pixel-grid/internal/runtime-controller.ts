@@ -3,6 +3,7 @@ import { createCellBuffer, PixelCellBuffer } from "./cell-buffer";
 import {
   PixelGridConfig,
   PixelGridInfluenceOptions,
+  PixelGridMaskErrorEvent,
   ResolvedPixelGridConfig
 } from "../types";
 import {
@@ -54,6 +55,7 @@ interface CreatePixelGridRuntimeControllerParams {
   config: PixelGridConfig;
   influenceOptions: PixelGridInfluenceOptions;
   resolvedConfig: ResolvedPixelGridConfig;
+  onMaskError?: (event: PixelGridMaskErrorEvent) => void;
 }
 
 export function createPixelGridRuntimeController(
@@ -99,7 +101,9 @@ export function createPixelGridRuntimeController(
         threshold: mask.threshold,
         blurRadius: mask.blurRadius,
         dithering: mask.dithering,
-        gap: mask.gap ?? effectiveGap
+        gap: mask.gap ?? effectiveGap,
+        onError: (reason) =>
+          params.onMaskError?.({ maskId: mask.id, src: mask.src, reason })
       }
     )
   }));

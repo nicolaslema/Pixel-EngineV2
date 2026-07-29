@@ -61,6 +61,7 @@ export function usePixelGridEffect(options: UsePixelGridEffectOptions): UsePixel
     resizeMode = "observer",
     onGridReady,
     onRipple,
+    onMaskError,
     createGridEffect,
     ...engineOptions
   } = options;
@@ -92,6 +93,7 @@ export function usePixelGridEffect(options: UsePixelGridEffectOptions): UsePixel
   const gridRef = useRef<PixelGridEffect | null>(null);
   const onGridReadyRef = useRef(onGridReady);
   const onRippleRef = useRef(onRipple);
+  const onMaskErrorRef = useRef(onMaskError);
   const createGridEffectRef = useRef(createGridEffect);
   const gridConfigRef = useRef(resolvedGridConfig);
   const influenceOptionsRef = useRef(influenceOptions);
@@ -99,10 +101,11 @@ export function usePixelGridEffect(options: UsePixelGridEffectOptions): UsePixel
   useEffect(() => {
     onGridReadyRef.current = onGridReady;
     onRippleRef.current = onRipple;
+    onMaskErrorRef.current = onMaskError;
     createGridEffectRef.current = createGridEffect;
     gridConfigRef.current = resolvedGridConfig;
     influenceOptionsRef.current = influenceOptions;
-  }, [createGridEffect, influenceOptions, onGridReady, onRipple, resolvedGridConfig]);
+  }, [createGridEffect, influenceOptions, onGridReady, onMaskError, onRipple, resolvedGridConfig]);
 
   useEffect(() => {
     if (!engine) return;
@@ -121,7 +124,8 @@ export function usePixelGridEffect(options: UsePixelGridEffectOptions): UsePixel
         size.width,
         size.height,
         gridConfigRef.current,
-        influenceOptionsRef.current
+        influenceOptionsRef.current,
+        { onMaskError: (event) => onMaskErrorRef.current?.(event) }
       );
 
     gridRef.current = effect;

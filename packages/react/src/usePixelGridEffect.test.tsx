@@ -148,6 +148,58 @@ describe("usePixelGridEffect", () => {
     cleanupHost(container, root);
   });
 
+  it("does not recreate effect when onMaskError identity changes across renders (item 1.6)", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+    const addEntity = vi.fn();
+    const removeEntity = vi.fn();
+    const engine = {
+      addEntity,
+      removeEntity,
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    };
+
+    const createEngine = vi.fn(() => engine);
+    const createGridEffect = vi.fn(() => ({
+      triggerRipple: vi.fn()
+    }));
+
+    function TestComponent(props: { onMaskError: () => void }) {
+      const { canvasRef } = usePixelGridEffect({
+        width: 300,
+        height: 180,
+        gridConfig: {
+          colors: ["#334155", "#475569", "#64748b"],
+          gap: 6,
+          expandEase: 0.08,
+          breathSpeed: 1
+        },
+        createEngine: createEngine as never,
+        createGridEffect: createGridEffect as never,
+        onMaskError: props.onMaskError
+      });
+      return <canvas ref={canvasRef} />;
+    }
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(<TestComponent onMaskError={() => {}} />);
+    });
+    expect(createGridEffect).toHaveBeenCalledTimes(1);
+
+    // A fresh inline callback identity every render, like a real component would pass --
+    // must not trigger a recreate (protects the ref-based wiring, same pattern already
+    // used for onGridReady/onRipple).
+    act(() => {
+      root.render(<TestComponent onMaskError={() => {}} />);
+    });
+    expect(createGridEffect).toHaveBeenCalledTimes(1);
+
+    cleanupHost(container, root);
+  });
+
   it("supports preset + declarative mask with timeline config without explicit gridConfig", () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

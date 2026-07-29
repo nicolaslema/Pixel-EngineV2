@@ -10,6 +10,7 @@ import { ImageMaskInfluence } from "./ImageMaskInfluence";
  * `image.src` before `image.onload`, so a synchronous mock would no-op).
  */
 let mockImageNaturalSize = { width: 20, height: 20 };
+let mockImageShouldFail = false;
 
 class MockImage {
   width: number;
@@ -23,7 +24,13 @@ class MockImage {
   }
 
   set src(_value: string) {
-    queueMicrotask(() => this.onload?.());
+    queueMicrotask(() => {
+      if (mockImageShouldFail) {
+        this.onerror?.();
+      } else {
+        this.onload?.();
+      }
+    });
   }
 }
 
@@ -37,6 +44,7 @@ let getImageDataSpy: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   mockImageNaturalSize = { width: 20, height: 20 };
+  mockImageShouldFail = false;
   pixelAlphaAt = (px) => px % 256;
 
   drawImageSpy = vi.fn();
@@ -206,5 +214,52 @@ describe("ImageMaskInfluence", () => {
     expect(Number.isFinite(value)).toBe(true);
     expect(value).toBeGreaterThanOrEqual(0);
     expect(value).toBeLessThanOrEqual(1);
+  });
+
+  it("calls onError when the image fails to load (item 1.6)", async () => {
+    mockImageShouldFail = true;
+    const onError = vi.fn();
+
+    const mask = new ImageMaskInfluence("mock.png", 0, 0, {
+      sampleMode: "alpha",
+      onError
+    });
+    await flushLoad();
+
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith("image failed to load");
+    expect(mask.isAlive()).toBe(false);
+  });
+
+  it("calls onError when drawImage fails during generateMask (item 1.6)", async () => {
+    drawImageSpy.mockImplementation(() => {
+      throw new Error("boom");
+    });
+    const onError = vi.fn();
+
+    new ImageMaskInfluence("mock.png", 0, 0, { sampleMode: "alpha", onError });
+    await flushLoad();
+
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith("drawImage failed");
+  });
+
+  it("calls onError when getImageData fails during generateMask (item 1.6)", async () => {
+    getImageDataSpy.mockImplementation(() => {
+      throw new Error("boom");
+    });
+    const onError = vi.fn();
+
+    new ImageMaskInfluence("mock.png", 0, 0, { sampleMode: "alpha", onError });
+    await flushLoad();
+
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith("getImageData failed");
+  });
+
+  it("does not require onError to be provided (backward compatible)", async () => {
+    mockImageShouldFail = true;
+    expect(() => new ImageMaskInfluence("mock.png", 0, 0, { sampleMode: "alpha" })).not.toThrow();
+    await flushLoad();
   });
 });

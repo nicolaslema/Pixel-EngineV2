@@ -29,6 +29,59 @@ describe("createPixelGridRuntimeController", () => {
       } as unknown as CanvasRenderingContext2D);
   });
 
+  it("forwards onMaskError from a failing image mask (item 1.6)", async () => {
+    class FailingImage {
+      width = 0;
+      height = 0;
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      set src(_value: string) {
+        queueMicrotask(() => this.onerror?.());
+      }
+    }
+    vi.stubGlobal("Image", FailingImage);
+
+    const canvas = document.createElement("canvas");
+    const engine = new PixelEngine({
+      canvas,
+      width: 220,
+      height: 140
+    });
+
+    const config: PixelGridConfig = {
+      colors: ["#334155", "#475569", "#64748b"],
+      gap: 8,
+      expandEase: 0.08,
+      breathSpeed: 1,
+      imageMasks: [{ id: "broken", src: "/does/not/exist.png" }]
+    };
+
+    const onMaskError = vi.fn();
+    createPixelGridRuntimeController({
+      engine,
+      width: 220,
+      height: 140,
+      config,
+      influenceOptions: {
+        hover: true,
+        ripple: true,
+        organic: false
+      },
+      resolvedConfig: resolvePixelGridConfig(config),
+      onMaskError
+    });
+
+    await Promise.resolve();
+
+    expect(onMaskError).toHaveBeenCalledWith({
+      maskId: "broken",
+      src: "/does/not/exist.png",
+      reason: "image failed to load"
+    });
+
+    vi.unstubAllGlobals();
+  });
+
   it("runs update/render and keeps timeline controls available", () => {
     const canvas = document.createElement("canvas");
     const engine = new PixelEngine({

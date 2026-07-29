@@ -1,5 +1,5 @@
 import { MutableRefObject, RefObject, useEffect } from "react";
-import { PixelGridEffect } from "@pixel-engine/effects";
+import { PixelGridEffect, prefersReducedMotion } from "@pixel-engine/effects";
 import { ScrollReactiveDirection, ScrollReactiveEdge, ScrollReactiveGridOptions } from "./types";
 
 interface UseScrollReactiveGridParams {
@@ -40,11 +40,6 @@ function resolveOptions(
 
 function isDirectionAllowed(allowed: ScrollReactiveDirection, direction: "up" | "down"): boolean {
   return allowed === "both" || allowed === direction;
-}
-
-function shouldReduceMotion(): boolean {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 function resolveOriginY(
@@ -136,7 +131,7 @@ export function useScrollReactiveGrid(params: UseScrollReactiveGridParams): void
   useEffect(() => {
     if (!options.enabled) return;
     if (typeof window === "undefined") return;
-    if (options.respectReducedMotion && shouldReduceMotion()) return;
+    if (options.respectReducedMotion && prefersReducedMotion()) return;
 
     const canvas = params.canvasRef.current;
     const { scrollTargets, wheelTarget } = resolveScrollTargets(options.source, canvas);

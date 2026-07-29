@@ -1,5 +1,5 @@
 import { CSSProperties, MutableRefObject, RefObject, useEffect, useMemo, useState } from "react";
-import { PixelGridEffect } from "@pixel-engine/effects";
+import { PixelGridEffect, prefersReducedMotion } from "@pixel-engine/effects";
 import { SectionTransitionOptions, SectionTransitionPresetName } from "./types";
 
 interface UseSectionTransitionPresetParams {
@@ -22,11 +22,6 @@ interface ResolvedSectionTransitionOptions {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
-}
-
-function shouldReduceMotion(): boolean {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 function resolveOptions(
@@ -94,7 +89,7 @@ export function useSectionTransitionPreset(params: UseSectionTransitionPresetPar
     const canvas = params.canvasRef.current;
     if (!canvas) return;
 
-    const reduceMotion = options.respectReducedMotion && shouldReduceMotion();
+    const reduceMotion = options.respectReducedMotion && prefersReducedMotion();
     const enteredRef = { current: false };
 
     const onEnter = () => {

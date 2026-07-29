@@ -6,6 +6,7 @@ import type {
   PixelGridInfluenceOptions,
   PixelGridImageMaskConfig,
   PixelGridTextMaskConfig,
+  PixelGridMaskErrorEvent,
   InitialMask
 } from "@pixel-engine/effects";
 
@@ -185,6 +186,7 @@ export interface UsePixelGridEffectOptions extends UsePixelEngineOptions {
   rippleTrigger?: RippleTriggerMode;
   onGridReady?: (effect: PixelGridEffect, engine: PixelEngine) => void;
   onRipple?: (event: PixelPointerEventPayload) => void;
+  onMaskError?: (event: PixelGridMaskErrorEvent) => void;
   createGridEffect?: (
     engine: PixelEngine,
     width: number,

@@ -3,6 +3,7 @@ import { PixelCellBuffer } from "./pixel-grid/internal/cell-buffer";
 import {
   PixelGridConfig,
   PixelGridInfluenceOptions,
+  PixelGridMaskErrorEvent,
   ResolvedPixelGridConfig
 } from "./pixel-grid/types";
 import { resolvePixelGridConfig } from "./pixel-grid/normalizeConfig";
@@ -10,12 +11,17 @@ import {
   createPixelGridRuntimeController,
   PixelGridRuntimeController
 } from "./pixel-grid/internal/runtime-controller";
+import { prefersReducedMotion } from "../utils/reduced-motion";
 
 export interface PixelGridDebugSnapshot {
   totalCells: number;
   activeCells: number;
   activeRipples: number;
   timeline: { playing: boolean; stepIndex: number };
+}
+
+export interface PixelGridEffectEvents {
+  onMaskError?: (event: PixelGridMaskErrorEvent) => void;
 }
 
 export class PixelGridEffect extends Entity {
@@ -30,6 +36,8 @@ export class PixelGridEffect extends Entity {
    * this effect is built directly (bypassing @pixel-engine/react's own validation).
    */
   private readonly sanitizedConfig: PixelGridConfig;
+  private readonly reducedMotionActive: boolean;
+  private readonly events: PixelGridEffectEvents;
   private width: number;
   private height: number;
 
@@ -42,13 +50,21 @@ export class PixelGridEffect extends Entity {
       ripple: true,
       hover: true,
       organic: false
-    }
+    },
+    events: PixelGridEffectEvents = {}
   ) {
     super();
+    this.events = events;
 
     this.influenceOptions = { ...influenceOptions };
     this.resolvedConfig = resolvePixelGridConfig(config);
     this.emitConfigWarnings(this.resolvedConfig.warnings);
+    this.reducedMotionActive = this.resolvedConfig.respectReducedMotion && prefersReducedMotion();
+    if (this.reducedMotionActive) {
+      this.resolvedConfig.breathing.enabled = false;
+      this.resolvedConfig.hoverEffects.magnetic.enabled = false;
+      this.resolvedConfig.hoverEffects.jitter = 0;
+    }
     this.sanitizedConfig = {
       ...this.config,
       colors: this.resolvedConfig.colors,
@@ -65,7 +81,8 @@ export class PixelGridEffect extends Entity {
       height: this.height,
       config: this.sanitizedConfig,
       influenceOptions: this.influenceOptions,
-      resolvedConfig: this.resolvedConfig
+      resolvedConfig: this.resolvedConfig,
+      onMaskError: this.events.onMaskError
     });
     this.emitConfigWarnings(this.runtime.getWarnings());
     this.cellBuffer = this.runtime.getCellBufferForDebug();
@@ -94,7 +111,12 @@ export class PixelGridEffect extends Entity {
   }
 
   triggerRipple(x: number, y: number): void {
+    if (this.reducedMotionActive) return;
     this.runtime.triggerRipple(x, y);
+  }
+
+  isReducedMotionActive(): boolean {
+    return this.reducedMotionActive;
   }
 
   resize(width: number, height: number): void {
@@ -111,7 +133,8 @@ export class PixelGridEffect extends Entity {
       height: this.height,
       config: this.sanitizedConfig,
       influenceOptions: this.influenceOptions,
-      resolvedConfig: this.resolvedConfig
+      resolvedConfig: this.resolvedConfig,
+      onMaskError: this.events.onMaskError
     });
     this.emitConfigWarnings(this.runtime.getWarnings());
     this.cellBuffer = this.runtime.getCellBufferForDebug();

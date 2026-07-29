@@ -1,8 +1,18 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PixelEngine } from "@pixel-engine/core";
 import { PixelGridEffect } from "./PixelGridEffect";
 
+function mockPrefersReducedMotion(matches: boolean): void {
+  window.matchMedia = vi.fn().mockReturnValue({ matches }) as unknown as typeof window.matchMedia;
+}
+
 describe("PixelGridEffect", () => {
+  const originalMatchMedia = window.matchMedia;
+
+  afterEach(() => {
+    window.matchMedia = originalMatchMedia;
+  });
+
   beforeEach(() => {
     vi.spyOn(HTMLCanvasElement.prototype, "getContext")
       .mockReturnValue({
@@ -319,6 +329,53 @@ describe("PixelGridEffect", () => {
     engine.destroy();
   });
 
+  it("should invoke events.onMaskError when an image mask fails to load (item 1.6)", async () => {
+    class FailingImage {
+      width = 0;
+      height = 0;
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      set src(_value: string) {
+        queueMicrotask(() => this.onerror?.());
+      }
+    }
+    vi.stubGlobal("Image", FailingImage);
+
+    const canvas = document.createElement("canvas");
+    const engine = new PixelEngine({
+      canvas,
+      width: 200,
+      height: 120
+    });
+
+    const onMaskError = vi.fn();
+    new PixelGridEffect(
+      engine,
+      200,
+      120,
+      {
+        colors: ["#334155", "#475569", "#64748b"],
+        gap: 8,
+        expandEase: 0.08,
+        breathSpeed: 1,
+        imageMasks: [{ id: "broken", src: "/does/not/exist.png" }]
+      },
+      { ripple: true, hover: true, organic: false },
+      { onMaskError }
+    );
+
+    await Promise.resolve();
+
+    expect(onMaskError).toHaveBeenCalledWith({
+      maskId: "broken",
+      src: "/does/not/exist.png",
+      reason: "image failed to load"
+    });
+
+    vi.unstubAllGlobals();
+    engine.destroy();
+  });
+
   it("should expose runtime debug snapshot", () => {
     const canvas = document.createElement("canvas");
     const engine = new PixelEngine({
@@ -339,6 +396,84 @@ describe("PixelGridEffect", () => {
     expect(snapshot.activeCells).toBeGreaterThanOrEqual(0);
     expect(snapshot.activeRipples).toBeGreaterThanOrEqual(0);
     expect(typeof snapshot.timeline.stepIndex).toBe("number");
+
+    engine.destroy();
+  });
+
+  it("should disable ripple/breathing/magnetic-jitter and report isReducedMotionActive() when prefers-reduced-motion matches (item 1.4)", () => {
+    mockPrefersReducedMotion(true);
+    const canvas = document.createElement("canvas");
+    const engine = new PixelEngine({
+      canvas,
+      width: 200,
+      height: 120
+    });
+
+    const effect = new PixelGridEffect(engine, 200, 120, {
+      colors: ["#334155", "#475569", "#64748b"],
+      gap: 8,
+      expandEase: 0.08,
+      breathSpeed: 1,
+      breathing: { enabled: true },
+      hoverEffects: { magnetic: { enabled: true }, jitter: 5 }
+    });
+
+    expect(effect.isReducedMotionActive()).toBe(true);
+
+    effect.triggerRipple(50, 50);
+    expect(() => effect.update(16)).not.toThrow();
+    expect(effect.getDebugSnapshot().activeRipples).toBe(0);
+
+    engine.destroy();
+  });
+
+  it("should allow an explicit respectReducedMotion:false to override the OS/browser preference", () => {
+    mockPrefersReducedMotion(true);
+    const canvas = document.createElement("canvas");
+    const engine = new PixelEngine({
+      canvas,
+      width: 200,
+      height: 120
+    });
+
+    const effect = new PixelGridEffect(engine, 200, 120, {
+      colors: ["#334155", "#475569", "#64748b"],
+      gap: 8,
+      expandEase: 0.08,
+      breathSpeed: 1,
+      respectReducedMotion: false
+    });
+
+    expect(effect.isReducedMotionActive()).toBe(false);
+
+    effect.triggerRipple(50, 50);
+    expect(() => effect.update(16)).not.toThrow();
+    expect(effect.getDebugSnapshot().activeRipples).toBeGreaterThan(0);
+
+    engine.destroy();
+  });
+
+  it("should behave unaffected when the OS/browser does not prefer reduced motion", () => {
+    mockPrefersReducedMotion(false);
+    const canvas = document.createElement("canvas");
+    const engine = new PixelEngine({
+      canvas,
+      width: 200,
+      height: 120
+    });
+
+    const effect = new PixelGridEffect(engine, 200, 120, {
+      colors: ["#334155", "#475569", "#64748b"],
+      gap: 8,
+      expandEase: 0.08,
+      breathSpeed: 1
+    });
+
+    expect(effect.isReducedMotionActive()).toBe(false);
+
+    effect.triggerRipple(50, 50);
+    expect(() => effect.update(16)).not.toThrow();
+    expect(effect.getDebugSnapshot().activeRipples).toBeGreaterThan(0);
 
     engine.destroy();
   });

@@ -1,5 +1,6 @@
 export * from "./entities/PixelGridEffect";
 export * from "./entities/pixel-grid/types";
+export * from "./utils/reduced-motion";
 
 export * from "./influences/Influence";
 export * from "./influences/InfluenceManager";

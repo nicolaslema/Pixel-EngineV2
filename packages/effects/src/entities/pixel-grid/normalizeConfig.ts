@@ -143,6 +143,7 @@ export function resolvePixelGridConfig(
     gap,
     expandEase,
     breathSpeed,
+    respectReducedMotion: config.respectReducedMotion ?? true,
     hoverEffects: resolvedHover,
     rippleEffects: resolvedRipple,
     breathing,

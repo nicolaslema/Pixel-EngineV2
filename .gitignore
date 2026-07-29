@@ -1,5 +1,6 @@
 node_modules
 dist
+coverage
 .DS_Store
 
 # Local planning docs (keep in workspace, do not publish to GitHub)

@@ -23,6 +23,13 @@ export interface ImageMaskOptions {
    * single-pixel sampling) behavior unchanged.
    */
   gap?: number;
+  /**
+   * Fired when the mask image fails to load (network/404/CORS) or when generating the
+   * sampling buffer fails (drawImage/getImageData). `failed` is set regardless of whether
+   * this is provided -- this is purely an additional notification, not the failure signal
+   * itself.
+   */
+  onError?: (reason: string) => void;
 }
 
 /** Longest side a mask's sampling buffer is allowed to reach, regardless of source
@@ -47,6 +54,7 @@ export class ImageMaskInfluence extends MaskInfluence {
   private blurRadius: number;
   private dithering: boolean;
   private gap?: number;
+  private onError?: (reason: string) => void;
 
   constructor(
     imageSrc: string,
@@ -62,6 +70,7 @@ export class ImageMaskInfluence extends MaskInfluence {
     this.blurRadius = options.blurRadius ?? 0;
     this.dithering = options.dithering ?? false;
     this.gap = options.gap;
+    this.onError = options.onError;
 
     this.canvas = document.createElement("canvas");
     this.ctx = this.canvas.getContext("2d")!;
@@ -77,6 +86,7 @@ export class ImageMaskInfluence extends MaskInfluence {
     this.image.onerror = () => {
       this.failed = true;
       this.loaded = false;
+      this.onError?.("image failed to load");
     };
   }
 
@@ -129,6 +139,7 @@ export class ImageMaskInfluence extends MaskInfluence {
       );
     } catch {
       this.failed = true;
+      this.onError?.("drawImage failed");
       return;
     }
 
@@ -142,6 +153,7 @@ export class ImageMaskInfluence extends MaskInfluence {
       );
     } catch {
       this.failed = true;
+      this.onError?.("getImageData failed");
       return;
     }
 

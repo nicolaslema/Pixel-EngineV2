@@ -10,6 +10,7 @@ describe("resolvePixelGridConfig", () => {
       breathSpeed: 1
     });
 
+    expect(resolved.respectReducedMotion).toBe(true);
     expect(resolved.hoverEffects.mode).toBe("classic");
     expect(resolved.hoverEffects.radius).toBe(120);
     expect(resolved.rippleEffects.speed).toBe(0.5);
@@ -30,6 +31,18 @@ describe("resolvePixelGridConfig", () => {
     expect(resolved.imageMasks).toHaveLength(0);
     expect(resolved.textMasks).toHaveLength(0);
     expect(resolved.warnings).toHaveLength(0);
+  });
+
+  it("passes through an explicit respectReducedMotion override", () => {
+    const resolved = resolvePixelGridConfig({
+      colors: ["#fff"],
+      gap: 5,
+      expandEase: 0.1,
+      breathSpeed: 1,
+      respectReducedMotion: false
+    });
+
+    expect(resolved.respectReducedMotion).toBe(false);
   });
 
   it("maps nested overrides and shared morph interval", () => {
