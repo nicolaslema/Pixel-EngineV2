@@ -26,11 +26,149 @@ describe("resolvePixelGridConfig", () => {
     expect(resolved.effects.paletteCycle.enabled).toBe(false);
     expect(resolved.effects.dissolve.enabled).toBe(false);
     expect(resolved.effects.shockwaveBurst.enabled).toBe(false);
+    expect(resolved.effects.shockwaveBurst.scope).toBe("activeOnly");
     expect(resolved.effects.paletteCycle.palette).toEqual(["#fff"]);
     expect(resolved.initialMask).toBe("image");
     expect(resolved.imageMasks).toHaveLength(0);
     expect(resolved.textMasks).toHaveLength(0);
     expect(resolved.warnings).toHaveLength(0);
+    expect(resolved.rippleEffects.maxRadius).toBeUndefined();
+    expect(resolved.organicNoise).toEqual({
+      enabled: false,
+      radius: 150,
+      strength: 0.4,
+      speed: 0.002,
+      pattern: "waves",
+      scale: 1
+    });
+  });
+
+  it("passes through an explicit organicNoise override", () => {
+    const resolved = resolvePixelGridConfig({
+      colors: ["#fff"],
+      gap: 5,
+      expandEase: 0.1,
+      breathSpeed: 1,
+      organicNoise: {
+        enabled: true,
+        radius: 200,
+        strength: 0.8,
+        speed: 0.01,
+        pattern: "perlin",
+        scale: 2
+      }
+    });
+
+    expect(resolved.organicNoise).toEqual({
+      enabled: true,
+      radius: 200,
+      strength: 0.8,
+      speed: 0.01,
+      pattern: "perlin",
+      scale: 2
+    });
+    expect(resolved.warnings).toHaveLength(0);
+  });
+
+  it("falls back to the deprecated loose organic* fields and warns", () => {
+    const resolved = resolvePixelGridConfig({
+      colors: ["#fff"],
+      gap: 5,
+      expandEase: 0.1,
+      breathSpeed: 1,
+      organicRadius: 300,
+      organicStrength: 0.9,
+      organicSpeed: 0.05
+    });
+
+    expect(resolved.organicNoise).toEqual({
+      enabled: false,
+      radius: 300,
+      strength: 0.9,
+      speed: 0.05,
+      pattern: "waves",
+      scale: 1
+    });
+    expect(resolved.warnings.some((w) => w.includes("organicRadius"))).toBe(true);
+    expect(resolved.warnings.some((w) => w.includes("organicStrength"))).toBe(true);
+    expect(resolved.warnings.some((w) => w.includes("organicSpeed"))).toBe(true);
+  });
+
+  it("validates organicNoise.pattern, warning and falling back to waves on an unrecognized value", () => {
+    const resolved = resolvePixelGridConfig({
+      colors: ["#fff"],
+      gap: 5,
+      expandEase: 0.1,
+      breathSpeed: 1,
+      organicNoise: { pattern: "bogus" as any }
+    });
+
+    expect(resolved.organicNoise.pattern).toBe("waves");
+    expect(resolved.warnings.some((w) => w.includes("pattern"))).toBe(true);
+  });
+
+  it("clamps organicNoise.scale to a positive floor without warning", () => {
+    const resolvedZero = resolvePixelGridConfig({
+      colors: ["#fff"],
+      gap: 5,
+      expandEase: 0.1,
+      breathSpeed: 1,
+      organicNoise: { scale: 0 }
+    });
+    const resolvedNegative = resolvePixelGridConfig({
+      colors: ["#fff"],
+      gap: 5,
+      expandEase: 0.1,
+      breathSpeed: 1,
+      organicNoise: { scale: -5 }
+    });
+
+    expect(resolvedZero.organicNoise.scale).toBe(0.01);
+    expect(resolvedZero.warnings).toHaveLength(0);
+    expect(resolvedNegative.organicNoise.scale).toBe(0.01);
+    expect(resolvedNegative.warnings).toHaveLength(0);
+  });
+
+  it("prefers organicNoise.X over the deprecated loose field when both are set (still warns)", () => {
+    const resolved = resolvePixelGridConfig({
+      colors: ["#fff"],
+      gap: 5,
+      expandEase: 0.1,
+      breathSpeed: 1,
+      organicRadius: 999,
+      organicNoise: { radius: 42 }
+    });
+
+    expect(resolved.organicNoise.radius).toBe(42);
+    expect(resolved.warnings.some((w) => w.includes("organicRadius"))).toBe(true);
+  });
+
+  it("passes through a valid rippleEffects.maxRadius", () => {
+    const resolved = resolvePixelGridConfig({
+      colors: ["#fff"],
+      gap: 5,
+      expandEase: 0.1,
+      breathSpeed: 1,
+      rippleEffects: { maxRadius: 180 }
+    });
+
+    expect(resolved.rippleEffects.maxRadius).toBe(180);
+    expect(resolved.warnings).toHaveLength(0);
+  });
+
+  it("warns and falls back to undefined for an invalid rippleEffects.maxRadius", () => {
+    for (const invalid of [0, -50, NaN]) {
+      const resolved = resolvePixelGridConfig({
+        colors: ["#fff"],
+        gap: 5,
+        expandEase: 0.1,
+        breathSpeed: 1,
+        rippleEffects: { maxRadius: invalid }
+      });
+
+      expect(resolved.rippleEffects.maxRadius).toBeUndefined();
+      expect(resolved.warnings.some((warning) => warning.includes("rippleEffects.maxRadius"))).toBe(true);
+    }
   });
 
   it("passes through an explicit respectReducedMotion override", () => {
@@ -437,7 +575,8 @@ describe("resolvePixelGridConfig", () => {
           thickness: 400,
           maxBursts: 999,
           triggerMode: "both",
-          activationThreshold: -1
+          activationThreshold: -1,
+          scope: "all"
         }
       }
     });
@@ -459,6 +598,7 @@ describe("resolvePixelGridConfig", () => {
     expect(resolved.effects.shockwaveBurst.maxBursts).toBe(64);
     expect(resolved.effects.shockwaveBurst.triggerMode).toBe("both");
     expect(resolved.effects.shockwaveBurst.activationThreshold).toBe(0);
+    expect(resolved.effects.shockwaveBurst.scope).toBe("all");
     expect(
       resolved.warnings.some((warning) =>
         warning.includes("effects.paletteCycle.palette")

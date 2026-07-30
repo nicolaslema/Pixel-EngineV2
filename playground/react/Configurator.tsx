@@ -9,7 +9,8 @@ import type {
   MagneticHoverMode,
   ReactiveHoverScope,
   PixelGridDetailLevel,
-  SampleMode
+  SampleMode,
+  OrganicNoisePattern
 } from "@pixel-engine/effects";
 import { Button, ColorControl, FileControl, Section, SelectControl, SliderControl, TextControl, ToggleControl, panelStyle } from "./controls";
 
@@ -19,6 +20,7 @@ const HOVER_SCOPES: ReactiveHoverScope[] = ["all", "activeOnly", "imageMask"];
 const MAGNETIC_MODES: MagneticHoverMode[] = ["attract", "repel"];
 const SAMPLE_MODES: SampleMode[] = ["alpha", "luminance", "threshold", "invert"];
 const DETAIL_LEVELS: PixelGridDetailLevel[] = ["low", "medium", "high"];
+const ORGANIC_NOISE_PATTERNS: OrganicNoisePattern[] = ["waves", "perlin", "cells", "turbulence"];
 const MASK_KINDS = ["none", "text", "image"] as const;
 type MaskKind = (typeof MASK_KINDS)[number];
 
@@ -96,6 +98,13 @@ export function Configurator() {
   const [breathingMinOpacity, setBreathingMinOpacity] = useState(0.45);
   const [breathingMaxOpacity, setBreathingMaxOpacity] = useState(1);
 
+  const [organicNoiseEnabled, setOrganicNoiseEnabled] = useState(false);
+  const [organicNoisePattern, setOrganicNoisePattern] = useState<OrganicNoisePattern>("waves");
+  const [organicNoiseRadius, setOrganicNoiseRadius] = useState(150);
+  const [organicNoiseStrength, setOrganicNoiseStrength] = useState(0.4);
+  const [organicNoiseSpeed, setOrganicNoiseSpeed] = useState(0.002);
+  const [organicNoiseScale, setOrganicNoiseScale] = useState(1);
+
   const [maskKind, setMaskKind] = useState<MaskKind>("text");
   const [maskText, setMaskText] = useState("PIXEL");
   const [maskFontSize, setMaskFontSize] = useState(140);
@@ -148,6 +157,14 @@ export function Configurator() {
         strength: breathingStrength,
         minOpacity: breathingMinOpacity,
         maxOpacity: breathingMaxOpacity
+      },
+      organicNoise: {
+        enabled: organicNoiseEnabled,
+        pattern: organicNoisePattern,
+        radius: organicNoiseRadius,
+        strength: organicNoiseStrength,
+        speed: organicNoiseSpeed,
+        scale: organicNoiseScale
       }
     }),
     [
@@ -178,7 +195,13 @@ export function Configurator() {
       breathingRadius,
       breathingStrength,
       breathingMinOpacity,
-      breathingMaxOpacity
+      breathingMaxOpacity,
+      organicNoiseEnabled,
+      organicNoisePattern,
+      organicNoiseRadius,
+      organicNoiseStrength,
+      organicNoiseSpeed,
+      organicNoiseScale
     ]
   );
 
@@ -306,6 +329,13 @@ export function Configurator() {
             value={magneticRadius}
             onChange={setMagneticRadius}
           />
+          {magneticEnabled && hoverMode === "reactive" && (hoverDisplace > 0 || hoverJitter > 0) && (
+            <div style={{ fontSize: 11, color: "#64748b" }}>
+              Tip: with mode = reactive, `displace`/`jitter` also move cells (pushing them away
+              from the cursor) at the same time as magnetic — the two can fight each other. Set
+              mode = classic, or displace/jitter to 0, to see magnetic on its own.
+            </div>
+          )}
         </Section>
 
         <Section title="Ripple">
@@ -374,6 +404,56 @@ export function Configurator() {
             step={0.02}
             value={breathingMaxOpacity}
             onChange={setBreathingMaxOpacity}
+          />
+        </Section>
+
+        <Section title="Organic noise">
+          <ToggleControl
+            label="enabled (organicNoise.enabled)"
+            checked={organicNoiseEnabled}
+            onChange={setOrganicNoiseEnabled}
+          />
+          <div style={{ fontSize: 11, color: "#64748b" }}>
+            OR&apos;d with the &quot;organic noise enabled&quot; toggle in Influences above --
+            either one turns it on.
+          </div>
+          <SelectControl
+            label="pattern"
+            value={organicNoisePattern}
+            options={ORGANIC_NOISE_PATTERNS}
+            onChange={setOrganicNoisePattern}
+          />
+          <SliderControl
+            label="radius"
+            min={20}
+            max={400}
+            step={10}
+            value={organicNoiseRadius}
+            onChange={setOrganicNoiseRadius}
+          />
+          <SliderControl
+            label="strength"
+            min={0}
+            max={2}
+            step={0.05}
+            value={organicNoiseStrength}
+            onChange={setOrganicNoiseStrength}
+          />
+          <SliderControl
+            label="speed"
+            min={0}
+            max={0.02}
+            step={0.001}
+            value={organicNoiseSpeed}
+            onChange={setOrganicNoiseSpeed}
+          />
+          <SliderControl
+            label="scale"
+            min={0.2}
+            max={4}
+            step={0.1}
+            value={organicNoiseScale}
+            onChange={setOrganicNoiseScale}
           />
         </Section>
       </div>

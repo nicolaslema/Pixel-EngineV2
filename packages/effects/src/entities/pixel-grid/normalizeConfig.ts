@@ -9,11 +9,13 @@ import {
   ResolvedPixelGridImageMaskConfig,
   ResolvedPixelGridTextMaskConfig
 } from "./types";
+import { OrganicNoisePattern } from "../../influences/OrganicNoiseInfluence";
 
 const DEFAULT_COLORS = ["#334155", "#475569", "#64748b"];
 const DEFAULT_GAP = 7;
 const DEFAULT_EXPAND_EASE = 0.08;
 const DEFAULT_BREATH_SPEED = 1;
+const ORGANIC_NOISE_PATTERNS: OrganicNoisePattern[] = ["waves", "perlin", "cells", "turbulence"];
 
 export function resolvePixelGridConfig(
   config: PixelGridConfig
@@ -52,7 +54,13 @@ export function resolvePixelGridConfig(
     }
   };
 
-  const resolvedRipple: Required<ResolvedPixelGridConfig["rippleEffects"]> = {
+  let rippleMaxRadius = rippleEffects?.maxRadius;
+  if (rippleMaxRadius !== undefined && (!Number.isFinite(rippleMaxRadius) || rippleMaxRadius <= 0)) {
+    warnings.push("rippleEffects.maxRadius must be > 0. Falling back to the canvas-derived default.");
+    rippleMaxRadius = undefined;
+  }
+
+  const resolvedRipple: ResolvedPixelGridConfig["rippleEffects"] = {
     speed: rippleEffects?.speed ?? 0.5,
     thickness: rippleEffects?.thickness ?? 50,
     strength: rippleEffects?.strength ?? 30,
@@ -61,7 +69,8 @@ export function resolvePixelGridConfig(
     deactivateMultiplier: rippleEffects?.deactivateMultiplier ?? 1,
     displaceMultiplier: rippleEffects?.displaceMultiplier ?? 1,
     jitterMultiplier: rippleEffects?.jitterMultiplier ?? 1,
-    tintPalette: rippleEffects?.tintPalette ?? []
+    tintPalette: rippleEffects?.tintPalette ?? [],
+    maxRadius: rippleMaxRadius
   };
 
   const sharedMorphHold = config.autoMorph?.intervalMs;
@@ -82,7 +91,6 @@ export function resolvePixelGridConfig(
       config.breathing?.radiusY ??
       config.breathing?.radius ??
       resolvedHover.radius,
-    shape: config.breathing?.shape ?? "circle",
     strength: config.breathing?.strength ?? 0.9,
     minOpacity: config.breathing?.minOpacity ?? 0.55,
     maxOpacity: config.breathing?.maxOpacity ?? 1,
@@ -98,6 +106,31 @@ export function resolvePixelGridConfig(
     breathing.minOpacity = min;
     breathing.maxOpacity = max;
   }
+
+  if (config.organicRadius !== undefined) {
+    warnings.push("organicRadius is deprecated. Use organicNoise.radius instead.");
+  }
+  if (config.organicStrength !== undefined) {
+    warnings.push("organicStrength is deprecated. Use organicNoise.strength instead.");
+  }
+  if (config.organicSpeed !== undefined) {
+    warnings.push("organicSpeed is deprecated. Use organicNoise.speed instead.");
+  }
+
+  let organicPattern = config.organicNoise?.pattern ?? "waves";
+  if (!ORGANIC_NOISE_PATTERNS.includes(organicPattern)) {
+    warnings.push(`organicNoise.pattern "${organicPattern}" is not recognized. Falling back to "waves".`);
+    organicPattern = "waves";
+  }
+
+  const organicNoise: Required<ResolvedPixelGridConfig["organicNoise"]> = {
+    enabled: config.organicNoise?.enabled ?? false,
+    radius: config.organicNoise?.radius ?? config.organicRadius ?? 150,
+    strength: config.organicNoise?.strength ?? config.organicStrength ?? 0.4,
+    speed: config.organicNoise?.speed ?? config.organicSpeed ?? 0.002,
+    pattern: organicPattern,
+    scale: clampMin(config.organicNoise?.scale, 0.01, 1)
+  };
 
   const detail = config.performance?.detail ?? "medium";
   const detailDefaults = getDetailDefaults(detail);
@@ -134,7 +167,8 @@ export function resolvePixelGridConfig(
       thickness: clamp(config.effects?.shockwaveBurst?.thickness, 1, 160, 32),
       maxBursts: clampInt(config.effects?.shockwaveBurst?.maxBursts, 1, 64, 16),
       triggerMode: config.effects?.shockwaveBurst?.triggerMode ?? "pointerDown",
-      activationThreshold: clampMin(config.effects?.shockwaveBurst?.activationThreshold, 0, 0.025)
+      activationThreshold: clampMin(config.effects?.shockwaveBurst?.activationThreshold, 0, 0.025),
+      scope: config.effects?.shockwaveBurst?.scope ?? "activeOnly"
     }
   };
 
@@ -148,6 +182,7 @@ export function resolvePixelGridConfig(
     rippleEffects: resolvedRipple,
     breathing,
     autoMorph,
+    organicNoise,
     maskTimeline,
     performance: resolvedPerformance,
     effects: resolvedEffects,

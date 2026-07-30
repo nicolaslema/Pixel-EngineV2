@@ -2,6 +2,18 @@
 
 This guide covers migration to the formal v1 stable baseline and the new package split.
 
+## Update: Unreleased — `PaletteCycleScope` renamed to `PostEffectScope` (2026-07-30)
+
+- `PaletteCycleScope` (values unchanged: `"all" | "activeOnly"`) is renamed to `PostEffectScope`.
+- Reason: this type is used by `paletteCycle.scope` and `dissolve.scope`, and now also `shockwaveBurst.scope` (newly added — see `CHANGELOG.md`) — `PaletteCycleScope` was a misleadingly specific name for what is really a shared post-effect concept.
+- Migration: if you imported `PaletteCycleScope` directly from `@pixel-engine/effects` for typing purposes, import `PostEffectScope` instead. No change needed if you only used it structurally (e.g. `scope: "activeOnly"` string literals in config objects).
+
+## Update: Unreleased — `BreathingOptions.shape` removed (2026-07-30)
+
+- `breathing.shape` is removed from `BreathingOptions` (and `ResolvedPixelGridConfig`).
+- Reason: it was resolved into the config but read by zero consumers (`breathing-system.ts` only ever used `radius`/`radiusY` via `computeHoverFalloff`, which has no shape parameter at all). Its type, `HoverShape`, has been circle-only since the v1.0.20 hover simplification, so the field carried no information even when set. Same class of cleanup as the `hoverEffects.radiusY`/`shape` removal below.
+- Migration: if you were setting `breathing.shape`, remove it — it had no effect. `breathing.radiusY` is unaffected and still controls breathing's independent elliptical falloff.
+
 ## Update: Unreleased — `PixelCell` removed from `@pixel-engine/effects` (2026-07-28)
 
 - `PixelCell` (previously exported from `@pixel-engine/effects`, one class instance per grid cell) has been removed. Cell storage was rewritten as `PixelCellBuffer`, a structure-of-arrays layout (parallel typed arrays instead of one heap object per cell), for update/render performance at high cell counts. `PixelCellBuffer` is **not** exported — it is internal runtime detail, same as everything else under `entities/pixel-grid/internal/`.

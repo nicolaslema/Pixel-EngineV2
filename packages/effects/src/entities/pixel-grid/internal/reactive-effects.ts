@@ -49,7 +49,6 @@ export function applyMagneticHoverToCell(
   options: {
     buffer: PixelCellBuffer;
     index: number;
-    interaction: number;
     originX: number;
     originY: number;
     hoverEffects: ResolvedPixelGridConfig["hoverEffects"];
@@ -69,7 +68,7 @@ export function applyMagneticHoverToCell(
 
   const len = Math.sqrt(dx * dx + dy * dy) || 1;
   const direction = magnetic.mode === "attract" ? 1 : -1;
-  const pull = magnetic.strength * options.interaction * falloff * direction;
+  const pull = magnetic.strength * falloff * direction;
 
   options.buffer.offsetX[options.index] += (dx / len) * pull;
   options.buffer.offsetY[options.index] += (dy / len) * pull;

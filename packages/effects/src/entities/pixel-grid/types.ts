@@ -1,5 +1,5 @@
-import { HoverShape } from "../../influences/HoverShape";
 import { ImageMaskOptions } from "../../influences/Masks/ImageMaskInfluence";
+import { OrganicNoisePattern } from "../../influences/OrganicNoiseInfluence";
 
 export type HoverMode = "classic" | "reactive";
 export type ReactiveHoverScope = "all" | "activeOnly" | "imageMask";
@@ -8,7 +8,7 @@ export type InitialMask = "image" | "text";
 export type PixelGridDetailLevel = "low" | "medium" | "high";
 export type MaskTimelineTransitionMode = "morph" | "fade" | "dissolve";
 export type PixelGridMaskType = InitialMask;
-export type PaletteCycleScope = "all" | "activeOnly";
+export type PostEffectScope = "all" | "activeOnly";
 
 export interface HoverMagneticOptions {
   enabled?: boolean;
@@ -58,6 +58,12 @@ export interface RippleEffectsOptions {
   displaceMultiplier?: number;
   jitterMultiplier?: number;
   tintPalette?: string[];
+  /**
+   * Radius at which a ripple dies. Omit to derive it from canvas size at construction time
+   * (`max(width, height) * 1.2`, the historical default) -- set explicitly for a ripple
+   * that stays contained regardless of canvas size.
+   */
+  maxRadius?: number;
 }
 
 export interface BreathingOptions {
@@ -65,7 +71,6 @@ export interface BreathingOptions {
   speed?: number;
   radius?: number;
   radiusY?: number;
-  shape?: HoverShape;
   strength?: number;
   minOpacity?: number;
   maxOpacity?: number;
@@ -80,6 +85,21 @@ export interface AutoMorphOptions {
   holdTextMs?: number;
   morphDurationMs?: number;
   intervalMs?: number;
+}
+
+export interface OrganicNoiseOptions {
+  /**
+   * A second, independent way to turn organic noise on, OR'd with
+   * `PixelGridInfluenceOptions.organic` -- either one being true enables it.
+   */
+  enabled?: boolean;
+  radius?: number;
+  strength?: number;
+  speed?: number;
+  /** Noise algorithm. Default `"waves"` (the original, always-available pattern). */
+  pattern?: OrganicNoisePattern;
+  /** Grain-size multiplier for the spatial frequency. Smaller = bigger blobs, larger = finer/more granular noise. Default `1`. */
+  scale?: number;
 }
 
 export interface MaskTimelineTransitionOptions {
@@ -179,7 +199,7 @@ export interface PerformanceOptions {
 export interface PaletteCycleEffectOptions {
   enabled?: boolean;
   speed?: number;
-  scope?: PaletteCycleScope;
+  scope?: PostEffectScope;
   activationThreshold?: number;
   palette?: string[];
 }
@@ -188,7 +208,7 @@ export interface PixelDissolveEffectOptions {
   enabled?: boolean;
   speed?: number;
   amount?: number;
-  scope?: PaletteCycleScope;
+  scope?: PostEffectScope;
   activationThreshold?: number;
 }
 
@@ -202,6 +222,7 @@ export interface ShockwaveBurstEffectOptions {
   maxBursts?: number;
   triggerMode?: ShockwaveTriggerMode;
   activationThreshold?: number;
+  scope?: PostEffectScope;
 }
 
 export interface PixelGridEffectsOptions {
@@ -213,7 +234,7 @@ export interface PixelGridEffectsOptions {
 export interface ResolvedPaletteCycleEffectOptions {
   enabled: boolean;
   speed: number;
-  scope: PaletteCycleScope;
+  scope: PostEffectScope;
   activationThreshold: number;
   palette: string[];
 }
@@ -222,7 +243,7 @@ export interface ResolvedPixelDissolveEffectOptions {
   enabled: boolean;
   speed: number;
   amount: number;
-  scope: PaletteCycleScope;
+  scope: PostEffectScope;
   activationThreshold: number;
 }
 
@@ -234,6 +255,7 @@ export interface ResolvedShockwaveBurstEffectOptions {
   maxBursts: number;
   triggerMode: ShockwaveTriggerMode;
   activationThreshold: number;
+  scope: PostEffectScope;
 }
 
 export interface ResolvedPixelGridEffectsOptions {
@@ -300,8 +322,11 @@ export interface PixelGridConfig {
    */
   respectReducedMotion?: boolean;
 
+  /** @deprecated Use `organicNoise.radius` instead. */
   organicRadius?: number;
+  /** @deprecated Use `organicNoise.strength` instead. */
   organicStrength?: number;
+  /** @deprecated Use `organicNoise.speed` instead. */
   organicSpeed?: number;
 
   hoverEffects?: HoverEffectsOptions;
@@ -311,6 +336,7 @@ export interface PixelGridConfig {
   maskTimeline?: MaskTimelineOptions;
   performance?: PerformanceOptions;
   effects?: PixelGridEffectsOptions;
+  organicNoise?: OrganicNoiseOptions;
 
   imageMask?: PixelGridImageMaskConfig;
   textMask?: PixelGridTextMaskConfig;
@@ -332,9 +358,10 @@ export interface ResolvedPixelGridConfig {
   breathSpeed: number;
   respectReducedMotion: boolean;
   hoverEffects: ResolvedHoverEffectsOptions;
-  rippleEffects: Required<RippleEffectsOptions>;
+  rippleEffects: Required<Omit<RippleEffectsOptions, "maxRadius">> & { maxRadius?: number };
   breathing: Required<BreathingOptions>;
   autoMorph: Required<AutoMorphOptions>;
+  organicNoise: Required<OrganicNoiseOptions>;
   maskTimeline: ResolvedMaskTimelineOptions;
   performance: ResolvedPerformanceOptions;
   effects: ResolvedPixelGridEffectsOptions;

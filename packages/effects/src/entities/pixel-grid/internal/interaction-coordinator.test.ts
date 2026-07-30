@@ -78,6 +78,42 @@ describe("interaction-coordinator", () => {
     expect(buffer.offsetX[0]).toBeLessThan(0);
   });
 
+  it("magnetic pulls a cell beyond hoverEffects.radius when magnetic.radius is larger", () => {
+    // Regression: before the fix, applyHoverToCell's outer gate returned early based on
+    // hoverEffects.radius alone, so a cell outside that radius (but inside a larger
+    // magnetic.radius) never reached applyMagneticHoverToCell at all.
+    const buffer = createTestCellBuffer([
+      { x: 80, y: 0, color: "#334155", gap: 10, targetSize: 1 }
+    ]);
+    const runtime = createPixelGridRuntimeState(buffer.count);
+    runtime.activeMaskWeightCache[0] = 1;
+
+    applyHoverInteractionsPass({
+      buffer,
+      runtime,
+      hoverEffects: {
+        mode: "classic",
+        interactionScope: "all",
+        radius: 50,
+        strength: 1,
+        deactivate: 0,
+        displace: 0,
+        jitter: 0,
+        tintPalette: [],
+        magnetic: {
+          enabled: true,
+          mode: "attract",
+          strength: 2.2,
+          radius: 200
+        }
+      } as any,
+      hoverEnabled: true,
+      mouse: { x: 0, y: 0, inside: true }
+    });
+
+    expect(buffer.offsetX[0]).toBeLessThan(0);
+  });
+
   it("applies both reactive and magnetic hover effects in the same pass when both are enabled", () => {
     // Regression: applyReactiveHoverPass/applyMagneticHoverPass used to be two separate
     // full-grid passes; fused into applyHoverInteractionsPass. This is the one scenario

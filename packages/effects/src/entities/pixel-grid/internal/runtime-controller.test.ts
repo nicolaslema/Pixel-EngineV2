@@ -340,4 +340,70 @@ describe("createPixelGridRuntimeController", () => {
       engine.destroy();
     });
   });
+
+  describe("ripple maxRadius (item 2.2)", () => {
+    it("dies at the configured maxRadius instead of the canvas-derived default", () => {
+      const canvas = document.createElement("canvas");
+      const engine = new PixelEngine({ canvas, width: 400, height: 300 });
+
+      const config: PixelGridConfig = {
+        colors: ["#334155", "#475569", "#64748b"],
+        gap: 8,
+        expandEase: 0.08,
+        breathSpeed: 1,
+        rippleEffects: { speed: 10, maxRadius: 5 }
+      };
+
+      const runtime = createPixelGridRuntimeController({
+        engine,
+        width: 400,
+        height: 300,
+        config,
+        influenceOptions: { hover: true, ripple: true, organic: false },
+        resolvedConfig: resolvePixelGridConfig(config)
+      });
+
+      runtime.triggerRipple(100, 70);
+      expect(runtime.getDebugSnapshot().activeRipples).toBe(1);
+
+      // speed=10 * delta=16ms -> radius=160 after one tick, already past maxRadius=5.
+      runtime.update(16);
+
+      expect(runtime.getDebugSnapshot().activeRipples).toBe(0);
+
+      engine.destroy();
+    });
+
+    it("falls back to the canvas-derived default when maxRadius is unset", () => {
+      const canvas = document.createElement("canvas");
+      const engine = new PixelEngine({ canvas, width: 400, height: 300 });
+
+      const config: PixelGridConfig = {
+        colors: ["#334155", "#475569", "#64748b"],
+        gap: 8,
+        expandEase: 0.08,
+        breathSpeed: 1,
+        rippleEffects: { speed: 10 }
+      };
+
+      const runtime = createPixelGridRuntimeController({
+        engine,
+        width: 400,
+        height: 300,
+        config,
+        influenceOptions: { hover: true, ripple: true, organic: false },
+        resolvedConfig: resolvePixelGridConfig(config)
+      });
+
+      runtime.triggerRipple(100, 70);
+
+      // Same single tick that killed the maxRadius=5 ripple above (radius=160) -- the
+      // canvas-derived default (max(400,300)*1.2 = 480) should still be alive.
+      runtime.update(16);
+
+      expect(runtime.getDebugSnapshot().activeRipples).toBe(1);
+
+      engine.destroy();
+    });
+  });
 });

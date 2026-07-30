@@ -158,6 +158,7 @@ export function createPixelGridRuntimeController(
     config: params.config,
     options: params.influenceOptions,
     hoverEffects: params.resolvedConfig.hoverEffects,
+    organicNoise: params.resolvedConfig.organicNoise,
     influenceManager
   });
 
@@ -315,6 +316,7 @@ export function createPixelGridRuntimeController(
       if (!params.influenceOptions.ripple) return;
 
       const maxRadius =
+        params.resolvedConfig.rippleEffects.maxRadius ??
         Math.max(params.width, params.height) * 1.2;
 
       if (runtime.activeRipples.length >= maxRipples) {

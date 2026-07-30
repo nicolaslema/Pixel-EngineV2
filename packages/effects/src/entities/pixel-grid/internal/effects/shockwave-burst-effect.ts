@@ -10,6 +10,9 @@ interface ShockwaveBurstInstance {
 
 export class ShockwaveBurstEffect implements PixelGridPostEffect {
   readonly id = "shockwave-burst";
+  // Must run after PixelDissolveEffect (order 10), which mutates targetSize before this
+  // effect reads it for its own scope gate, and before PaletteCycleEffect (order 30), whose
+  // activeOnly scope gate is meant to see this effect's targetSize/opacity boost.
   readonly order = 20;
 
   private readonly bursts: ShockwaveBurstInstance[] = [];
@@ -64,11 +67,13 @@ export class ShockwaveBurstEffect implements PixelGridPostEffect {
 
     const thickness = this.options.thickness;
     const threshold = this.options.activationThreshold;
+    const scope = this.options.scope;
     const strength = this.options.strength;
     const maxSize = buffer.maxSize;
 
     for (let i = 0; i < buffer.count; i++) {
-      if (buffer.targetSize[i] <= threshold) continue;
+      const isActive = buffer.targetSize[i] > threshold;
+      if (scope === "activeOnly" && !isActive) continue;
 
       let wavePeak = 0;
       for (let b = 0; b < this.bursts.length; b++) {

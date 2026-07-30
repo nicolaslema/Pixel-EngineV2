@@ -56,14 +56,15 @@ interface ReactiveRipplePassParams {
 }
 
 /**
- * Fused reactive-hover + magnetic-hover pass. Both effects share the same per-cell gate
- * (shouldAffectCell + getHoverWeight, same hoverEffects.radius-based falloff) and used to
- * run as two separate full-grid loops recomputing that falloff independently -- merged into
- * one loop, one falloff computation, with each sub-effect still independently gated exactly
- * as before (`mode === "reactive"` for the reactive effect, `magnetic.enabled` for the
- * magnetic pull). Magnetic's own internal falloff (based on `magnetic.radius`, which can
- * differ from `hoverEffects.radius`) is untouched -- magnetic reach is still implicitly
- * capped by `hoverEffects.radius` via this shared outer gate, exactly like before.
+ * Fused reactive-hover + magnetic-hover pass. Both effects share only the outer
+ * shouldAffectCell/interactionScope gate ("is this cell in scope at all") -- beyond that,
+ * each computes and gates on its own falloff independently: the reactive effect on
+ * `hoverEffects.radius`/`hoverEffects.strength`, magnetic on its own `magnetic.radius`/
+ * `magnetic.strength`. Magnetic's reach and pull magnitude are fully decoupled from
+ * `hoverEffects.radius`/`strength` -- it used to reuse the reactive falloff (both as an
+ * extra multiplier on pull strength and as an outer early-return gate), which silently
+ * squared its effective falloff curve when the two radii matched (the default) and made
+ * any `magnetic.radius` larger than `hoverEffects.radius` a dead zone beyond that point.
  */
 export function applyHoverToCell(
   buffer: PixelCellBuffer,
@@ -80,29 +81,26 @@ export function applyHoverToCell(
     return;
   }
 
-  const falloff = getHoverWeight(buffer, index, ctx.mouse, ctx.hoverEffects);
-  if (falloff <= 0) return;
-
-  const interaction = falloff * ctx.hoverEffects.strength;
-
   if (ctx.applyReactive) {
-    applyReactiveEffectsToCell({
-      buffer,
-      index,
-      interaction,
-      originX: ctx.mouse.x,
-      originY: ctx.mouse.y,
-      reactiveTime: ctx.runtime.reactiveTime,
-      hoverEffects: ctx.hoverEffects,
-      tintPalette: ctx.hoverEffects.tintPalette
-    });
+    const falloff = getHoverWeight(buffer, index, ctx.mouse, ctx.hoverEffects);
+    if (falloff > 0) {
+      applyReactiveEffectsToCell({
+        buffer,
+        index,
+        interaction: falloff * ctx.hoverEffects.strength,
+        originX: ctx.mouse.x,
+        originY: ctx.mouse.y,
+        reactiveTime: ctx.runtime.reactiveTime,
+        hoverEffects: ctx.hoverEffects,
+        tintPalette: ctx.hoverEffects.tintPalette
+      });
+    }
   }
 
   if (ctx.applyMagnetic) {
     applyMagneticHoverToCell({
       buffer,
       index,
-      interaction,
       originX: ctx.mouse.x,
       originY: ctx.mouse.y,
       hoverEffects: ctx.hoverEffects

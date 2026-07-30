@@ -43,6 +43,19 @@ const debug = grid.getDebugSnapshot();
 // { totalCells, activeCells, activeRipples, timeline: { playing, stepIndex } }
 ```
 
+### `MorphMaskInfluence` (manual/advanced)
+
+`@pixel-engine/effects` exports `MorphMaskInfluence`, a standalone `Influence` that continuously interpolates between two other mask sources over a fixed duration:
+
+```ts
+import { MorphMaskInfluence, TextMaskInfluence, ImageMaskInfluence } from "@pixel-engine/effects";
+
+const morph = new MorphMaskInfluence(maskA, maskB, /* durationMs */ 1200);
+// morph.isAlive() is true until the interpolation finishes (t reaches 1)
+```
+
+This is independent of the declarative `maskTimeline` system (`PixelGridConfig.maskTimeline`, driven through React presets/`gridConfig` or direct config) — that system uses `TimelineTransitionMaskInfluence` internally, not `MorphMaskInfluence`. `MorphMaskInfluence` is for consumers building a scene manually against `@pixel-engine/core`/`@pixel-engine/effects` who want a one-off continuous blend between two mask sources without going through the timeline config.
+
 ## Core Loop and Scheduler Semantics
 
 - Simulation runs on fixed timestep updates.
@@ -224,10 +237,21 @@ Optional groups:
 - `hoverEffects`
 - `rippleEffects`
 - `breathing`
+- `organicNoise` (`enabled`, `pattern`, `radius`, `strength`, `speed`, `scale`)
 - `effects` (`paletteCycle`, `dissolve`, `shockwaveBurst`)
 - `performance` (`detail`, `viewportCulling`, `cullingPadding`, `minRenderableSize`)
 - `imageMask`, `textMask`, `autoMorph`, `initialMask`
 - `canvasBackground`
+
+Ripple model notes:
+- `rippleEffects.maxRadius`: radius at which a ripple dies. Omit to derive it from canvas size at construction time (`max(width, height) * 1.2`, the historical default, meaning a ripple always eventually covers most of the canvas before dying). Set explicitly for a ripple that stays contained regardless of canvas size.
+
+Organic noise model notes:
+- `organicNoise.enabled` is a *second*, independent way to enable organic noise, OR'd together with the `influenceOptions.organic` boolean passed to `PixelGridEffect`'s constructor (or `usePixelGridEffect`'s `influenceOptions` prop) — either one being `true` turns it on. Useful for enabling it purely from `gridConfig` without also passing a separate `influenceOptions` object.
+- `organicNoise.radius`/`.strength`/`.speed` replace the deprecated top-level `organicRadius`/`organicStrength`/`organicSpeed` fields (still accepted, with a console warning — `organicNoise.X` wins if both are set for the same field). Defaults unchanged: `radius: 150`, `strength: 0.4`, `speed: 0.002`.
+- `organicNoise.pattern`: `"waves"` (default, the original sin/cos blend) | `"perlin"` (classic 2D gradient noise, smoother/more "organic" than waves) | `"cells"` (Worley/cellular noise, differentiated blob/cell look) | `"turbulence"` (FBM — 4 octaves of Perlin noise summed at doubling frequency, more fine detail than a single octave). Invalid values warn and fall back to `"waves"`.
+- `organicNoise.scale`: grain-size multiplier for the noise's spatial frequency, default `1`. Smaller than `1` = bigger blobs/waves, larger than `1` = finer/more granular noise. Floored at `0.01`.
+- `seed`/`position`/`falloff` are not yet configurable (deterministic-but-fixed noise, always centered on the canvas, always radial falloff) — planned as separate follow-up items.
 
 Hover model notes:
 - `hoverEffects.radius`: single circular radius (no `radiusY`).
@@ -236,6 +260,8 @@ Hover model notes:
   - `mode: "attract" | "repel"`
   - `strength`
   - `radius`
+  - `magnetic.strength`/`magnetic.radius` are fully independent of `hoverEffects.strength`/`hoverEffects.radius` — magnetic's pull magnitude and reach are driven solely by its own fields, the same way `rippleEffects` is independently tunable from `hoverEffects`. In particular, `magnetic.radius` may be set larger or smaller than `hoverEffects.radius` with no interaction between the two.
+  - `magnetic` and `hoverEffects.mode: "reactive"` are independent effects that both write into the same per-cell offset, additively — they are not mutually exclusive, but they compose. In particular, `mode: "reactive"`'s own `displace` pushes cells *away* from the cursor (unrelated to `magnetic`), so enabling `magnetic: { mode: "attract" }` alongside a nonzero `displace`/`jitter` layers an inward pull on top of an outward push/jitter, which can visually cancel or muddy each other. For a "pure" magnetic-only look, use `mode: "classic"` (disables `deactivate`/`displace`/`jitter`/tint entirely) or set `displace`/`jitter` to `0`.
 
 Example runtime tuning:
 
@@ -266,11 +292,17 @@ gridConfig: {
       strength: 0.45,
       thickness: 28,
       maxBursts: 16,
-      triggerMode: "pointerDown"
+      triggerMode: "pointerDown",
+      scope: "activeOnly"
     }
   }
 }
 ```
+
+Post-effect notes:
+- `scope: "all" | "activeOnly"` (default `"activeOnly"`) is available on all three post-effects (`paletteCycle`, `dissolve`, `shockwaveBurst`) — `"activeOnly"` skips cells at/under `activationThreshold`, `"all"` applies to every cell regardless.
+- `activationThreshold`'s default is `0.025` for all three (not different per effect).
+- Processing order is fixed and intentional: `dissolve → shockwaveBurst → paletteCycle`. Each runs after the previous one's mutation to `targetSize`/`opacity`, so downstream effects observe the upstream effect's result within the same frame — e.g. a cell revealed by a passing `shockwaveBurst` becomes eligible for `paletteCycle`'s `"activeOnly"` scope in that same pass. The order isn't configurable.
 
 ## React examples by scenario
 

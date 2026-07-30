@@ -9,6 +9,7 @@ import {
 import { createTestCell, createTestCellBuffer } from "./test-utils/cell-buffer";
 import { RippleInfluence } from "../../../influences/RippleInfluence";
 import { PixelCellBuffer } from "./cell-buffer";
+import { computeHoverFalloff } from "../../../influences/HoverShape";
 
 const hoverEffects = {
   mode: "reactive" as const,
@@ -77,10 +78,88 @@ describe("pixel-grid reactive-effects", () => {
     applyMagneticHoverToCell({
       buffer,
       index,
-      interaction: 1,
       originX: 0,
       originY: 0,
       hoverEffects: hoverWithMagnetic as any
+    });
+
+    expect(buffer.offsetX[index]).toBeLessThan(0);
+  });
+
+  it("magnetic pull is independent of hoverEffects.strength", () => {
+    const magnetic = {
+      enabled: true,
+      mode: "attract" as const,
+      strength: 3,
+      radius: 100
+    };
+
+    const weak = createTestCell({ x: 10, y: 0, color: "#abc", gap: 5 });
+    const strong = createTestCell({ x: 10, y: 0, color: "#abc", gap: 5 });
+
+    applyMagneticHoverToCell({
+      buffer: weak.buffer,
+      index: weak.index,
+      originX: 0,
+      originY: 0,
+      hoverEffects: { ...hoverEffects, strength: 0.01, magnetic } as any
+    });
+    applyMagneticHoverToCell({
+      buffer: strong.buffer,
+      index: strong.index,
+      originX: 0,
+      originY: 0,
+      hoverEffects: { ...hoverEffects, strength: 5, magnetic } as any
+    });
+
+    expect(weak.buffer.offsetX[weak.index]).toBeCloseTo(strong.buffer.offsetX[strong.index], 5);
+  });
+
+  it("magnetic pull magnitude matches the single-falloff formula (no double attenuation)", () => {
+    const { buffer, index } = createTestCell({ x: 10, y: 0, color: "#abc", gap: 5 });
+    const magnetic = { enabled: true, mode: "attract" as const, strength: 3, radius: 100 };
+
+    applyMagneticHoverToCell({
+      buffer,
+      index,
+      originX: 0,
+      originY: 0,
+      hoverEffects: { ...hoverEffects, magnetic } as any
+    });
+
+    const dx = 0 - 10;
+    const dy = 0 - 0;
+    const falloff = computeHoverFalloff(dx, dy, { radiusX: magnetic.radius, radiusY: magnetic.radius });
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const expectedPull = magnetic.strength * falloff;
+    const expectedOffsetX = (dx / len) * expectedPull;
+
+    expect(buffer.offsetX[index]).toBeCloseTo(expectedOffsetX, 5);
+  });
+
+  it("magnetic reaches beyond hoverEffects.radius when magnetic.radius is larger", () => {
+    const { buffer, index } = createTestCell({ x: 80, y: 0, color: "#abc", gap: 5 });
+    const config = {
+      ...hoverEffects,
+      radius: 50,
+      magnetic: {
+        enabled: true,
+        mode: "attract" as const,
+        strength: 3,
+        radius: 200
+      }
+    };
+
+    // Beyond hoverEffects.radius (50), so the reactive-hover falloff would be 0 here --
+    // magnetic must not depend on it at all.
+    expect(getHoverWeight(buffer, index, { x: 0, y: 0, inside: true }, config as any)).toBe(0);
+
+    applyMagneticHoverToCell({
+      buffer,
+      index,
+      originX: 0,
+      originY: 0,
+      hoverEffects: config as any
     });
 
     expect(buffer.offsetX[index]).toBeLessThan(0);
