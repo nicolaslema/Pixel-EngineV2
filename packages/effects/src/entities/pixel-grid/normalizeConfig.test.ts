@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolvePixelGridConfig } from "./normalizeConfig";
+import { DEFAULT_NOISE_SEED } from "../../utils/math";
 
 describe("resolvePixelGridConfig", () => {
   it("provides stable defaults", () => {
@@ -39,8 +40,12 @@ describe("resolvePixelGridConfig", () => {
       strength: 0.4,
       speed: 0.002,
       pattern: "waves",
-      scale: 1
+      scale: 1,
+      position: "center",
+      falloff: "radial",
+      seed: DEFAULT_NOISE_SEED
     });
+    expect(resolved.organicNoiseLayers).toEqual([]);
   });
 
   it("passes through an explicit organicNoise override", () => {
@@ -55,7 +60,10 @@ describe("resolvePixelGridConfig", () => {
         strength: 0.8,
         speed: 0.01,
         pattern: "perlin",
-        scale: 2
+        scale: 2,
+        position: "follow-mouse",
+        falloff: "none",
+        seed: 42
       }
     });
 
@@ -65,7 +73,10 @@ describe("resolvePixelGridConfig", () => {
       strength: 0.8,
       speed: 0.01,
       pattern: "perlin",
-      scale: 2
+      scale: 2,
+      position: "follow-mouse",
+      falloff: "none",
+      seed: 42
     });
     expect(resolved.warnings).toHaveLength(0);
   });
@@ -87,7 +98,10 @@ describe("resolvePixelGridConfig", () => {
       strength: 0.9,
       speed: 0.05,
       pattern: "waves",
-      scale: 1
+      scale: 1,
+      position: "center",
+      falloff: "radial",
+      seed: DEFAULT_NOISE_SEED
     });
     expect(resolved.warnings.some((w) => w.includes("organicRadius"))).toBe(true);
     expect(resolved.warnings.some((w) => w.includes("organicStrength"))).toBe(true);
@@ -141,6 +155,108 @@ describe("resolvePixelGridConfig", () => {
 
     expect(resolved.organicNoise.radius).toBe(42);
     expect(resolved.warnings.some((w) => w.includes("organicRadius"))).toBe(true);
+  });
+
+  it("validates organicNoise.position/falloff, warning and falling back on unrecognized values", () => {
+    const resolved = resolvePixelGridConfig({
+      colors: ["#fff"],
+      gap: 5,
+      expandEase: 0.1,
+      breathSpeed: 1,
+      organicNoise: { position: "bogus" as any, falloff: "bogus" as any }
+    });
+
+    expect(resolved.organicNoise.position).toBe("center");
+    expect(resolved.organicNoise.falloff).toBe("radial");
+    expect(resolved.warnings.some((w) => w.includes("organicNoise.position"))).toBe(true);
+    expect(resolved.warnings.some((w) => w.includes("organicNoise.falloff"))).toBe(true);
+  });
+
+  it("passes an explicit seed through unchanged, with no warning either way", () => {
+    const resolved = resolvePixelGridConfig({
+      colors: ["#fff"],
+      gap: 5,
+      expandEase: 0.1,
+      breathSpeed: 1,
+      organicNoise: { seed: 0 }
+    });
+
+    expect(resolved.organicNoise.seed).toBe(0);
+    expect(resolved.warnings).toHaveLength(0);
+  });
+
+  describe("organicNoises[] (item 3.5, multi-instance)", () => {
+    it("defaults organicNoiseLayers to [] when organicNoises is omitted", () => {
+      const resolved = resolvePixelGridConfig({
+        colors: ["#fff"],
+        gap: 5,
+        expandEase: 0.1,
+        breathSpeed: 1
+      });
+
+      expect(resolved.organicNoiseLayers).toEqual([]);
+    });
+
+    it("resolves organicNoises[] entries in order, each defaulting enabled:true", () => {
+      const resolved = resolvePixelGridConfig({
+        colors: ["#fff"],
+        gap: 5,
+        expandEase: 0.1,
+        breathSpeed: 1,
+        organicNoises: [{ radius: 10 }, { radius: 20, enabled: false }]
+      });
+
+      expect(resolved.organicNoiseLayers).toHaveLength(2);
+      expect(resolved.organicNoiseLayers[0].radius).toBe(10);
+      expect(resolved.organicNoiseLayers[0].enabled).toBe(true);
+      expect(resolved.organicNoiseLayers[1].radius).toBe(20);
+      expect(resolved.organicNoiseLayers[1].enabled).toBe(false);
+    });
+
+    it("keeps the singular organicNoise slot and organicNoises[] layers independent (no cross-leak)", () => {
+      const resolved = resolvePixelGridConfig({
+        colors: ["#fff"],
+        gap: 5,
+        expandEase: 0.1,
+        breathSpeed: 1,
+        organicNoise: { radius: 999 },
+        organicNoises: [{ radius: 10 }]
+      });
+
+      expect(resolved.organicNoise.radius).toBe(999);
+      expect(resolved.organicNoiseLayers[0].radius).toBe(10);
+    });
+
+    it("applies the deprecated legacy fallback only to the singular slot, never to organicNoises[] entries", () => {
+      const resolved = resolvePixelGridConfig({
+        colors: ["#fff"],
+        gap: 5,
+        expandEase: 0.1,
+        breathSpeed: 1,
+        organicRadius: 300,
+        organicNoises: [{}]
+      });
+
+      expect(resolved.organicNoise.radius).toBe(300);
+      expect(resolved.organicNoiseLayers[0].radius).toBe(150);
+    });
+
+    it("validates pattern/position/falloff on organicNoises[] entries with an index-specific warning", () => {
+      const resolved = resolvePixelGridConfig({
+        colors: ["#fff"],
+        gap: 5,
+        expandEase: 0.1,
+        breathSpeed: 1,
+        organicNoises: [{ pattern: "bogus" as any, position: "bogus" as any, falloff: "bogus" as any }]
+      });
+
+      expect(resolved.organicNoiseLayers[0].pattern).toBe("waves");
+      expect(resolved.organicNoiseLayers[0].position).toBe("center");
+      expect(resolved.organicNoiseLayers[0].falloff).toBe("radial");
+      expect(resolved.warnings.some((w) => w.includes("organicNoises[0].pattern"))).toBe(true);
+      expect(resolved.warnings.some((w) => w.includes("organicNoises[0].position"))).toBe(true);
+      expect(resolved.warnings.some((w) => w.includes("organicNoises[0].falloff"))).toBe(true);
+    });
   });
 
   it("passes through a valid rippleEffects.maxRadius", () => {

@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { cellularNoise2D, clamp, perlinNoise2D, smoothstep, turbulenceNoise2D } from "./math";
+import {
+  cellularNoise2D,
+  clamp,
+  DEFAULT_NOISE_SEED,
+  perlinNoise2D,
+  smoothstep,
+  turbulenceNoise2D,
+  TURBULENCE_OCTAVES
+} from "./math";
 
 describe("clamp", () => {
   it("clamps to the given range", () => {
@@ -105,5 +113,62 @@ describe("turbulenceNoise2D", () => {
     expect(() => turbulenceNoise2D(1, 1, 1)).not.toThrow();
     expect(turbulenceNoise2D(1, 1, 1)).toBeGreaterThanOrEqual(0);
     expect(turbulenceNoise2D(1, 1, 1)).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("seed (item 3.4)", () => {
+  const ALT_SEED = 12345;
+  // Avoid integer coordinates: Perlin noise is mathematically always exactly 0 (raw) at
+  // integer lattice points regardless of seed/table (the interpolation weights collapse to
+  // a zero distance vector), which would make seed-comparison tests coincidentally pass/fail
+  // on unrelated grounds.
+  const SEED_TEST_POINTS: Array<[number, number]> = [[3.3, 7.1], [-10.4, 20.6], [55.5, -12.2]];
+
+  it("perlinNoise2D: a different seed changes output, the default seed matches omitting it", () => {
+    for (const [x, y] of SEED_TEST_POINTS) {
+      expect(perlinNoise2D(x, y, ALT_SEED)).not.toBe(perlinNoise2D(x, y));
+    }
+    for (const [x, y] of SEED_TEST_POINTS) {
+      expect(perlinNoise2D(x, y, DEFAULT_NOISE_SEED)).toBe(perlinNoise2D(x, y));
+    }
+  });
+
+  it("cellularNoise2D: a different seed changes output, the default seed matches omitting it", () => {
+    for (const [x, y] of SEED_TEST_POINTS) {
+      expect(cellularNoise2D(x, y, ALT_SEED)).not.toBe(cellularNoise2D(x, y));
+    }
+    for (const [x, y] of SEED_TEST_POINTS) {
+      expect(cellularNoise2D(x, y, DEFAULT_NOISE_SEED)).toBe(cellularNoise2D(x, y));
+    }
+  });
+
+  it("turbulenceNoise2D: a different seed changes output at a fixed octave count, the default seed matches omitting it", () => {
+    for (const [x, y] of SEED_TEST_POINTS) {
+      expect(turbulenceNoise2D(x, y, TURBULENCE_OCTAVES, ALT_SEED)).not.toBe(
+        turbulenceNoise2D(x, y, TURBULENCE_OCTAVES)
+      );
+    }
+    for (const [x, y] of SEED_TEST_POINTS) {
+      expect(turbulenceNoise2D(x, y, TURBULENCE_OCTAVES, DEFAULT_NOISE_SEED)).toBe(
+        turbulenceNoise2D(x, y)
+      );
+    }
+  });
+
+  it("the same explicit seed reproduces the same output across calls", () => {
+    expect(perlinNoise2D(4.4, 9.9, ALT_SEED)).toBe(perlinNoise2D(4.4, 9.9, ALT_SEED));
+    expect(cellularNoise2D(4.4, 9.9, ALT_SEED)).toBe(cellularNoise2D(4.4, 9.9, ALT_SEED));
+    expect(turbulenceNoise2D(4.4, 9.9, TURBULENCE_OCTAVES, ALT_SEED)).toBe(
+      turbulenceNoise2D(4.4, 9.9, TURBULENCE_OCTAVES, ALT_SEED)
+    );
+  });
+
+  it("the permutation table cache doesn't leak state across seeds", () => {
+    const seedA = perlinNoise2D(6.6, 1.1, 111);
+    const seedB = perlinNoise2D(6.6, 1.1, 222);
+    const seedAAgain = perlinNoise2D(6.6, 1.1, 111);
+
+    expect(seedAAgain).toBe(seedA);
+    expect(seedB).not.toBe(seedA);
   });
 });

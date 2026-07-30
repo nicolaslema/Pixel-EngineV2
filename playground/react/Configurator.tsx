@@ -10,7 +10,9 @@ import type {
   ReactiveHoverScope,
   PixelGridDetailLevel,
   SampleMode,
-  OrganicNoisePattern
+  OrganicNoisePattern,
+  OrganicNoisePosition,
+  OrganicNoiseFalloff
 } from "@pixel-engine/effects";
 import { Button, ColorControl, FileControl, Section, SelectControl, SliderControl, TextControl, ToggleControl, panelStyle } from "./controls";
 
@@ -21,6 +23,8 @@ const MAGNETIC_MODES: MagneticHoverMode[] = ["attract", "repel"];
 const SAMPLE_MODES: SampleMode[] = ["alpha", "luminance", "threshold", "invert"];
 const DETAIL_LEVELS: PixelGridDetailLevel[] = ["low", "medium", "high"];
 const ORGANIC_NOISE_PATTERNS: OrganicNoisePattern[] = ["waves", "perlin", "cells", "turbulence"];
+const ORGANIC_NOISE_POSITIONS: OrganicNoisePosition[] = ["center", "follow-mouse"];
+const ORGANIC_NOISE_FALLOFFS: OrganicNoiseFalloff[] = ["radial", "none"];
 const MASK_KINDS = ["none", "text", "image"] as const;
 type MaskKind = (typeof MASK_KINDS)[number];
 
@@ -104,6 +108,11 @@ export function Configurator() {
   const [organicNoiseStrength, setOrganicNoiseStrength] = useState(0.4);
   const [organicNoiseSpeed, setOrganicNoiseSpeed] = useState(0.002);
   const [organicNoiseScale, setOrganicNoiseScale] = useState(1);
+  const [organicNoisePosition, setOrganicNoisePosition] = useState<OrganicNoisePosition>("center");
+  const [organicNoiseFalloff, setOrganicNoiseFalloff] = useState<OrganicNoiseFalloff>("radial");
+  // Playground default kept small/readable -- the library's real DEFAULT_NOISE_SEED is an
+  // internal implementation constant (0x9e3779b9), not a friendly UI default.
+  const [organicNoiseSeed, setOrganicNoiseSeed] = useState(1);
 
   const [maskKind, setMaskKind] = useState<MaskKind>("text");
   const [maskText, setMaskText] = useState("PIXEL");
@@ -164,7 +173,10 @@ export function Configurator() {
         radius: organicNoiseRadius,
         strength: organicNoiseStrength,
         speed: organicNoiseSpeed,
-        scale: organicNoiseScale
+        scale: organicNoiseScale,
+        position: organicNoisePosition,
+        falloff: organicNoiseFalloff,
+        seed: organicNoiseSeed
       }
     }),
     [
@@ -201,7 +213,10 @@ export function Configurator() {
       organicNoiseRadius,
       organicNoiseStrength,
       organicNoiseSpeed,
-      organicNoiseScale
+      organicNoiseScale,
+      organicNoisePosition,
+      organicNoiseFalloff,
+      organicNoiseSeed
     ]
   );
 
@@ -454,6 +469,26 @@ export function Configurator() {
             step={0.1}
             value={organicNoiseScale}
             onChange={setOrganicNoiseScale}
+          />
+          <SelectControl
+            label="position"
+            value={organicNoisePosition}
+            options={ORGANIC_NOISE_POSITIONS}
+            onChange={setOrganicNoisePosition}
+          />
+          <SelectControl
+            label="falloff"
+            value={organicNoiseFalloff}
+            options={ORGANIC_NOISE_FALLOFFS}
+            onChange={setOrganicNoiseFalloff}
+          />
+          <SliderControl
+            label="seed"
+            min={0}
+            max={9999}
+            step={1}
+            value={organicNoiseSeed}
+            onChange={setOrganicNoiseSeed}
           />
         </Section>
       </div>

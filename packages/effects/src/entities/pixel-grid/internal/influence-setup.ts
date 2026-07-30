@@ -12,6 +12,7 @@ interface SetupBaseInfluencesParams {
   options: PixelGridInfluenceOptions;
   hoverEffects: ResolvedPixelGridConfig["hoverEffects"];
   organicNoise: ResolvedPixelGridConfig["organicNoise"];
+  organicNoiseLayers: ResolvedPixelGridConfig["organicNoiseLayers"];
   influenceManager: InfluenceManager;
 }
 
@@ -38,7 +39,30 @@ export function setupBaseInfluences(params: SetupBaseInfluencesParams): void {
         params.organicNoise.strength,
         params.organicNoise.speed,
         params.organicNoise.pattern,
-        params.organicNoise.scale
+        params.organicNoise.scale,
+        params.organicNoise.position,
+        params.organicNoise.falloff,
+        params.organicNoise.seed,
+        params.engine
+      )
+    );
+  }
+
+  for (const layer of params.organicNoiseLayers) {
+    if (!layer.enabled) continue;
+    params.influenceManager.add(
+      new OrganicNoiseInfluence(
+        params.width * 0.5,
+        params.height * 0.5,
+        layer.radius,
+        layer.strength,
+        layer.speed,
+        layer.pattern,
+        layer.scale,
+        layer.position,
+        layer.falloff,
+        layer.seed,
+        params.engine
       )
     );
   }

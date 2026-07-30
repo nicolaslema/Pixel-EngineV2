@@ -1,5 +1,9 @@
 import { ImageMaskOptions } from "../../influences/Masks/ImageMaskInfluence";
-import { OrganicNoisePattern } from "../../influences/OrganicNoiseInfluence";
+import {
+  OrganicNoiseFalloff,
+  OrganicNoisePattern,
+  OrganicNoisePosition
+} from "../../influences/OrganicNoiseInfluence";
 
 export type HoverMode = "classic" | "reactive";
 export type ReactiveHoverScope = "all" | "activeOnly" | "imageMask";
@@ -100,6 +104,25 @@ export interface OrganicNoiseOptions {
   pattern?: OrganicNoisePattern;
   /** Grain-size multiplier for the spatial frequency. Smaller = bigger blobs, larger = finer/more granular noise. Default `1`. */
   scale?: number;
+  /**
+   * `"center"` (default) fixes the effect at the canvas center. `"follow-mouse"` recenters
+   * it on the pointer every frame (read fresh, no caching -- same pattern as `HoverInfluence`),
+   * turning it into an ambient "aura". Moot when `falloff` is `"none"` (no radial boundary
+   * to recenter).
+   */
+  position?: OrganicNoisePosition;
+  /**
+   * `"radial"` (default): smoothstep falloff from the center out to `radius`, as before.
+   * `"none"`: unbounded, full-canvas coverage -- an ambient background texture with no edge;
+   * `radius` is ignored for the falloff shape (still fine to leave set, just unused for
+   * bounding).
+   */
+  falloff?: OrganicNoiseFalloff;
+  /**
+   * Deterministic seed for the `perlin`/`cells`/`turbulence` patterns (`"waves"` has no seed
+   * concept, unaffected). Default reproduces the original fixed output exactly.
+   */
+  seed?: number;
 }
 
 export interface MaskTimelineTransitionOptions {
@@ -337,6 +360,15 @@ export interface PixelGridConfig {
   performance?: PerformanceOptions;
   effects?: PixelGridEffectsOptions;
   organicNoise?: OrganicNoiseOptions;
+  /**
+   * Additional, independent organic-noise instances layered on top of the single
+   * `organicNoise` slot above. Each entry defaults `enabled: true` (explicit array
+   * membership already signals intent, unlike the legacy singular slot which defaults
+   * `enabled: false`). The deprecated loose `organicRadius`/`organicStrength`/`organicSpeed`
+   * fallback fields apply only to the singular `organicNoise` slot, never to entries here
+   * (there is no legacy array form to fall back from).
+   */
+  organicNoises?: OrganicNoiseOptions[];
 
   imageMask?: PixelGridImageMaskConfig;
   textMask?: PixelGridTextMaskConfig;
@@ -362,6 +394,7 @@ export interface ResolvedPixelGridConfig {
   breathing: Required<BreathingOptions>;
   autoMorph: Required<AutoMorphOptions>;
   organicNoise: Required<OrganicNoiseOptions>;
+  organicNoiseLayers: Required<OrganicNoiseOptions>[];
   maskTimeline: ResolvedMaskTimelineOptions;
   performance: ResolvedPerformanceOptions;
   effects: ResolvedPixelGridEffectsOptions;

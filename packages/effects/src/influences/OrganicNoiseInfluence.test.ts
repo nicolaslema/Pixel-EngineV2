@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { OrganicNoiseInfluence, OrganicNoisePattern } from "./OrganicNoiseInfluence";
+import { DEFAULT_NOISE_SEED } from "../utils/math";
 
 // Inline copy of the exact pre-3.2/3.3 formula, with its own local time accumulator, used
 // as the ground truth for the backward-compat regression test below.
@@ -111,4 +112,90 @@ describe("OrganicNoiseInfluence", () => {
       }
     }
   );
+
+  describe("position (item 3.5)", () => {
+    it("follow-mouse centers on live engine.mouse.x/y, read fresh (no caching)", () => {
+      const engine = { mouse: { x: 300, y: 100, inside: true, down: false } };
+      const influence = new OrganicNoiseInfluence(
+        200, 150, 100, 0.4, 0.002, "waves", 1, "follow-mouse", "radial", DEFAULT_NOISE_SEED, engine
+      );
+
+      const boundsBefore = influence.getBounds();
+      expect(boundsBefore.minX).toBe(engine.mouse.x - 100);
+      expect(boundsBefore.maxX).toBe(engine.mouse.x + 100);
+      expect(boundsBefore.minY).toBe(engine.mouse.y - 100);
+      expect(boundsBefore.maxY).toBe(engine.mouse.y + 100);
+
+      engine.mouse.x = 500;
+      engine.mouse.y = 400;
+      const boundsAfter = influence.getBounds();
+      expect(boundsAfter.minX).toBe(500 - 100);
+      expect(boundsAfter.maxY).toBe(400 + 100);
+    });
+
+    it("follow-mouse with no engine passed falls back to the fixed center silently", () => {
+      const influence = new OrganicNoiseInfluence(
+        200, 150, 100, 0.4, 0.002, "waves", 1, "follow-mouse"
+      );
+
+      expect(() => influence.getBounds()).not.toThrow();
+      const bounds = influence.getBounds();
+      expect(bounds.minX).toBe(200 - 100);
+      expect(bounds.minY).toBe(150 - 100);
+    });
+  });
+
+  describe("falloff (item 3.6)", () => {
+    it("'none' returns unbounded getBounds(), not gated by radius", () => {
+      const influence = new OrganicNoiseInfluence(200, 150, 100, 0.4, 0.002, "waves", 1, "center", "none");
+      const bounds = influence.getBounds();
+      expect(bounds.minX).toBe(-Infinity);
+      expect(bounds.maxX).toBe(Infinity);
+      expect(bounds.minY).toBe(-Infinity);
+      expect(bounds.maxY).toBe(Infinity);
+    });
+
+    it("'none' is not structurally gated by distance -- can return nonzero far outside the old radius", () => {
+      const influence = new OrganicNoiseInfluence(200, 150, 100, 0.4, 0.002, "perlin", 1, "center", "none");
+      influence.update(500);
+
+      const farPoint = influence.getInfluence(200 + 100 * 10, 150, 10);
+      // Not asserting a specific value (the underlying noise could legitimately be 0 at any
+      // given point) -- the point is that distance alone never zeroes it out the way
+      // falloff="radial" would have at 10x the radius.
+      expect(Number.isFinite(farPoint)).toBe(true);
+      expect(farPoint).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe("seed (item 3.4)", () => {
+    it.each<OrganicNoisePattern>(["perlin", "cells", "turbulence"])(
+      "a different seed changes output for pattern=%s",
+      (pattern) => {
+        const a = new OrganicNoiseInfluence(200, 150, 150, 0.4, 0.002, pattern, 1, "center", "radial", 111);
+        const b = new OrganicNoiseInfluence(200, 150, 150, 0.4, 0.002, pattern, 1, "center", "radial", 222);
+        a.update(500);
+        b.update(500);
+        expect(a.getInfluence(230, 170, 10)).not.toBe(b.getInfluence(230, 170, 10));
+      }
+    );
+
+    it("seed has no effect on pattern='waves' (no seed concept in that formula)", () => {
+      const a = new OrganicNoiseInfluence(200, 150, 150, 0.4, 0.002, "waves", 1, "center", "radial", 111);
+      const b = new OrganicNoiseInfluence(200, 150, 150, 0.4, 0.002, "waves", 1, "center", "radial", 222);
+      a.update(500);
+      b.update(500);
+      expect(a.getInfluence(230, 170, 10)).toBe(b.getInfluence(230, 170, 10));
+    });
+
+    it("omitting seed reproduces the same output as passing DEFAULT_NOISE_SEED explicitly", () => {
+      const implicit = new OrganicNoiseInfluence(200, 150, 150, 0.4, 0.002, "perlin", 1);
+      const explicit = new OrganicNoiseInfluence(
+        200, 150, 150, 0.4, 0.002, "perlin", 1, "center", "radial", DEFAULT_NOISE_SEED
+      );
+      implicit.update(500);
+      explicit.update(500);
+      expect(implicit.getInfluence(230, 170, 10)).toBe(explicit.getInfluence(230, 170, 10));
+    });
+  });
 });

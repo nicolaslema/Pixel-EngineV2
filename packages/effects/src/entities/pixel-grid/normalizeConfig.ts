@@ -1,6 +1,7 @@
 import {
   InitialMask,
   MaskTimelineItemOptions,
+  OrganicNoiseOptions,
   PixelGridConfig,
   PixelGridImageMaskConfig,
   PixelGridTextMaskConfig,
@@ -9,13 +10,20 @@ import {
   ResolvedPixelGridImageMaskConfig,
   ResolvedPixelGridTextMaskConfig
 } from "./types";
-import { OrganicNoisePattern } from "../../influences/OrganicNoiseInfluence";
+import {
+  OrganicNoiseFalloff,
+  OrganicNoisePattern,
+  OrganicNoisePosition
+} from "../../influences/OrganicNoiseInfluence";
+import { DEFAULT_NOISE_SEED } from "../../utils/math";
 
 const DEFAULT_COLORS = ["#334155", "#475569", "#64748b"];
 const DEFAULT_GAP = 7;
 const DEFAULT_EXPAND_EASE = 0.08;
 const DEFAULT_BREATH_SPEED = 1;
 const ORGANIC_NOISE_PATTERNS: OrganicNoisePattern[] = ["waves", "perlin", "cells", "turbulence"];
+const ORGANIC_NOISE_POSITIONS: OrganicNoisePosition[] = ["center", "follow-mouse"];
+const ORGANIC_NOISE_FALLOFFS: OrganicNoiseFalloff[] = ["radial", "none"];
 
 export function resolvePixelGridConfig(
   config: PixelGridConfig
@@ -117,20 +125,17 @@ export function resolvePixelGridConfig(
     warnings.push("organicSpeed is deprecated. Use organicNoise.speed instead.");
   }
 
-  let organicPattern = config.organicNoise?.pattern ?? "waves";
-  if (!ORGANIC_NOISE_PATTERNS.includes(organicPattern)) {
-    warnings.push(`organicNoise.pattern "${organicPattern}" is not recognized. Falling back to "waves".`);
-    organicPattern = "waves";
-  }
+  const organicNoise = resolveOrganicNoiseLayer(
+    config.organicNoise,
+    false,
+    "organicNoise",
+    { radius: config.organicRadius, strength: config.organicStrength, speed: config.organicSpeed },
+    warnings
+  );
 
-  const organicNoise: Required<ResolvedPixelGridConfig["organicNoise"]> = {
-    enabled: config.organicNoise?.enabled ?? false,
-    radius: config.organicNoise?.radius ?? config.organicRadius ?? 150,
-    strength: config.organicNoise?.strength ?? config.organicStrength ?? 0.4,
-    speed: config.organicNoise?.speed ?? config.organicSpeed ?? 0.002,
-    pattern: organicPattern,
-    scale: clampMin(config.organicNoise?.scale, 0.01, 1)
-  };
+  const organicNoiseLayers = (config.organicNoises ?? []).map((raw, i) =>
+    resolveOrganicNoiseLayer(raw, true, `organicNoises[${i}]`, undefined, warnings)
+  );
 
   const detail = config.performance?.detail ?? "medium";
   const detailDefaults = getDetailDefaults(detail);
@@ -183,6 +188,7 @@ export function resolvePixelGridConfig(
     breathing,
     autoMorph,
     organicNoise,
+    organicNoiseLayers,
     maskTimeline,
     performance: resolvedPerformance,
     effects: resolvedEffects,
@@ -190,6 +196,52 @@ export function resolvePixelGridConfig(
     imageMasks: resolvedMasks.imageMasks,
     textMasks: resolvedMasks.textMasks,
     warnings: Array.from(new Set(warnings))
+  };
+}
+
+/**
+ * Resolves one organicNoise "layer" -- either the singular legacy `organicNoise` slot
+ * (`defaultEnabled=false`, `legacy` carries the deprecated organicRadius/etc. fallback) or
+ * one entry of the `organicNoises[]` array (`defaultEnabled=true`, `legacy=undefined` --
+ * there's no legacy array form to fall back from).
+ */
+function resolveOrganicNoiseLayer(
+  raw: OrganicNoiseOptions | undefined,
+  defaultEnabled: boolean,
+  sourceLabel: string,
+  legacy: { radius?: number; strength?: number; speed?: number } | undefined,
+  warnings: string[]
+): Required<OrganicNoiseOptions> {
+  let pattern = raw?.pattern ?? "waves";
+  if (!ORGANIC_NOISE_PATTERNS.includes(pattern)) {
+    warnings.push(`${sourceLabel}.pattern "${pattern}" is not recognized. Falling back to "waves".`);
+    pattern = "waves";
+  }
+
+  let position = raw?.position ?? "center";
+  if (!ORGANIC_NOISE_POSITIONS.includes(position)) {
+    warnings.push(`${sourceLabel}.position "${position}" is not recognized. Falling back to "center".`);
+    position = "center";
+  }
+
+  let falloff = raw?.falloff ?? "radial";
+  if (!ORGANIC_NOISE_FALLOFFS.includes(falloff)) {
+    warnings.push(`${sourceLabel}.falloff "${falloff}" is not recognized. Falling back to "radial".`);
+    falloff = "radial";
+  }
+
+  const seed = typeof raw?.seed === "number" && Number.isFinite(raw.seed) ? raw.seed : DEFAULT_NOISE_SEED;
+
+  return {
+    enabled: raw?.enabled ?? defaultEnabled,
+    radius: raw?.radius ?? legacy?.radius ?? 150,
+    strength: raw?.strength ?? legacy?.strength ?? 0.4,
+    speed: raw?.speed ?? legacy?.speed ?? 0.002,
+    pattern,
+    scale: clampMin(raw?.scale, 0.01, 1),
+    position,
+    falloff,
+    seed
   };
 }
 

@@ -13,14 +13,14 @@ export function smoothstep(
 
 // --- Deterministic 2D noise primitives ---
 //
-// No Math.random() anywhere here: the Perlin permutation table is built once, at module
-// load, by a pure seeded PRNG (mulberry32) fed a fixed constant -- output is bit-identical
-// across runs/installs/machines, same guarantee a hand-transcribed reference table would
-// give, without the transcription-error risk of a 256-entry magic array. A future `seed`
-// config option (roadmap item 3.4) can reuse this exact mechanism with a caller-provided
-// seed instead of PERLIN_TABLE_SEED.
+// No Math.random() anywhere here: Perlin permutation tables are built by a pure seeded PRNG
+// (mulberry32) -- output is bit-identical across runs/installs/machines for a given seed,
+// same guarantee a hand-transcribed reference table would give, without the
+// transcription-error risk of a 256-entry magic array. `seed` (roadmap item 3.4) lets a
+// caller vary this deterministically; DEFAULT_NOISE_SEED reproduces this module's original
+// (pre-3.4) fixed-table output exactly.
 
-const PERLIN_TABLE_SEED = 0x9e3779b9;
+export const DEFAULT_NOISE_SEED = 0x9e3779b9;
 
 function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
@@ -51,7 +51,21 @@ function buildPerlinPermutationTable(seed: number): Uint8Array {
   return table;
 }
 
-const PERLIN_PERM = buildPerlinPermutationTable(PERLIN_TABLE_SEED);
+// Lazily built and cached per distinct seed -- noise() runs once per grid cell per frame
+// (tens of thousands of times/sec at default grid sizes), so this must never rebuild the
+// 256-entry table on the hot path. Practical seed cardinality is small (one seed per
+// distinct OrganicNoiseInfluence a consumer actually configures), so unbounded cache growth
+// isn't a practical concern.
+const permutationTableCache = new Map<number, Uint8Array>();
+
+function getPermutationTable(seed: number): Uint8Array {
+  let table = permutationTableCache.get(seed);
+  if (!table) {
+    table = buildPerlinPermutationTable(seed);
+    permutationTableCache.set(seed, table);
+  }
+  return table;
+}
 
 function fade(t: number): number {
   return t * t * t * (t * (t * 6 - 15) + 10);
@@ -70,7 +84,7 @@ function grad(hash: number, x: number, y: number): number {
 
 /** Raw 2D Perlin gradient noise, unnormalized (~[-1, 1]). Not exported -- turbulenceNoise2D
  * sums several octaves of this before normalizing once, so each octave must stay raw. */
-function perlinRawNoise2D(x: number, y: number): number {
+function perlinRawNoise2D(x: number, y: number, table: Uint8Array): number {
   const flooredX = Math.floor(x);
   const flooredY = Math.floor(y);
   const X = flooredX & 255;
@@ -81,27 +95,34 @@ function perlinRawNoise2D(x: number, y: number): number {
   const u = fade(xf);
   const v = fade(yf);
 
-  const a = PERLIN_PERM[X] + Y;
-  const aa = PERLIN_PERM[a];
-  const ab = PERLIN_PERM[a + 1];
-  const b = PERLIN_PERM[X + 1] + Y;
-  const ba = PERLIN_PERM[b];
-  const bb = PERLIN_PERM[b + 1];
+  const a = table[X] + Y;
+  const aa = table[a];
+  const ab = table[a + 1];
+  const b = table[X + 1] + Y;
+  const ba = table[b];
+  const bb = table[b + 1];
 
   return lerp(
     v,
-    lerp(u, grad(PERLIN_PERM[aa], xf, yf), grad(PERLIN_PERM[ba], xf - 1, yf)),
-    lerp(u, grad(PERLIN_PERM[ab], xf, yf - 1), grad(PERLIN_PERM[bb], xf - 1, yf - 1))
+    lerp(u, grad(table[aa], xf, yf), grad(table[ba], xf - 1, yf)),
+    lerp(u, grad(table[ab], xf, yf - 1), grad(table[bb], xf - 1, yf - 1))
   );
 }
 
-/** Classic 2D Perlin gradient noise, normalized to [0, 1]. */
-export function perlinNoise2D(x: number, y: number): number {
-  return 0.5 + 0.5 * clamp(perlinRawNoise2D(x, y), -1, 1);
+/** Classic 2D Perlin gradient noise, normalized to [0, 1]. `seed` selects the permutation
+ * table (cached per seed); omitting it reproduces this function's original fixed-table
+ * output exactly. */
+export function perlinNoise2D(x: number, y: number, seed: number = DEFAULT_NOISE_SEED): number {
+  return 0.5 + 0.5 * clamp(perlinRawNoise2D(x, y, getPermutationTable(seed)), -1, 1);
 }
 
-function hash2D(ix: number, iy: number, offset: number): number {
-  const s = Math.sin(ix * 127.1 + iy * 311.7 + offset) * 43758.5453;
+/** `seedPhase` is 0 exactly at DEFAULT_NOISE_SEED (bit-identical to pre-3.4 output), and a
+ * distinct nonzero phase shift for any other seed -- NOT `seed * constant` directly, which
+ * would perturb the phase even at the default seed since DEFAULT_NOISE_SEED itself is a
+ * large nonzero number. */
+function hash2D(ix: number, iy: number, offset: number, seed: number): number {
+  const seedPhase = (seed - DEFAULT_NOISE_SEED) * 0.7137;
+  const s = Math.sin(ix * 127.1 + iy * 311.7 + offset + seedPhase) * 43758.5453;
   return s - Math.floor(s);
 }
 
@@ -110,7 +131,7 @@ function hash2D(ix: number, iy: number, offset: number): number {
  * Math.SQRT2). Uses two decorrelated hash calls per feature point (different phase offsets)
  * -- reusing one hash for both x/y jitter would put every feature point on its cell's
  * diagonal, a classic Worley-noise porting bug. */
-export function cellularNoise2D(x: number, y: number): number {
+export function cellularNoise2D(x: number, y: number, seed: number = DEFAULT_NOISE_SEED): number {
   const ix = Math.floor(x);
   const iy = Math.floor(y);
 
@@ -119,8 +140,8 @@ export function cellularNoise2D(x: number, y: number): number {
     for (let dx = -1; dx <= 1; dx++) {
       const cx = ix + dx;
       const cy = iy + dy;
-      const fx = cx + hash2D(cx, cy, 0);
-      const fy = cy + hash2D(cx, cy, 91.7);
+      const fx = cx + hash2D(cx, cy, 0, seed);
+      const fy = cy + hash2D(cx, cy, 91.7, seed);
       const ddx = fx - x;
       const ddy = fy - y;
       const distance = Math.sqrt(ddx * ddx + ddy * ddy);
@@ -131,22 +152,28 @@ export function cellularNoise2D(x: number, y: number): number {
   return clamp(minDistance / Math.SQRT2, 0, 1);
 }
 
-const TURBULENCE_OCTAVES = 4;
+export const TURBULENCE_OCTAVES = 4;
 
 /** FBM (fractal Brownian motion) over perlinRawNoise2D: sums `octaves` layers at doubling
- * frequency / halving amplitude, normalized to [0, 1]. */
+ * frequency / halving amplitude, normalized to [0, 1]. Note the parameter order: `octaves`
+ * stays 3rd (pre-existing, positional call sites already depend on this) and `seed` is a
+ * new 4th param, rather than inserting `seed` before `octaves` -- that would have silently
+ * reinterpreted any existing 3-positional-arg call as passing a seed instead of an octave
+ * count. */
 export function turbulenceNoise2D(
   x: number,
   y: number,
-  octaves: number = TURBULENCE_OCTAVES
+  octaves: number = TURBULENCE_OCTAVES,
+  seed: number = DEFAULT_NOISE_SEED
 ): number {
+  const table = getPermutationTable(seed);
   let sum = 0;
   let amplitude = 0.5;
   let frequency = 1;
   let amplitudeSum = 0;
 
   for (let i = 0; i < octaves; i++) {
-    sum += amplitude * perlinRawNoise2D(x * frequency, y * frequency);
+    sum += amplitude * perlinRawNoise2D(x * frequency, y * frequency, table);
     amplitudeSum += amplitude;
     amplitude *= 0.5;
     frequency *= 2;

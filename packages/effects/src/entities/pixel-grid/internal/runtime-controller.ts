@@ -159,6 +159,7 @@ export function createPixelGridRuntimeController(
     options: params.influenceOptions,
     hoverEffects: params.resolvedConfig.hoverEffects,
     organicNoise: params.resolvedConfig.organicNoise,
+    organicNoiseLayers: params.resolvedConfig.organicNoiseLayers,
     influenceManager
   });
 

@@ -237,7 +237,7 @@ Optional groups:
 - `hoverEffects`
 - `rippleEffects`
 - `breathing`
-- `organicNoise` (`enabled`, `pattern`, `radius`, `strength`, `speed`, `scale`)
+- `organicNoise` (`enabled`, `pattern`, `radius`, `strength`, `speed`, `scale`, `position`, `falloff`, `seed`), `organicNoises` (array of additional layers)
 - `effects` (`paletteCycle`, `dissolve`, `shockwaveBurst`)
 - `performance` (`detail`, `viewportCulling`, `cullingPadding`, `minRenderableSize`)
 - `imageMask`, `textMask`, `autoMorph`, `initialMask`
@@ -251,7 +251,10 @@ Organic noise model notes:
 - `organicNoise.radius`/`.strength`/`.speed` replace the deprecated top-level `organicRadius`/`organicStrength`/`organicSpeed` fields (still accepted, with a console warning — `organicNoise.X` wins if both are set for the same field). Defaults unchanged: `radius: 150`, `strength: 0.4`, `speed: 0.002`.
 - `organicNoise.pattern`: `"waves"` (default, the original sin/cos blend) | `"perlin"` (classic 2D gradient noise, smoother/more "organic" than waves) | `"cells"` (Worley/cellular noise, differentiated blob/cell look) | `"turbulence"` (FBM — 4 octaves of Perlin noise summed at doubling frequency, more fine detail than a single octave). Invalid values warn and fall back to `"waves"`.
 - `organicNoise.scale`: grain-size multiplier for the noise's spatial frequency, default `1`. Smaller than `1` = bigger blobs/waves, larger than `1` = finer/more granular noise. Floored at `0.01`.
-- `seed`/`position`/`falloff` are not yet configurable (deterministic-but-fixed noise, always centered on the canvas, always radial falloff) — planned as separate follow-up items.
+- `organicNoise.position`: `"center"` (default) fixes the effect at the canvas center. `"follow-mouse"` recenters it on the pointer every frame, turning it into an ambient "aura" (read fresh, no caching — same pattern as `hoverEffects`). Moot when `falloff` is `"none"`.
+- `organicNoise.falloff`: `"radial"` (default) — smoothstep falloff from the center out to `radius`, as before. `"none"` — unbounded, full-canvas coverage with no edge; `radius` is ignored for the falloff shape (still fine to leave set).
+- `organicNoise.seed`: deterministic seed for the `perlin`/`cells`/`turbulence` patterns (`"waves"` has no seed concept, unaffected). Default reproduces the original fixed output exactly.
+- `organicNoises?: OrganicNoiseOptions[]`: additional, independent organic-noise instances layered on top of the single `organicNoise` slot — same field shape, mirroring how `imageMask`/`imageMasks` and `textMask`/`textMasks` work. Each entry defaults `enabled: true` (explicit array membership already signals intent, unlike the legacy singular slot which defaults `enabled: false`). The deprecated loose `organicRadius`/`organicStrength`/`organicSpeed` fallback applies only to the singular `organicNoise` slot, never to `organicNoises[]` entries (there's no legacy array form to fall back from).
 
 Hover model notes:
 - `hoverEffects.radius`: single circular radius (no `radiusY`).
