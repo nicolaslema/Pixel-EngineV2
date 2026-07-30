@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { resolvePixelGridConfig } from "./normalizeConfig";
 import { DEFAULT_NOISE_SEED } from "../../utils/math";
+import { ScanLineDirection, WaveWobbleDirection } from "./types";
 
 describe("resolvePixelGridConfig", () => {
   it("provides stable defaults", () => {
@@ -29,6 +30,53 @@ describe("resolvePixelGridConfig", () => {
     expect(resolved.effects.shockwaveBurst.enabled).toBe(false);
     expect(resolved.effects.shockwaveBurst.scope).toBe("activeOnly");
     expect(resolved.effects.paletteCycle.palette).toEqual(["#fff"]);
+    expect(resolved.effects.waveWobble.enabled).toBe(false);
+    expect(resolved.effects.waveWobble.amplitude).toBe(6);
+    expect(resolved.effects.waveWobble.frequency).toBe(0.02);
+    expect(resolved.effects.waveWobble.speed).toBe(1);
+    expect(resolved.effects.waveWobble.direction).toBe("both");
+    expect(resolved.effects.waveWobble.scope).toBe("activeOnly");
+    expect(resolved.effects.waveWobble.activationThreshold).toBe(0.025);
+    expect(resolved.effects.cursorSpotlight.enabled).toBe(false);
+    expect(resolved.effects.cursorSpotlight.radius).toBe(180);
+    expect(resolved.effects.cursorSpotlight.falloff).toBe(140);
+    expect(resolved.effects.cursorSpotlight.minOpacity).toBe(0.12);
+    expect(resolved.effects.chromaticBreathing.enabled).toBe(false);
+    expect(resolved.effects.chromaticBreathing.speed).toBe(1);
+    expect(resolved.effects.chromaticBreathing.palette).toEqual(["#fff"]);
+    expect(resolved.effects.chromaticBreathing.scope).toBe("activeOnly");
+    expect(resolved.effects.chromaticBreathing.activationThreshold).toBe(0.025);
+    expect(resolved.effects.scanLineReveal.enabled).toBe(false);
+    expect(resolved.effects.scanLineReveal.direction).toBe("horizontal");
+    expect(resolved.effects.scanLineReveal.speed).toBe(80);
+    expect(resolved.effects.scanLineReveal.bandWidth).toBe(60);
+    expect(resolved.effects.scanLineReveal.loop).toBe(true);
+    expect(resolved.effects.magneticTrail.enabled).toBe(false);
+    expect(resolved.effects.magneticTrail.radius).toBe(90);
+    expect(resolved.effects.magneticTrail.strength).toBe(1.2);
+    expect(resolved.effects.magneticTrail.lifetimeMs).toBe(500);
+    expect(resolved.effects.magneticTrail.maxPoints).toBe(24);
+    expect(resolved.effects.magneticTrail.sampleIntervalMs).toBe(40);
+    expect(resolved.effects.magneticTrail.scope).toBe("activeOnly");
+    expect(resolved.effects.magneticTrail.activationThreshold).toBe(0.025);
+    expect(resolved.effects.glitchRgbSplit.enabled).toBe(false);
+    expect(resolved.effects.glitchRgbSplit.radius).toBe(70);
+    expect(resolved.effects.glitchRgbSplit.jitterAmount).toBe(4);
+    expect(resolved.effects.glitchRgbSplit.durationMs).toBe(220);
+    expect(resolved.effects.glitchRgbSplit.maxBursts).toBe(6);
+    expect(resolved.effects.glitchRgbSplit.triggerMode).toBe("pointerDown");
+    expect(resolved.effects.glitchRgbSplit.scope).toBe("activeOnly");
+    expect(resolved.effects.glitchRgbSplit.activationThreshold).toBe(0.025);
+    expect(resolved.effects.gravityFallApart.enabled).toBe(false);
+    expect(resolved.effects.gravityFallApart.gravity).toBe(0.0009);
+    expect(resolved.effects.gravityFallApart.fallDurationMs).toBe(650);
+    expect(resolved.effects.gravityFallApart.activationThreshold).toBe(0.025);
+    expect(resolved.effects.constellationConnect.enabled).toBe(false);
+    expect(resolved.effects.constellationConnect.radius).toBe(140);
+    expect(resolved.effects.constellationConnect.linkDistance).toBe(45);
+    expect(resolved.effects.constellationConnect.maxCandidates).toBe(120);
+    expect(resolved.effects.constellationConnect.strength).toBe(1);
+    expect(resolved.effects.constellationConnect.activationThreshold).toBe(0.025);
     expect(resolved.initialMask).toBe("image");
     expect(resolved.imageMasks).toHaveLength(0);
     expect(resolved.textMasks).toHaveLength(0);
@@ -559,6 +607,63 @@ describe("resolvePixelGridConfig", () => {
     ).toBe(true);
   });
 
+  it("resolves a per-mask blendMode override on a combo step's masks[] entries", () => {
+    const resolved = resolvePixelGridConfig({
+      colors: ["#fff"],
+      gap: 5,
+      expandEase: 0.1,
+      breathSpeed: 1,
+      imageMasks: [{ id: "hero-image", src: "/hero.png" }],
+      textMasks: [{ id: "hero-text", text: "HELLO" }],
+      maskTimeline: {
+        enabled: true,
+        steps: [
+          {
+            masks: [
+              { assetId: "hero-image", blendMode: "multiply" },
+              { assetId: "hero-text" }
+            ]
+          }
+        ]
+      }
+    });
+
+    const step = resolved.maskTimeline.steps[0];
+    const imageRef = step.maskRefs?.find((ref) => ref.id === "hero-image");
+    const textRef = step.maskRefs?.find((ref) => ref.id === "hero-text");
+    expect(imageRef?.blendMode).toBe("multiply");
+    expect(textRef?.blendMode).toBeUndefined();
+  });
+
+  it("warns and drops an invalid blendMode on a combo step's masks[] entry", () => {
+    const resolved = resolvePixelGridConfig({
+      colors: ["#fff"],
+      gap: 5,
+      expandEase: 0.1,
+      breathSpeed: 1,
+      imageMasks: [{ id: "hero-image", src: "/hero.png" }],
+      textMasks: [{ id: "hero-text", text: "HELLO" }],
+      maskTimeline: {
+        enabled: true,
+        steps: [
+          {
+            masks: [
+              { assetId: "hero-image", blendMode: "bogus" as unknown as "multiply" },
+              { assetId: "hero-text" }
+            ]
+          }
+        ]
+      }
+    });
+
+    const step = resolved.maskTimeline.steps[0];
+    const imageRef = step.maskRefs?.find((ref) => ref.id === "hero-image");
+    expect(imageRef?.blendMode).toBeUndefined();
+    expect(
+      resolved.warnings.some((warning) => warning.includes("invalid blendMode"))
+    ).toBe(true);
+  });
+
   it("leaves maskRefs empty for a normal step without masks[] (item 1.9 regression)", () => {
     const resolved = resolvePixelGridConfig({
       colors: ["#fff"],
@@ -720,6 +825,242 @@ describe("resolvePixelGridConfig", () => {
         warning.includes("effects.paletteCycle.palette")
       )
     ).toBe(true);
+  });
+
+  it("normalizes waveWobble/cursorSpotlight/chromaticBreathing options, clamps, and validates", () => {
+    const resolved = resolvePixelGridConfig({
+      colors: ["#0f172a", "#1e293b"],
+      gap: 6,
+      expandEase: 0.08,
+      breathSpeed: 1,
+      effects: {
+        waveWobble: {
+          enabled: true,
+          amplitude: -3,
+          frequency: -1,
+          speed: -1,
+          direction: "bogus" as unknown as WaveWobbleDirection,
+          scope: "all",
+          activationThreshold: -1
+        },
+        cursorSpotlight: {
+          enabled: true,
+          radius: -10,
+          falloff: -10,
+          minOpacity: 5
+        },
+        chromaticBreathing: {
+          enabled: true,
+          speed: -2,
+          palette: [" ", "  "],
+          scope: "all",
+          activationThreshold: -1
+        }
+      }
+    });
+
+    expect(resolved.effects.waveWobble.enabled).toBe(true);
+    expect(resolved.effects.waveWobble.amplitude).toBe(0);
+    expect(resolved.effects.waveWobble.frequency).toBe(0);
+    expect(resolved.effects.waveWobble.speed).toBe(0);
+    expect(resolved.effects.waveWobble.direction).toBe("both");
+    expect(resolved.effects.waveWobble.scope).toBe("all");
+    expect(resolved.effects.waveWobble.activationThreshold).toBe(0);
+    expect(
+      resolved.warnings.some((warning) => warning.includes("effects.waveWobble.direction"))
+    ).toBe(true);
+
+    expect(resolved.effects.cursorSpotlight.enabled).toBe(true);
+    expect(resolved.effects.cursorSpotlight.radius).toBe(0);
+    expect(resolved.effects.cursorSpotlight.falloff).toBe(0);
+    expect(resolved.effects.cursorSpotlight.minOpacity).toBe(1);
+
+    expect(resolved.effects.chromaticBreathing.enabled).toBe(true);
+    expect(resolved.effects.chromaticBreathing.speed).toBe(0);
+    expect(resolved.effects.chromaticBreathing.palette).toEqual(["#0f172a", "#1e293b"]);
+    expect(resolved.effects.chromaticBreathing.scope).toBe("all");
+    expect(resolved.effects.chromaticBreathing.activationThreshold).toBe(0);
+    expect(
+      resolved.warnings.some((warning) => warning.includes("effects.chromaticBreathing.palette"))
+    ).toBe(true);
+  });
+
+  it("passes through valid waveWobble/cursorSpotlight/chromaticBreathing overrides", () => {
+    const resolved = resolvePixelGridConfig({
+      colors: ["#fff"],
+      gap: 5,
+      expandEase: 0.1,
+      breathSpeed: 1,
+      effects: {
+        waveWobble: {
+          enabled: true,
+          amplitude: 12,
+          frequency: 0.05,
+          speed: 2,
+          direction: "vertical",
+          scope: "activeOnly",
+          activationThreshold: 0.05
+        },
+        cursorSpotlight: { enabled: true, radius: 250, falloff: 90, minOpacity: 0.3 },
+        chromaticBreathing: {
+          enabled: true,
+          speed: 1.5,
+          palette: ["#ff0000", "#00ff00"],
+          scope: "activeOnly",
+          activationThreshold: 0.05
+        }
+      }
+    });
+
+    expect(resolved.effects.waveWobble.amplitude).toBe(12);
+    expect(resolved.effects.waveWobble.frequency).toBe(0.05);
+    expect(resolved.effects.waveWobble.speed).toBe(2);
+    expect(resolved.effects.waveWobble.direction).toBe("vertical");
+    expect(resolved.effects.cursorSpotlight.radius).toBe(250);
+    expect(resolved.effects.cursorSpotlight.falloff).toBe(90);
+    expect(resolved.effects.cursorSpotlight.minOpacity).toBe(0.3);
+    expect(resolved.effects.chromaticBreathing.speed).toBe(1.5);
+    expect(resolved.effects.chromaticBreathing.palette).toEqual(["#ff0000", "#00ff00"]);
+  });
+
+  it("normalizes scanLineReveal/magneticTrail/glitchRgbSplit/gravityFallApart/constellationConnect options, clamps, and validates", () => {
+    const resolved = resolvePixelGridConfig({
+      colors: ["#fff"],
+      gap: 5,
+      expandEase: 0.1,
+      breathSpeed: 1,
+      effects: {
+        scanLineReveal: {
+          enabled: true,
+          direction: "bogus" as unknown as ScanLineDirection,
+          speed: -1,
+          bandWidth: -5,
+          loop: false
+        },
+        magneticTrail: {
+          enabled: true,
+          radius: -10,
+          strength: -1,
+          lifetimeMs: -100,
+          maxPoints: 999,
+          sampleIntervalMs: -1,
+          scope: "all",
+          activationThreshold: -1
+        },
+        glitchRgbSplit: {
+          enabled: true,
+          radius: -10,
+          jitterAmount: -1,
+          durationMs: -50,
+          maxBursts: 999,
+          triggerMode: "both",
+          scope: "all",
+          activationThreshold: -1
+        },
+        gravityFallApart: {
+          enabled: true,
+          gravity: -1,
+          fallDurationMs: -50,
+          activationThreshold: -1
+        },
+        constellationConnect: {
+          enabled: true,
+          radius: -10,
+          linkDistance: -5,
+          maxCandidates: 1,
+          strength: 5,
+          activationThreshold: -1
+        }
+      }
+    });
+
+    expect(resolved.effects.scanLineReveal.enabled).toBe(true);
+    expect(resolved.effects.scanLineReveal.direction).toBe("horizontal");
+    expect(resolved.effects.scanLineReveal.speed).toBe(0);
+    expect(resolved.effects.scanLineReveal.bandWidth).toBe(1);
+    expect(resolved.effects.scanLineReveal.loop).toBe(false);
+    expect(
+      resolved.warnings.some((warning) => warning.includes("effects.scanLineReveal.direction"))
+    ).toBe(true);
+
+    expect(resolved.effects.magneticTrail.radius).toBe(0);
+    expect(resolved.effects.magneticTrail.strength).toBe(0);
+    expect(resolved.effects.magneticTrail.lifetimeMs).toBe(0);
+    expect(resolved.effects.magneticTrail.maxPoints).toBe(64);
+    expect(resolved.effects.magneticTrail.sampleIntervalMs).toBe(0);
+    expect(resolved.effects.magneticTrail.scope).toBe("all");
+    expect(resolved.effects.magneticTrail.activationThreshold).toBe(0);
+
+    expect(resolved.effects.glitchRgbSplit.radius).toBe(0);
+    expect(resolved.effects.glitchRgbSplit.jitterAmount).toBe(0);
+    expect(resolved.effects.glitchRgbSplit.durationMs).toBe(1);
+    expect(resolved.effects.glitchRgbSplit.maxBursts).toBe(32);
+    expect(resolved.effects.glitchRgbSplit.triggerMode).toBe("both");
+    expect(resolved.effects.glitchRgbSplit.scope).toBe("all");
+    expect(resolved.effects.glitchRgbSplit.activationThreshold).toBe(0);
+
+    expect(resolved.effects.gravityFallApart.gravity).toBe(0);
+    expect(resolved.effects.gravityFallApart.fallDurationMs).toBe(1);
+    expect(resolved.effects.gravityFallApart.activationThreshold).toBe(0);
+
+    expect(resolved.effects.constellationConnect.radius).toBe(0);
+    expect(resolved.effects.constellationConnect.linkDistance).toBe(0);
+    expect(resolved.effects.constellationConnect.maxCandidates).toBe(2);
+    expect(resolved.effects.constellationConnect.strength).toBe(2);
+    expect(resolved.effects.constellationConnect.activationThreshold).toBe(0);
+  });
+
+  it("passes through valid scanLineReveal/magneticTrail/glitchRgbSplit/gravityFallApart/constellationConnect overrides", () => {
+    const resolved = resolvePixelGridConfig({
+      colors: ["#fff"],
+      gap: 5,
+      expandEase: 0.1,
+      breathSpeed: 1,
+      effects: {
+        scanLineReveal: { enabled: true, direction: "vertical", speed: 40, bandWidth: 30, loop: false },
+        magneticTrail: {
+          enabled: true,
+          radius: 120,
+          strength: 2,
+          lifetimeMs: 800,
+          maxPoints: 40,
+          sampleIntervalMs: 60,
+          scope: "all",
+          activationThreshold: 0.05
+        },
+        glitchRgbSplit: {
+          enabled: true,
+          radius: 100,
+          jitterAmount: 8,
+          durationMs: 300,
+          maxBursts: 10,
+          triggerMode: "hoverEnter",
+          scope: "all",
+          activationThreshold: 0.05
+        },
+        gravityFallApart: { enabled: true, gravity: 0.002, fallDurationMs: 900, activationThreshold: 0.05 },
+        constellationConnect: {
+          enabled: true,
+          radius: 200,
+          linkDistance: 60,
+          maxCandidates: 200,
+          strength: 1.5,
+          activationThreshold: 0.05
+        }
+      }
+    });
+
+    expect(resolved.effects.scanLineReveal.direction).toBe("vertical");
+    expect(resolved.effects.scanLineReveal.speed).toBe(40);
+    expect(resolved.effects.scanLineReveal.bandWidth).toBe(30);
+    expect(resolved.effects.magneticTrail.radius).toBe(120);
+    expect(resolved.effects.magneticTrail.maxPoints).toBe(40);
+    expect(resolved.effects.glitchRgbSplit.triggerMode).toBe("hoverEnter");
+    expect(resolved.effects.glitchRgbSplit.maxBursts).toBe(10);
+    expect(resolved.effects.gravityFallApart.gravity).toBe(0.002);
+    expect(resolved.effects.gravityFallApart.fallDurationMs).toBe(900);
+    expect(resolved.effects.constellationConnect.maxCandidates).toBe(200);
+    expect(resolved.effects.constellationConnect.strength).toBe(1.5);
   });
 
   it("silently ignores the removed legacy hoverEffects.radiusY/shape fields (no detection shim anymore)", () => {

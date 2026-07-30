@@ -238,7 +238,7 @@ Optional groups:
 - `rippleEffects`
 - `breathing`
 - `organicNoise` (`enabled`, `pattern`, `radius`, `strength`, `speed`, `scale`, `position`, `falloff`, `seed`), `organicNoises` (array of additional layers)
-- `effects` (`paletteCycle`, `dissolve`, `shockwaveBurst`)
+- `effects` (`paletteCycle`, `dissolve`, `shockwaveBurst`, `waveWobble`, `cursorSpotlight`, `chromaticBreathing`, `scanLineReveal`, `magneticTrail`, `glitchRgbSplit`, `gravityFallApart`, `constellationConnect`)
 - `performance` (`detail`, `viewportCulling`, `cullingPadding`, `minRenderableSize`)
 - `imageMask`, `textMask`, `autoMorph`, `initialMask`
 - `canvasBackground`
@@ -297,15 +297,77 @@ gridConfig: {
       maxBursts: 16,
       triggerMode: "pointerDown",
       scope: "activeOnly"
+    },
+    waveWobble: {
+      enabled: true,
+      amplitude: 6,
+      frequency: 0.02,
+      speed: 1,
+      direction: "both",
+      scope: "activeOnly"
+    },
+    cursorSpotlight: {
+      enabled: true,
+      radius: 180,
+      falloff: 140,
+      minOpacity: 0.12
+    },
+    chromaticBreathing: {
+      enabled: true,
+      speed: 1,
+      palette: ["#334155", "#38bdf8", "#f59e0b"]
+    },
+    scanLineReveal: {
+      enabled: true,
+      direction: "horizontal",
+      speed: 80,
+      bandWidth: 60,
+      loop: true
+    },
+    magneticTrail: {
+      enabled: true,
+      radius: 90,
+      strength: 1.2,
+      lifetimeMs: 500,
+      maxPoints: 24,
+      sampleIntervalMs: 40
+    },
+    glitchRgbSplit: {
+      enabled: true,
+      radius: 70,
+      jitterAmount: 4,
+      durationMs: 220,
+      maxBursts: 6,
+      triggerMode: "pointerDown"
+    },
+    gravityFallApart: {
+      enabled: true,
+      gravity: 0.0009,
+      fallDurationMs: 650
+    },
+    constellationConnect: {
+      enabled: true,
+      radius: 140,
+      linkDistance: 45,
+      maxCandidates: 120,
+      strength: 1
     }
   }
 }
 ```
 
 Post-effect notes:
-- `scope: "all" | "activeOnly"` (default `"activeOnly"`) is available on all three post-effects (`paletteCycle`, `dissolve`, `shockwaveBurst`) — `"activeOnly"` skips cells at/under `activationThreshold`, `"all"` applies to every cell regardless.
-- `activationThreshold`'s default is `0.025` for all three (not different per effect).
-- Processing order is fixed and intentional: `dissolve → shockwaveBurst → paletteCycle`. Each runs after the previous one's mutation to `targetSize`/`opacity`, so downstream effects observe the upstream effect's result within the same frame — e.g. a cell revealed by a passing `shockwaveBurst` becomes eligible for `paletteCycle`'s `"activeOnly"` scope in that same pass. The order isn't configurable.
+- `scope: "all" | "activeOnly"` (default `"activeOnly"`) is available on `paletteCycle`, `dissolve`, `shockwaveBurst`, `waveWobble`, `chromaticBreathing`, `magneticTrail`, and `glitchRgbSplit` — `"activeOnly"` skips cells at/under `activationThreshold`, `"all"` applies to every cell regardless. `cursorSpotlight` and `scanLineReveal` have no `scope`/`activationThreshold` (position/sweep-gated, not activity-gated — for `scanLineReveal` specifically, an `activeOnly` gate would defeat its own purpose of activating previously-inactive cells). `gravityFallApart` and `constellationConnect` use `activationThreshold` only (to detect/gate "active" cells), with no separate `scope` toggle.
+- `activationThreshold`'s default is `0.025` for every effect that has one (not different per effect).
+- `waveWobble`: sinusoidal traveling displacement written into `offsetX`/`offsetY` (additive, composes with hover/magnetic/ripple displacement rather than overwriting it). `amplitude` in px, `frequency` is spatial (higher = tighter waves), `speed` scales time, `direction: "horizontal" | "vertical" | "both"` (default `"both"`) restricts which axis is displaced.
+- `cursorSpotlight`: the inverse of a normal hover glow — dims every cell's `opacity` (multiplicatively, so it composes with breathing/other opacity effects) outside `radius` of the pointer, smoothly down to `minOpacity` over the next `falloff` px. Cells within `radius` are left untouched. Fully inert (no dimming at all) while the pointer is outside the canvas — same "vanishes when `!pointer.inside`" convention as hover/magnetic/`shockwaveBurst`'s hover-triggered modes.
+- `chromaticBreathing`: cycles each cell's `color` through `palette` (defaults to the grid's own `colors`) driven by the same per-cell breathing sine wave `breathing`'s opacity variant uses (`breathPhase`/`breathOffset`, randomized once per cell at grid creation) — so cells shimmer through colors *out of phase* with each other, unlike `paletteCycle`'s single globally-synchronized sweep. `speed` uses the same units as `breathing.speed`.
+- `scanLineReveal`: a `targetSize` sweep travels along `direction` (`"horizontal"` or `"vertical"`) at `speed`, boosting cells behind it up to full size over a `bandWidth`-px soft leading edge (never shrinks a cell — always `Math.max`-composes with whatever the mask/hover/ripple systems already decided). `loop: true` (default) wraps back to the start once it clears the grid; `loop: false` sweeps once and stops.
+- `magneticTrail`: samples the pointer's position every `sampleIntervalMs` while it's over the canvas into a capped, decaying trail (`maxPoints`, `lifetimeMs`) — each point pulls nearby cells toward it (same falloff math as `hoverEffects.magnetic`) with a `max`-style opacity boost, both fading out as the point ages.
+- `glitchRgbSplit`: on trigger (`triggerMode`, same values as `shockwaveBurst.triggerMode`: `"pointerDown" | "hoverEnter" | "both"`), spawns a short-lived (`durationMs`) burst at the pointer; cells within `radius` get a brief random `offsetX` jitter (`jitterAmount`) and their `color` swapped to another cell's `baseColor` — a same-frame, index-based "neighbor" pick (not true 2D spatial adjacency) that reads as chaotic/glitchy by design.
+- `gravityFallApart`: detects, per cell, the exact frame a cell's `targetSize` crosses from active to inactive (e.g. hover/mask/ripple turning it off) and makes that cell fall — `offsetY` accumulates under `gravity` (px/ms²) while `targetSize`/`opacity` are held and faded out over `fallDurationMs`, instead of the cell just instantly vanishing. A cell that reactivates mid-fall isn't re-triggered; it simply finishes its (short) fall.
+- `constellationConnect`: while the pointer is over the canvas, active cells within `radius` glow (`opacity` boost only — no color tint yet, since there's no RGB-lighten utility in this codebase; add one as a follow-up if the opacity-only look isn't strong enough) proportionally to how many *other* nearby candidate cells are within `linkDistance` of them — an isolated cell still gets a small boost, a tightly clustered group glows more. Bounded cost via `maxCandidates` (never a full-grid pairwise scan). Because the boost tops out at `1.0`, it's only visible on cells whose opacity is already below full (e.g. combined with `breathing` or `cursorSpotlight`) — same characteristic `shockwaveBurst`'s own opacity boost already has.
+- Processing order is fixed and intentional: `dissolve(10) → scanLineReveal(12) → shockwaveBurst(20) → paletteCycle(30) → waveWobble(35) → magneticTrail(37) → chromaticBreathing(40) → glitchRgbSplit(42) → gravityFallApart(45) → constellationConnect(48) → cursorSpotlight(50)`. Each runs after the previous ones' mutations, so downstream effects observe upstream results within the same frame — e.g. a cell revealed by `scanLineReveal` or a passing `shockwaveBurst` becomes eligible for `paletteCycle`'s `"activeOnly"` scope in that same pass. If both `paletteCycle` and `chromaticBreathing` are enabled, `chromaticBreathing` runs later and wins on `color` for any cell both touch (same for `chromaticBreathing` vs. `glitchRgbSplit`, which runs after it). `gravityFallApart` runs late so it sees every upstream system's final activity decision before deciding a cell "just deactivated". `cursorSpotlight` runs last so its dimming applies over any `opacity` boost written by an earlier effect (including `constellationConnect`, right before it). The order isn't configurable.
 
 ## React examples by scenario
 
@@ -387,10 +449,16 @@ Timeline authoring rules:
 - `steps[].masks`: activates up to one image + one text mask *simultaneously* for that step (e.g. text superimposed over an image), instead of the step's single `assetId`/`mask`:
   ```ts
   steps: [
-    { masks: [{ assetId: "catA" }, { assetId: "headline" }], holdMs: 1200 }
+    {
+      masks: [
+        { assetId: "catA" },
+        { assetId: "headline", blendMode: "multiply" }
+      ],
+      holdMs: 1200
+    }
   ]
   ```
-  Both masks blend via the same fixed `"max"` (union) mode every mask uses. At most one mask per type is honored — extra entries of the same type are dropped with a console warning. Transitions (`morph`/`fade`/`dissolve`) into or out of a step using `masks` always hard-cut (no animation); only single-mask-to-single-mask steps support an animated transition.
+  Each mask defaults to `"max"` (union) blending, same as every mask uses outside a combo step. Set `blendMode` on an individual entry (`"max" | "add" | "multiply" | "override"`) to override just that mask — e.g. `"multiply"` gives an intersection look instead of a union. The override only applies while that mask is active as part of this combo; it always resets back to `"max"` the next time that mask is resolved for a different step with no override (never leaks across steps). At most one mask per type is honored — extra entries of the same type are dropped with a console warning. Transitions (`morph`/`fade`/`dissolve`) into or out of a step using `masks` always hard-cut (no animation); only single-mask-to-single-mask steps support an animated transition.
 
 ### 4) Custom config with helpers
 
@@ -437,7 +505,7 @@ export function Card() {
 
 - `overlayPointerEvents="none"` by default (canvas interactions pass through)
 - set `overlayPointerEvents="auto"` for clickable overlay UI
-- set `overlayPointerEvents="hybrid"` for clickable overlay UI while preserving canvas hover/ripple behavior
+- set `overlayPointerEvents="hybrid"` for clickable overlay UI while preserving canvas hover/ripple behavior — the overlay's `pointermove`/`pointerenter`/`pointerleave`/`pointerdown`/`pointerup`/`click` are redispatched onto the canvas as real `PointerEvent`s (matching what `@pixel-engine/core`'s `InputSystem` actually listens for), so reactive/magnetic hover, tint, and `breathing.affectHover` keep working while the pointer is over interactive overlay content, not just clicks
 
 ### 6) Scroll reactive + section transition presets
 
@@ -613,6 +681,18 @@ Preset matrix:
   Ids are generated (`image-1`, `text-1`, ...) for any mask that doesn't provide its own `id`.
   This resolution happens once, in `@pixel-engine/effects`; it's the same regardless of
   whether masks arrive via the `mask` prop or directly via `gridConfig`.
+
+Text mask model notes:
+- `textMask.reveal` (also `textMasks[]`/`maskTimeline.items[]` text entries): reveals the text progressively, character by character, instead of the whole string appearing at once.
+  ```ts
+  textMask: { text: "PIXEL ENGINE", font: "bold 160px Arial", reveal: { mode: "typewriter", charsPerSecond: 12 } }
+  ```
+  - `mode: "instant" | "typewriter"` (default `"instant"` — the original, unchanged behavior; the whole string draws immediately, `reveal` can be omitted entirely with zero behavior change).
+  - `charsPerSecond` (default `12`): reveal speed.
+  - `loop` (default `false`): when `true`, the reveal restarts automatically after a brief pause once fully shown, instead of staying fully revealed forever.
+  - `startDelayMs` (default `0`): delay before the first character appears.
+  - The mask's world-space footprint (size/bounds) stays fixed to the *full* text the whole time — only the drawn glyphs change, so the mask never jumps around as characters appear.
+  - When this text mask is used inside a `maskTimeline`, the reveal automatically restarts from the beginning every time the mask (re)becomes the active mask for a step (including a `loop: true` timeline cycling back to it) — it never silently resumes or stays finished from a previous activation.
 
 ## Asset path note
 

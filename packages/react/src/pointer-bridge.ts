@@ -19,12 +19,40 @@ function toMouseEventInit(event: PointerEvent | MouseEvent): MouseEventInit {
   };
 }
 
+function toPointerEventInit(event: PointerEvent): PointerEventInit {
+  return {
+    ...toMouseEventInit(event),
+    pointerId: event.pointerId,
+    width: event.width,
+    height: event.height,
+    pressure: event.pressure,
+    tangentialPressure: event.tangentialPressure,
+    tiltX: event.tiltX,
+    tiltY: event.tiltY,
+    twist: event.twist,
+    pointerType: event.pointerType,
+    isPrimary: event.isPrimary
+  };
+}
+
 function redispatchMouseEvent(
   canvas: HTMLCanvasElement,
-  type: "mousemove" | "mouseenter" | "mouseleave" | "mousedown" | "mouseup" | "click",
+  type: "click",
   event: PointerEvent | MouseEvent
 ): void {
   canvas.dispatchEvent(new MouseEvent(type, toMouseEventInit(event)));
+}
+
+// `InputSystem` (@pixel-engine/core) listens for these exact PointerEvent types on the
+// canvas -- redispatching MouseEvents here would never reach it (different event types,
+// no relation), silently breaking hover/magnetic/tint through the overlay in any browser
+// with PointerEvent support (i.e. virtually all of them).
+function redispatchPointerEvent(
+  canvas: HTMLCanvasElement,
+  type: "pointermove" | "pointerenter" | "pointerleave" | "pointerdown" | "pointerup",
+  event: PointerEvent
+): void {
+  canvas.dispatchEvent(new PointerEvent(type, toPointerEventInit(event)));
 }
 
 export function attachHybridPointerBridge(
@@ -32,20 +60,20 @@ export function attachHybridPointerBridge(
   canvas: HTMLCanvasElement
 ): HybridPointerBridge {
   const handlePointerMove = (event: PointerEvent) => {
-    redispatchMouseEvent(canvas, "mousemove", event);
+    redispatchPointerEvent(canvas, "pointermove", event);
   };
   const handlePointerEnter = (event: PointerEvent) => {
-    redispatchMouseEvent(canvas, "mouseenter", event);
-    redispatchMouseEvent(canvas, "mousemove", event);
+    redispatchPointerEvent(canvas, "pointerenter", event);
+    redispatchPointerEvent(canvas, "pointermove", event);
   };
   const handlePointerLeave = (event: PointerEvent) => {
-    redispatchMouseEvent(canvas, "mouseleave", event);
+    redispatchPointerEvent(canvas, "pointerleave", event);
   };
   const handlePointerDown = (event: PointerEvent) => {
-    redispatchMouseEvent(canvas, "mousedown", event);
+    redispatchPointerEvent(canvas, "pointerdown", event);
   };
   const handlePointerUp = (event: PointerEvent) => {
-    redispatchMouseEvent(canvas, "mouseup", event);
+    redispatchPointerEvent(canvas, "pointerup", event);
   };
   const handleClick = (event: MouseEvent) => {
     redispatchMouseEvent(canvas, "click", event);

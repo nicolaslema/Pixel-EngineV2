@@ -5,6 +5,7 @@ import {
   PixelGridPresetName,
   StatePresetName
 } from "./types";
+import { deepMergeConfig } from "./internal/deep-merge-config";
 
 const SUPPORTED_SCHEMA_VERSION = "1.0";
 const PRESETS = new Set<PixelGridPresetName>(["minimal", "card-soft", "card-ripple", "hero-image"]);
@@ -70,17 +71,10 @@ function deepMergeFallback(
   value: CmsPixelConfigDocumentV1
 ): CmsPixelConfigDocumentV1 {
   if (!fallback) return value;
-  return {
-    ...fallback,
-    ...value,
-    gridConfig:
-      fallback.gridConfig || value.gridConfig
-        ? {
-          ...(fallback.gridConfig ?? {}),
-          ...(value.gridConfig ?? {})
-        }
-        : undefined
-  };
+  return deepMergeConfig(
+    fallback as unknown as Record<string, unknown>,
+    value as unknown as Record<string, unknown>
+  ) as unknown as CmsPixelConfigDocumentV1;
 }
 
 export function validatePixelConfigDocument(input: unknown): CmsPixelConfigValidationResult {

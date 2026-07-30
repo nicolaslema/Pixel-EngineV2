@@ -1,9 +1,19 @@
 import { MaskInfluence } from "./MaskInfluence";
 
+export type TextRevealMode = "instant" | "typewriter";
+
+export interface TextMaskRevealOptions {
+  mode?: TextRevealMode;
+  charsPerSecond?: number;
+  loop?: boolean;
+  startDelayMs?: number;
+}
+
 export interface TextMaskOptions {
   font: string;
   strength?: number;
   blurRadius?: number;
+  reveal?: TextMaskRevealOptions;
 }
 
 export class TextMaskInfluence extends MaskInfluence {
@@ -12,6 +22,12 @@ export class TextMaskInfluence extends MaskInfluence {
   private text: string;
   private font: string;
   private blurRadius: number;
+  private revealMode: TextRevealMode;
+  private charsPerSecond: number;
+  private revealLoop: boolean;
+  private startDelayMs: number;
+  private elapsed = 0;
+  private revealedChars: number;
 
   constructor(
     text: string,
@@ -24,6 +40,11 @@ export class TextMaskInfluence extends MaskInfluence {
     this.text = text;
     this.font = options.font;
     this.blurRadius = options.blurRadius ?? 0;
+    this.revealMode = options.reveal?.mode ?? "instant";
+    this.charsPerSecond = Math.max(0.1, options.reveal?.charsPerSecond ?? 12);
+    this.revealLoop = options.reveal?.loop ?? false;
+    this.startDelayMs = Math.max(0, options.reveal?.startDelayMs ?? 0);
+    this.revealedChars = this.revealMode === "typewriter" ? 0 : text.length;
 
     this.canvas = document.createElement("canvas");
     this.ctx = this.canvas.getContext("2d")!;
@@ -31,7 +52,38 @@ export class TextMaskInfluence extends MaskInfluence {
     this.generateMask();
   }
 
-  update(): void {}
+  update(delta: number): void {
+    if (this.revealMode !== "typewriter") return;
+
+    this.elapsed += delta;
+    const effectiveElapsed = Math.max(0, this.elapsed - this.startDelayMs);
+    const totalChars = this.text.length;
+    let charsRevealed = Math.floor(effectiveElapsed * 0.001 * this.charsPerSecond);
+
+    if (this.revealLoop && totalChars > 0) {
+      const revealDurationMs = (totalChars / this.charsPerSecond) * 1000;
+      const holdMs = revealDurationMs * 0.3; // brief pause fully revealed before restarting
+      const cycleMs = revealDurationMs + holdMs;
+      const cyclePos = effectiveElapsed % cycleMs;
+      charsRevealed =
+        cyclePos >= revealDurationMs
+          ? totalChars
+          : Math.floor(cyclePos * 0.001 * this.charsPerSecond);
+    }
+
+    charsRevealed = Math.max(0, Math.min(totalChars, charsRevealed));
+    if (charsRevealed !== this.revealedChars) {
+      this.revealedChars = charsRevealed;
+      this.generateMask();
+    }
+  }
+
+  resetReveal(): void {
+    if (this.revealMode !== "typewriter") return;
+    this.elapsed = 0;
+    this.revealedChars = 0;
+    this.generateMask();
+  }
 
   protected onUpdate(_: number): void {}
 
@@ -57,13 +109,18 @@ export class TextMaskInfluence extends MaskInfluence {
       return;
     }
 
+    const visibleText =
+      this.revealMode === "typewriter" ? this.text.slice(0, this.revealedChars) : this.text;
+
     this.ctx.font = this.font;
     this.ctx.fillStyle = "white";
-    this.ctx.fillText(
-      this.text,
-      0,
-      Math.max(1, metrics.actualBoundingBoxAscent)
-    );
+    if (visibleText.length > 0) {
+      this.ctx.fillText(
+        visibleText,
+        0,
+        Math.max(1, metrics.actualBoundingBoxAscent)
+      );
+    }
 
     let imageData: ImageData;
     try {

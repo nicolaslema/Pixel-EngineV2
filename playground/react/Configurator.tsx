@@ -12,7 +12,10 @@ import type {
   SampleMode,
   OrganicNoisePattern,
   OrganicNoisePosition,
-  OrganicNoiseFalloff
+  OrganicNoiseFalloff,
+  WaveWobbleDirection,
+  ScanLineDirection,
+  ShockwaveTriggerMode
 } from "@pixel-engine/effects";
 import { Button, ColorControl, FileControl, Section, SelectControl, SliderControl, TextControl, ToggleControl, panelStyle } from "./controls";
 
@@ -25,6 +28,9 @@ const DETAIL_LEVELS: PixelGridDetailLevel[] = ["low", "medium", "high"];
 const ORGANIC_NOISE_PATTERNS: OrganicNoisePattern[] = ["waves", "perlin", "cells", "turbulence"];
 const ORGANIC_NOISE_POSITIONS: OrganicNoisePosition[] = ["center", "follow-mouse"];
 const ORGANIC_NOISE_FALLOFFS: OrganicNoiseFalloff[] = ["radial", "none"];
+const WAVE_WOBBLE_DIRECTIONS: WaveWobbleDirection[] = ["horizontal", "vertical", "both"];
+const SCAN_LINE_DIRECTIONS: ScanLineDirection[] = ["horizontal", "vertical"];
+const SHOCKWAVE_TRIGGER_MODES: ShockwaveTriggerMode[] = ["pointerDown", "hoverEnter", "both"];
 const MASK_KINDS = ["none", "text", "image"] as const;
 type MaskKind = (typeof MASK_KINDS)[number];
 
@@ -114,6 +120,47 @@ export function Configurator() {
   // internal implementation constant (0x9e3779b9), not a friendly UI default.
   const [organicNoiseSeed, setOrganicNoiseSeed] = useState(1);
 
+  const [waveWobbleEnabled, setWaveWobbleEnabled] = useState(false);
+  const [waveWobbleAmplitude, setWaveWobbleAmplitude] = useState(6);
+  const [waveWobbleFrequency, setWaveWobbleFrequency] = useState(0.02);
+  const [waveWobbleSpeed, setWaveWobbleSpeed] = useState(1);
+  const [waveWobbleDirection, setWaveWobbleDirection] = useState<WaveWobbleDirection>("both");
+
+  const [cursorSpotlightEnabled, setCursorSpotlightEnabled] = useState(false);
+  const [cursorSpotlightRadius, setCursorSpotlightRadius] = useState(180);
+  const [cursorSpotlightFalloff, setCursorSpotlightFalloff] = useState(140);
+  const [cursorSpotlightMinOpacity, setCursorSpotlightMinOpacity] = useState(0.12);
+
+  const [chromaticBreathingEnabled, setChromaticBreathingEnabled] = useState(false);
+  const [chromaticBreathingSpeed, setChromaticBreathingSpeed] = useState(1);
+
+  const [scanLineRevealEnabled, setScanLineRevealEnabled] = useState(false);
+  const [scanLineDirection, setScanLineDirection] = useState<ScanLineDirection>("horizontal");
+  const [scanLineSpeed, setScanLineSpeed] = useState(80);
+  const [scanLineBandWidth, setScanLineBandWidth] = useState(60);
+  const [scanLineLoop, setScanLineLoop] = useState(true);
+
+  const [magneticTrailEnabled, setMagneticTrailEnabled] = useState(false);
+  const [magneticTrailRadius, setMagneticTrailRadius] = useState(90);
+  const [magneticTrailStrength, setMagneticTrailStrength] = useState(1.2);
+  const [magneticTrailLifetimeMs, setMagneticTrailLifetimeMs] = useState(500);
+  const [magneticTrailMaxPoints, setMagneticTrailMaxPoints] = useState(24);
+
+  const [glitchEnabled, setGlitchEnabled] = useState(false);
+  const [glitchRadius, setGlitchRadius] = useState(70);
+  const [glitchJitterAmount, setGlitchJitterAmount] = useState(4);
+  const [glitchDurationMs, setGlitchDurationMs] = useState(220);
+  const [glitchTriggerMode, setGlitchTriggerMode] = useState<ShockwaveTriggerMode>("pointerDown");
+
+  const [gravityEnabled, setGravityEnabled] = useState(false);
+  const [gravityStrength, setGravityStrength] = useState(0.0009);
+  const [gravityFallDurationMs, setGravityFallDurationMs] = useState(650);
+
+  const [constellationEnabled, setConstellationEnabled] = useState(false);
+  const [constellationRadius, setConstellationRadius] = useState(140);
+  const [constellationLinkDistance, setConstellationLinkDistance] = useState(45);
+  const [constellationStrength, setConstellationStrength] = useState(1);
+
   const [maskKind, setMaskKind] = useState<MaskKind>("text");
   const [maskText, setMaskText] = useState("PIXEL");
   const [maskFontSize, setMaskFontSize] = useState(140);
@@ -177,6 +224,57 @@ export function Configurator() {
         position: organicNoisePosition,
         falloff: organicNoiseFalloff,
         seed: organicNoiseSeed
+      },
+      effects: {
+        waveWobble: {
+          enabled: waveWobbleEnabled,
+          amplitude: waveWobbleAmplitude,
+          frequency: waveWobbleFrequency,
+          speed: waveWobbleSpeed,
+          direction: waveWobbleDirection
+        },
+        cursorSpotlight: {
+          enabled: cursorSpotlightEnabled,
+          radius: cursorSpotlightRadius,
+          falloff: cursorSpotlightFalloff,
+          minOpacity: cursorSpotlightMinOpacity
+        },
+        chromaticBreathing: {
+          enabled: chromaticBreathingEnabled,
+          speed: chromaticBreathingSpeed
+        },
+        scanLineReveal: {
+          enabled: scanLineRevealEnabled,
+          direction: scanLineDirection,
+          speed: scanLineSpeed,
+          bandWidth: scanLineBandWidth,
+          loop: scanLineLoop
+        },
+        magneticTrail: {
+          enabled: magneticTrailEnabled,
+          radius: magneticTrailRadius,
+          strength: magneticTrailStrength,
+          lifetimeMs: magneticTrailLifetimeMs,
+          maxPoints: magneticTrailMaxPoints
+        },
+        glitchRgbSplit: {
+          enabled: glitchEnabled,
+          radius: glitchRadius,
+          jitterAmount: glitchJitterAmount,
+          durationMs: glitchDurationMs,
+          triggerMode: glitchTriggerMode
+        },
+        gravityFallApart: {
+          enabled: gravityEnabled,
+          gravity: gravityStrength,
+          fallDurationMs: gravityFallDurationMs
+        },
+        constellationConnect: {
+          enabled: constellationEnabled,
+          radius: constellationRadius,
+          linkDistance: constellationLinkDistance,
+          strength: constellationStrength
+        }
       }
     }),
     [
@@ -216,7 +314,40 @@ export function Configurator() {
       organicNoiseScale,
       organicNoisePosition,
       organicNoiseFalloff,
-      organicNoiseSeed
+      organicNoiseSeed,
+      waveWobbleEnabled,
+      waveWobbleAmplitude,
+      waveWobbleFrequency,
+      waveWobbleSpeed,
+      waveWobbleDirection,
+      cursorSpotlightEnabled,
+      cursorSpotlightRadius,
+      cursorSpotlightFalloff,
+      cursorSpotlightMinOpacity,
+      chromaticBreathingEnabled,
+      chromaticBreathingSpeed,
+      scanLineRevealEnabled,
+      scanLineDirection,
+      scanLineSpeed,
+      scanLineBandWidth,
+      scanLineLoop,
+      magneticTrailEnabled,
+      magneticTrailRadius,
+      magneticTrailStrength,
+      magneticTrailLifetimeMs,
+      magneticTrailMaxPoints,
+      glitchEnabled,
+      glitchRadius,
+      glitchJitterAmount,
+      glitchDurationMs,
+      glitchTriggerMode,
+      gravityEnabled,
+      gravityStrength,
+      gravityFallDurationMs,
+      constellationEnabled,
+      constellationRadius,
+      constellationLinkDistance,
+      constellationStrength
     ]
   );
 
@@ -490,6 +621,265 @@ export function Configurator() {
             value={organicNoiseSeed}
             onChange={setOrganicNoiseSeed}
           />
+        </Section>
+
+        <Section title="Post-effects">
+          <div style={{ fontWeight: 600, fontSize: 12 }}>Wave / wobble</div>
+          <ToggleControl
+            label="enabled (effects.waveWobble.enabled)"
+            checked={waveWobbleEnabled}
+            onChange={setWaveWobbleEnabled}
+          />
+          <SliderControl
+            label="amplitude"
+            min={0}
+            max={20}
+            step={1}
+            value={waveWobbleAmplitude}
+            onChange={setWaveWobbleAmplitude}
+          />
+          <SliderControl
+            label="frequency"
+            min={0}
+            max={0.05}
+            step={0.002}
+            value={waveWobbleFrequency}
+            onChange={setWaveWobbleFrequency}
+          />
+          <SliderControl
+            label="speed"
+            min={0}
+            max={3}
+            step={0.1}
+            value={waveWobbleSpeed}
+            onChange={setWaveWobbleSpeed}
+          />
+          <SelectControl
+            label="direction"
+            value={waveWobbleDirection}
+            options={WAVE_WOBBLE_DIRECTIONS}
+            onChange={setWaveWobbleDirection}
+          />
+
+          <div style={{ fontWeight: 600, fontSize: 12, marginTop: 8 }}>
+            Cursor spotlight (inverso)
+          </div>
+          <ToggleControl
+            label="enabled (effects.cursorSpotlight.enabled)"
+            checked={cursorSpotlightEnabled}
+            onChange={setCursorSpotlightEnabled}
+          />
+          <SliderControl
+            label="radius"
+            min={40}
+            max={400}
+            step={10}
+            value={cursorSpotlightRadius}
+            onChange={setCursorSpotlightRadius}
+          />
+          <SliderControl
+            label="falloff"
+            min={0}
+            max={300}
+            step={10}
+            value={cursorSpotlightFalloff}
+            onChange={setCursorSpotlightFalloff}
+          />
+          <SliderControl
+            label="minOpacity"
+            min={0}
+            max={1}
+            step={0.05}
+            value={cursorSpotlightMinOpacity}
+            onChange={setCursorSpotlightMinOpacity}
+          />
+
+          <div style={{ fontWeight: 600, fontSize: 12, marginTop: 8 }}>Chromatic breathing</div>
+          <ToggleControl
+            label="enabled (effects.chromaticBreathing.enabled)"
+            checked={chromaticBreathingEnabled}
+            onChange={setChromaticBreathingEnabled}
+          />
+          <SliderControl
+            label="speed"
+            min={0}
+            max={3}
+            step={0.1}
+            value={chromaticBreathingSpeed}
+            onChange={setChromaticBreathingSpeed}
+          />
+          <div style={{ fontSize: 11, color: "#64748b" }}>
+            Uses the grid&apos;s colors as its palette (no dedicated palette override control
+            here yet, same as `organicNoises[]` above).
+          </div>
+
+          <div style={{ fontWeight: 600, fontSize: 12, marginTop: 8 }}>Scan line / reveal</div>
+          <ToggleControl
+            label="enabled (effects.scanLineReveal.enabled)"
+            checked={scanLineRevealEnabled}
+            onChange={setScanLineRevealEnabled}
+          />
+          <SelectControl
+            label="direction"
+            value={scanLineDirection}
+            options={SCAN_LINE_DIRECTIONS}
+            onChange={setScanLineDirection}
+          />
+          <SliderControl
+            label="speed"
+            min={0}
+            max={300}
+            step={10}
+            value={scanLineSpeed}
+            onChange={setScanLineSpeed}
+          />
+          <SliderControl
+            label="bandWidth"
+            min={1}
+            max={200}
+            step={5}
+            value={scanLineBandWidth}
+            onChange={setScanLineBandWidth}
+          />
+          <ToggleControl label="loop" checked={scanLineLoop} onChange={setScanLineLoop} />
+
+          <div style={{ fontWeight: 600, fontSize: 12, marginTop: 8 }}>Magnetic trail</div>
+          <ToggleControl
+            label="enabled (effects.magneticTrail.enabled)"
+            checked={magneticTrailEnabled}
+            onChange={setMagneticTrailEnabled}
+          />
+          <SliderControl
+            label="radius"
+            min={20}
+            max={300}
+            step={10}
+            value={magneticTrailRadius}
+            onChange={setMagneticTrailRadius}
+          />
+          <SliderControl
+            label="strength"
+            min={0}
+            max={3}
+            step={0.1}
+            value={magneticTrailStrength}
+            onChange={setMagneticTrailStrength}
+          />
+          <SliderControl
+            label="lifetimeMs"
+            min={50}
+            max={2000}
+            step={50}
+            value={magneticTrailLifetimeMs}
+            onChange={setMagneticTrailLifetimeMs}
+          />
+          <SliderControl
+            label="maxPoints"
+            min={1}
+            max={64}
+            step={1}
+            value={magneticTrailMaxPoints}
+            onChange={setMagneticTrailMaxPoints}
+          />
+
+          <div style={{ fontWeight: 600, fontSize: 12, marginTop: 8 }}>Glitch / RGB split</div>
+          <ToggleControl
+            label="enabled (effects.glitchRgbSplit.enabled)"
+            checked={glitchEnabled}
+            onChange={setGlitchEnabled}
+          />
+          <SliderControl
+            label="radius"
+            min={10}
+            max={300}
+            step={10}
+            value={glitchRadius}
+            onChange={setGlitchRadius}
+          />
+          <SliderControl
+            label="jitterAmount"
+            min={0}
+            max={20}
+            step={1}
+            value={glitchJitterAmount}
+            onChange={setGlitchJitterAmount}
+          />
+          <SliderControl
+            label="durationMs"
+            min={50}
+            max={1000}
+            step={10}
+            value={glitchDurationMs}
+            onChange={setGlitchDurationMs}
+          />
+          <SelectControl
+            label="triggerMode"
+            value={glitchTriggerMode}
+            options={SHOCKWAVE_TRIGGER_MODES}
+            onChange={setGlitchTriggerMode}
+          />
+
+          <div style={{ fontWeight: 600, fontSize: 12, marginTop: 8 }}>Gravity / fall apart</div>
+          <ToggleControl
+            label="enabled (effects.gravityFallApart.enabled)"
+            checked={gravityEnabled}
+            onChange={setGravityEnabled}
+          />
+          <SliderControl
+            label="gravity"
+            min={0.0001}
+            max={0.01}
+            step={0.0001}
+            value={gravityStrength}
+            onChange={setGravityStrength}
+          />
+          <SliderControl
+            label="fallDurationMs"
+            min={100}
+            max={3000}
+            step={50}
+            value={gravityFallDurationMs}
+            onChange={setGravityFallDurationMs}
+          />
+          <div style={{ fontSize: 11, color: "#64748b" }}>
+            Triggers when a cell crosses from active to inactive (e.g. toggling hover
+            `deactivate`, or a mask/timeline step turning a region off).
+          </div>
+
+          <div style={{ fontWeight: 600, fontSize: 12, marginTop: 8 }}>Constellation / connect</div>
+          <ToggleControl
+            label="enabled (effects.constellationConnect.enabled)"
+            checked={constellationEnabled}
+            onChange={setConstellationEnabled}
+          />
+          <SliderControl
+            label="radius"
+            min={20}
+            max={400}
+            step={10}
+            value={constellationRadius}
+            onChange={setConstellationRadius}
+          />
+          <SliderControl
+            label="linkDistance"
+            min={5}
+            max={150}
+            step={5}
+            value={constellationLinkDistance}
+            onChange={setConstellationLinkDistance}
+          />
+          <SliderControl
+            label="strength"
+            min={0}
+            max={2}
+            step={0.1}
+            value={constellationStrength}
+            onChange={setConstellationStrength}
+          />
+          <div style={{ fontSize: 11, color: "#64748b" }}>
+            Opacity-only glow -- most visible on cells already below full opacity (e.g. combined
+            with breathing or cursor spotlight).
+          </div>
         </Section>
       </div>
 

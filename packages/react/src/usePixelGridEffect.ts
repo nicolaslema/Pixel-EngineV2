@@ -3,6 +3,7 @@ import { PixelGridEffect } from "@pixel-engine/effects";
 import { usePixelEngine } from "./usePixelEngine";
 import { UsePixelGridEffectOptions, UsePixelGridEffectResult } from "./types";
 import { resolveGridConfigInput } from "./grid-config";
+import { isPlainObject } from "./internal/deep-merge-config";
 
 function toLocalCoords(canvas: HTMLCanvasElement, event: MouseEvent | PointerEvent) {
   const rect = canvas.getBoundingClientRect();
@@ -35,10 +36,27 @@ function resolveEffectSize(
   };
 }
 
+// Recursively sorts object keys so `stableSerialize` is independent of insertion order --
+// two semantically-identical configs with keys inserted in a different order (e.g. from a
+// CMS, or from spreads composed in a different order) must produce the same signature, or
+// the effect below recreates the whole PixelGridEffect for no real reason (reloading image
+// masks, resetting ripple pools, a visible jump in breathing phase).
+function sortKeysDeep(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortKeysDeep);
+  if (isPlainObject(value)) {
+    const sorted: Record<string, unknown> = {};
+    for (const key of Object.keys(value).sort()) {
+      sorted[key] = sortKeysDeep(value[key]);
+    }
+    return sorted;
+  }
+  return value;
+}
+
 function stableSerialize(value: unknown): string {
   if (value === undefined) return "undefined";
   try {
-    return JSON.stringify(value);
+    return JSON.stringify(sortKeysDeep(value));
   } catch {
     return String(value);
   }
@@ -97,6 +115,11 @@ export function usePixelGridEffect(options: UsePixelGridEffectOptions): UsePixel
   const createGridEffectRef = useRef(createGridEffect);
   const gridConfigRef = useRef(resolvedGridConfig);
   const influenceOptionsRef = useRef(influenceOptions);
+  const widthRef = useRef(width);
+  const heightRef = useRef(height);
+  const gridWidthRef = useRef(gridWidth);
+  const gridHeightRef = useRef(gridHeight);
+  const fitModeRef = useRef(fitMode);
 
   useEffect(() => {
     onGridReadyRef.current = onGridReady;
@@ -105,12 +128,42 @@ export function usePixelGridEffect(options: UsePixelGridEffectOptions): UsePixel
     createGridEffectRef.current = createGridEffect;
     gridConfigRef.current = resolvedGridConfig;
     influenceOptionsRef.current = influenceOptions;
-  }, [createGridEffect, influenceOptions, onGridReady, onMaskError, onRipple, resolvedGridConfig]);
+    widthRef.current = width;
+    heightRef.current = height;
+    gridWidthRef.current = gridWidth;
+    gridHeightRef.current = gridHeight;
+    fitModeRef.current = fitMode;
+  }, [
+    createGridEffect,
+    influenceOptions,
+    onGridReady,
+    onMaskError,
+    onRipple,
+    resolvedGridConfig,
+    width,
+    height,
+    gridWidth,
+    gridHeight,
+    fitMode
+  ]);
 
+  // width/height/gridWidth/gridHeight/fitMode are intentionally read via the refs above,
+  // not declared as dependencies below: this effect only computes the *initial* size at
+  // creation time, and resize is handled by the two separate effects further down. Reading
+  // them via ref (rather than the plain closure values) resolves the exhaustive-deps warning
+  // the correct way -- without an eslint-disable that could silently mask a real staleness
+  // bug if this effect ever grows genuinely reactive logic later.
   useEffect(() => {
     if (!engine) return;
     const canvas = canvasRef.current;
-    const size = resolveEffectSize(canvas, width, height, gridWidth, gridHeight, fitMode);
+    const size = resolveEffectSize(
+      canvas,
+      widthRef.current,
+      heightRef.current,
+      gridWidthRef.current,
+      gridHeightRef.current,
+      fitModeRef.current
+    );
     const effect = createGridEffectRef.current
       ? createGridEffectRef.current(
         engine,
@@ -142,7 +195,7 @@ export function usePixelGridEffect(options: UsePixelGridEffectOptions): UsePixel
         gridRef.current = null;
       }
     };
-  }, [autoAttach, effectKey, engine, influenceOptionsSignature, resolvedGridConfigSignature]);
+  }, [autoAttach, canvasRef, effectKey, engine, influenceOptionsSignature, resolvedGridConfigSignature]);
 
   useEffect(() => {
     const effect = gridRef.current;

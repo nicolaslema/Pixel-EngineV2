@@ -5,25 +5,32 @@ import {
   PixelGridConfig,
   PixelGridImageMaskConfig,
   PixelGridTextMaskConfig,
+  ResolvedMaskComboRef,
   ResolvedMaskRef,
   ResolvedPixelGridConfig,
   ResolvedPixelGridImageMaskConfig,
-  ResolvedPixelGridTextMaskConfig
+  ResolvedPixelGridTextMaskConfig,
+  ScanLineDirection,
+  WaveWobbleDirection
 } from "./types";
 import {
   OrganicNoiseFalloff,
   OrganicNoisePattern,
   OrganicNoisePosition
 } from "../../influences/OrganicNoiseInfluence";
+import { BlendMode } from "../../influences/Influence";
 import { DEFAULT_NOISE_SEED } from "../../utils/math";
 
 const DEFAULT_COLORS = ["#334155", "#475569", "#64748b"];
 const DEFAULT_GAP = 7;
 const DEFAULT_EXPAND_EASE = 0.08;
 const DEFAULT_BREATH_SPEED = 1;
+const BLEND_MODES: BlendMode[] = ["max", "add", "multiply", "override"];
 const ORGANIC_NOISE_PATTERNS: OrganicNoisePattern[] = ["waves", "perlin", "cells", "turbulence"];
 const ORGANIC_NOISE_POSITIONS: OrganicNoisePosition[] = ["center", "follow-mouse"];
 const ORGANIC_NOISE_FALLOFFS: OrganicNoiseFalloff[] = ["radial", "none"];
+const WAVE_WOBBLE_DIRECTIONS: WaveWobbleDirection[] = ["horizontal", "vertical", "both"];
+const SCAN_LINE_DIRECTIONS: ScanLineDirection[] = ["horizontal", "vertical"];
 
 export function resolvePixelGridConfig(
   config: PixelGridConfig
@@ -156,7 +163,12 @@ export function resolvePixelGridConfig(
       speed: clampMin(config.effects?.paletteCycle?.speed, 0, 0.45),
       scope: config.effects?.paletteCycle?.scope ?? "activeOnly",
       activationThreshold: clampMin(config.effects?.paletteCycle?.activationThreshold, 0, 0.025),
-      palette: resolvePaletteCyclePalette(config, colors, warnings)
+      palette: sanitizePalette(
+        config.effects?.paletteCycle?.palette,
+        colors,
+        warnings,
+        "effects.paletteCycle.palette"
+      )
     },
     dissolve: {
       enabled: config.effects?.dissolve?.enabled ?? false,
@@ -174,6 +186,86 @@ export function resolvePixelGridConfig(
       triggerMode: config.effects?.shockwaveBurst?.triggerMode ?? "pointerDown",
       activationThreshold: clampMin(config.effects?.shockwaveBurst?.activationThreshold, 0, 0.025),
       scope: config.effects?.shockwaveBurst?.scope ?? "activeOnly"
+    },
+    waveWobble: {
+      enabled: config.effects?.waveWobble?.enabled ?? false,
+      amplitude: clampMin(config.effects?.waveWobble?.amplitude, 0, 6),
+      frequency: clampMin(config.effects?.waveWobble?.frequency, 0, 0.02),
+      speed: clampMin(config.effects?.waveWobble?.speed, 0, 1),
+      direction: resolveWaveWobbleDirection(config.effects?.waveWobble?.direction, warnings),
+      scope: config.effects?.waveWobble?.scope ?? "activeOnly",
+      activationThreshold: clampMin(config.effects?.waveWobble?.activationThreshold, 0, 0.025)
+    },
+    cursorSpotlight: {
+      enabled: config.effects?.cursorSpotlight?.enabled ?? false,
+      radius: clampMin(config.effects?.cursorSpotlight?.radius, 0, 180),
+      falloff: clampMin(config.effects?.cursorSpotlight?.falloff, 0, 140),
+      minOpacity: clamp(config.effects?.cursorSpotlight?.minOpacity, 0, 1, 0.12)
+    },
+    chromaticBreathing: {
+      enabled: config.effects?.chromaticBreathing?.enabled ?? false,
+      speed: clampMin(config.effects?.chromaticBreathing?.speed, 0, 1),
+      palette: sanitizePalette(
+        config.effects?.chromaticBreathing?.palette,
+        colors,
+        warnings,
+        "effects.chromaticBreathing.palette"
+      ),
+      scope: config.effects?.chromaticBreathing?.scope ?? "activeOnly",
+      activationThreshold: clampMin(
+        config.effects?.chromaticBreathing?.activationThreshold,
+        0,
+        0.025
+      )
+    },
+    scanLineReveal: {
+      enabled: config.effects?.scanLineReveal?.enabled ?? false,
+      direction: resolveScanLineDirection(config.effects?.scanLineReveal?.direction, warnings),
+      speed: clampMin(config.effects?.scanLineReveal?.speed, 0, 80),
+      bandWidth: clampMin(config.effects?.scanLineReveal?.bandWidth, 1, 60),
+      loop: config.effects?.scanLineReveal?.loop ?? true
+    },
+    magneticTrail: {
+      enabled: config.effects?.magneticTrail?.enabled ?? false,
+      radius: clampMin(config.effects?.magneticTrail?.radius, 0, 90),
+      strength: clampMin(config.effects?.magneticTrail?.strength, 0, 1.2),
+      lifetimeMs: clampMin(config.effects?.magneticTrail?.lifetimeMs, 0, 500),
+      maxPoints: clampInt(config.effects?.magneticTrail?.maxPoints, 1, 64, 24),
+      sampleIntervalMs: clampMin(config.effects?.magneticTrail?.sampleIntervalMs, 0, 40),
+      scope: config.effects?.magneticTrail?.scope ?? "activeOnly",
+      activationThreshold: clampMin(config.effects?.magneticTrail?.activationThreshold, 0, 0.025)
+    },
+    glitchRgbSplit: {
+      enabled: config.effects?.glitchRgbSplit?.enabled ?? false,
+      radius: clampMin(config.effects?.glitchRgbSplit?.radius, 0, 70),
+      jitterAmount: clampMin(config.effects?.glitchRgbSplit?.jitterAmount, 0, 4),
+      durationMs: clampMin(config.effects?.glitchRgbSplit?.durationMs, 1, 220),
+      maxBursts: clampInt(config.effects?.glitchRgbSplit?.maxBursts, 1, 32, 6),
+      triggerMode: config.effects?.glitchRgbSplit?.triggerMode ?? "pointerDown",
+      scope: config.effects?.glitchRgbSplit?.scope ?? "activeOnly",
+      activationThreshold: clampMin(config.effects?.glitchRgbSplit?.activationThreshold, 0, 0.025)
+    },
+    gravityFallApart: {
+      enabled: config.effects?.gravityFallApart?.enabled ?? false,
+      gravity: clampMin(config.effects?.gravityFallApart?.gravity, 0, 0.0009),
+      fallDurationMs: clampMin(config.effects?.gravityFallApart?.fallDurationMs, 1, 650),
+      activationThreshold: clampMin(
+        config.effects?.gravityFallApart?.activationThreshold,
+        0,
+        0.025
+      )
+    },
+    constellationConnect: {
+      enabled: config.effects?.constellationConnect?.enabled ?? false,
+      radius: clampMin(config.effects?.constellationConnect?.radius, 0, 140),
+      linkDistance: clampMin(config.effects?.constellationConnect?.linkDistance, 0, 45),
+      maxCandidates: clampInt(config.effects?.constellationConnect?.maxCandidates, 2, 400, 120),
+      strength: clamp(config.effects?.constellationConnect?.strength, 0, 2, 1),
+      activationThreshold: clampMin(
+        config.effects?.constellationConnect?.activationThreshold,
+        0,
+        0.025
+      )
     }
   };
 
@@ -475,6 +567,7 @@ function resolveMaskTimeline(
     assetId?: string;
     maskId?: string;
     maskType?: "image" | "text";
+    blendMode?: BlendMode;
   };
 
   type TimelineSourceStep = MaskRefEntry & {
@@ -643,12 +736,15 @@ function resolveMaskTimeline(
 
   // Resolves a step's `masks` combo entries (up to one per type), for a static
   // image+text-simultaneously step. Returns [] when the step doesn't use `masks`.
-  const resolveComboMaskRefs = (step: TimelineSourceStep, index: number): ResolvedMaskRef[] => {
+  const resolveComboMaskRefs = (
+    step: TimelineSourceStep,
+    index: number
+  ): ResolvedMaskComboRef[] => {
     const entries = step.masks ?? [];
     if (entries.length === 0) return [];
 
     const seenTypes = new Set<InitialMask>();
-    const refs: ResolvedMaskRef[] = [];
+    const refs: ResolvedMaskComboRef[] = [];
 
     entries.forEach((entry, entryIndex) => {
       const sourcePath = `maskTimeline.steps[${index}].masks[${entryIndex}]`;
@@ -661,7 +757,21 @@ function resolveMaskTimeline(
         return;
       }
       seenTypes.add(maskRef.type);
-      refs.push(maskRef);
+
+      let blendMode: BlendMode | undefined;
+      if (entry.blendMode !== undefined) {
+        if (BLEND_MODES.includes(entry.blendMode)) {
+          blendMode = entry.blendMode;
+        } else {
+          warnings.push(
+            `${sourcePath}: invalid blendMode "${entry.blendMode}", ignored (using "max").`
+          );
+        }
+      }
+
+      // Fresh object, not the shared/interned maskRef -- blendMode must never leak onto
+      // other steps that reference the same mask id.
+      refs.push({ id: maskRef.id, type: maskRef.type, blendMode });
     });
 
     return refs;
@@ -764,24 +874,48 @@ function ensurePositiveScalar(
   return fallback;
 }
 
-function resolvePaletteCyclePalette(
-  config: PixelGridConfig,
+function sanitizePalette(
+  candidate: string[] | undefined,
   gridColors: string[],
-  warnings: string[]
+  warnings: string[],
+  fieldPath: string
 ): string[] {
-  const candidatePalette = config.effects?.paletteCycle?.palette;
-  if (!candidatePalette) {
+  if (!candidate) {
     return gridColors;
   }
 
-  const sanitized = candidatePalette
+  const sanitized = candidate
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0);
 
   if (sanitized.length === 0) {
-    warnings.push("effects.paletteCycle.palette: no valid colors found, using grid colors.");
+    warnings.push(`${fieldPath}: no valid colors found, using grid colors.`);
     return gridColors;
   }
 
   return sanitized;
+}
+
+function resolveWaveWobbleDirection(
+  value: WaveWobbleDirection | undefined,
+  warnings: string[]
+): WaveWobbleDirection {
+  if (value === undefined) return "both";
+  if (WAVE_WOBBLE_DIRECTIONS.includes(value)) return value;
+  warnings.push(
+    `effects.waveWobble.direction: invalid value "${value}". Falling back to "both".`
+  );
+  return "both";
+}
+
+function resolveScanLineDirection(
+  value: ScanLineDirection | undefined,
+  warnings: string[]
+): ScanLineDirection {
+  if (value === undefined) return "horizontal";
+  if (SCAN_LINE_DIRECTIONS.includes(value)) return value;
+  warnings.push(
+    `effects.scanLineReveal.direction: invalid value "${value}". Falling back to "horizontal".`
+  );
+  return "horizontal";
 }

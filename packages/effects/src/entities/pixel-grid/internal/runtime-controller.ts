@@ -118,7 +118,8 @@ export function createPixelGridRuntimeController(
       {
         font: mask.font ?? "bold 160px Arial",
         strength: mask.strength ?? 0.9,
-        blurRadius: mask.blurRadius ?? 2
+        blurRadius: mask.blurRadius ?? 2,
+        reveal: mask.reveal
       }
     )
   }));

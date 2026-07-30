@@ -200,6 +200,65 @@ describe("usePixelGridEffect", () => {
     cleanupHost(container, root);
   });
 
+  it("does not recreate effect when gridConfig keys are reordered but content is unchanged (item 5.2)", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+    const addEntity = vi.fn();
+    const removeEntity = vi.fn();
+    const engine = {
+      addEntity,
+      removeEntity,
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    };
+
+    const createEngine = vi.fn(() => engine);
+    const createGridEffect = vi.fn(() => ({
+      triggerRipple: vi.fn()
+    }));
+
+    function TestComponent(props: { reordered?: boolean }) {
+      // hoverEffects has no fixed key order from the preset base (unlike colors/gap/
+      // expandEase/breathSpeed, which the preset already declares -- overwriting an
+      // existing key never changes its enumeration order, so those alone can't produce a
+      // genuine reordering after the merge pipeline). A nested block with no base-preset
+      // counterpart keeps whichever key order the caller used, making it the right target
+      // to prove stableSerialize is truly key-order independent.
+      const hoverEffects = props.reordered
+        ? { radius: 100, mode: "reactive" as const, strength: 0.8 }
+        : { mode: "reactive" as const, strength: 0.8, radius: 100 };
+      const { canvasRef } = usePixelGridEffect({
+        width: 300,
+        height: 180,
+        gridConfig: {
+          colors: ["#334155", "#475569", "#64748b"],
+          gap: 6,
+          expandEase: 0.08,
+          breathSpeed: 1,
+          hoverEffects
+        },
+        createEngine: createEngine as never,
+        createGridEffect: createGridEffect as never
+      });
+      return <canvas ref={canvasRef} />;
+    }
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(<TestComponent />);
+    });
+    expect(createGridEffect).toHaveBeenCalledTimes(1);
+
+    // Same content, different key insertion order -- must not recreate the effect.
+    act(() => {
+      root.render(<TestComponent reordered />);
+    });
+    expect(createGridEffect).toHaveBeenCalledTimes(1);
+
+    cleanupHost(container, root);
+  });
+
   it("supports preset + declarative mask with timeline config without explicit gridConfig", () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

@@ -1,9 +1,11 @@
 import { ImageMaskOptions } from "../../influences/Masks/ImageMaskInfluence";
+import { TextMaskRevealOptions } from "../../influences/Masks/TextMaskInfluence";
 import {
   OrganicNoiseFalloff,
   OrganicNoisePattern,
   OrganicNoisePosition
 } from "../../influences/OrganicNoiseInfluence";
+import { BlendMode } from "../../influences/Influence";
 
 export type HoverMode = "classic" | "reactive";
 export type ReactiveHoverScope = "all" | "activeOnly" | "imageMask";
@@ -136,6 +138,13 @@ export interface MaskTimelineStepMaskRefOptions {
   assetId?: string;
   maskId?: string;
   maskType?: InitialMask;
+  /**
+   * Overrides this mask's blend mode (default "max"/union) while it's active as part of a
+   * combo step's `masks[]`. E.g. "multiply" gives an intersection look instead of a union.
+   * Resets back to "max" whenever this mask is later resolved without an override, so it
+   * never leaks onto an unrelated step reusing the same mask id.
+   */
+  blendMode?: BlendMode;
 }
 
 export interface MaskTimelineStepOptions {
@@ -192,6 +201,17 @@ export interface ResolvedMaskRef {
   type: PixelGridMaskType;
 }
 
+/**
+ * A per-step combo entry -- a fresh object built for each step's `masks[]` (never the
+ * shared/interned ResolvedMaskRef instance for a mask id), so `blendMode` can vary per step
+ * without leaking onto other steps referencing the same mask id.
+ */
+export interface ResolvedMaskComboRef {
+  id: string;
+  type: PixelGridMaskType;
+  blendMode?: BlendMode;
+}
+
 export interface ResolvedMaskTimelineStep {
   mask: InitialMask;
   maskRef: ResolvedMaskRef | null;
@@ -199,7 +219,7 @@ export interface ResolvedMaskTimelineStep {
    * Present (non-empty) only for a step whose `masks` option resolved to at least one
    * mask -- absent/empty for every normal single-mask step. See MaskTimelineStepOptions.
    */
-  maskRefs?: ResolvedMaskRef[];
+  maskRefs?: ResolvedMaskComboRef[];
   holdMs: number;
   transition: ResolvedMaskTimelineTransition;
 }
@@ -248,10 +268,93 @@ export interface ShockwaveBurstEffectOptions {
   scope?: PostEffectScope;
 }
 
+export type WaveWobbleDirection = "horizontal" | "vertical" | "both";
+
+export interface WaveWobbleEffectOptions {
+  enabled?: boolean;
+  amplitude?: number;
+  frequency?: number;
+  speed?: number;
+  direction?: WaveWobbleDirection;
+  scope?: PostEffectScope;
+  activationThreshold?: number;
+}
+
+export interface CursorSpotlightEffectOptions {
+  enabled?: boolean;
+  radius?: number;
+  falloff?: number;
+  minOpacity?: number;
+}
+
+export interface ChromaticBreathingEffectOptions {
+  enabled?: boolean;
+  speed?: number;
+  palette?: string[];
+  scope?: PostEffectScope;
+  activationThreshold?: number;
+}
+
+export type ScanLineDirection = "horizontal" | "vertical";
+
+export interface ScanLineRevealEffectOptions {
+  enabled?: boolean;
+  direction?: ScanLineDirection;
+  speed?: number;
+  bandWidth?: number;
+  loop?: boolean;
+}
+
+export interface MagneticTrailEffectOptions {
+  enabled?: boolean;
+  radius?: number;
+  strength?: number;
+  lifetimeMs?: number;
+  maxPoints?: number;
+  sampleIntervalMs?: number;
+  scope?: PostEffectScope;
+  activationThreshold?: number;
+}
+
+export interface GlitchRgbSplitEffectOptions {
+  enabled?: boolean;
+  radius?: number;
+  jitterAmount?: number;
+  durationMs?: number;
+  maxBursts?: number;
+  triggerMode?: ShockwaveTriggerMode;
+  scope?: PostEffectScope;
+  activationThreshold?: number;
+}
+
+export interface GravityFallApartEffectOptions {
+  enabled?: boolean;
+  gravity?: number;
+  fallDurationMs?: number;
+  activationThreshold?: number;
+}
+
+export interface ConstellationConnectEffectOptions {
+  enabled?: boolean;
+  radius?: number;
+  linkDistance?: number;
+  maxCandidates?: number;
+  strength?: number;
+  activationThreshold?: number;
+}
+
 export interface PixelGridEffectsOptions {
   paletteCycle?: PaletteCycleEffectOptions;
   dissolve?: PixelDissolveEffectOptions;
   shockwaveBurst?: ShockwaveBurstEffectOptions;
+  waveWobble?: WaveWobbleEffectOptions;
+  cursorSpotlight?: CursorSpotlightEffectOptions;
+  chromaticBreathing?: ChromaticBreathingEffectOptions;
+  scanLineReveal?: ScanLineRevealEffectOptions;
+  magneticTrail?: MagneticTrailEffectOptions;
+  glitchRgbSplit?: GlitchRgbSplitEffectOptions;
+  gravityFallApart?: GravityFallApartEffectOptions;
+  constellationConnect?: ConstellationConnectEffectOptions;
 }
 
 export interface ResolvedPaletteCycleEffectOptions {
@@ -281,10 +384,89 @@ export interface ResolvedShockwaveBurstEffectOptions {
   scope: PostEffectScope;
 }
 
+export interface ResolvedWaveWobbleEffectOptions {
+  enabled: boolean;
+  amplitude: number;
+  frequency: number;
+  speed: number;
+  direction: WaveWobbleDirection;
+  scope: PostEffectScope;
+  activationThreshold: number;
+}
+
+export interface ResolvedCursorSpotlightEffectOptions {
+  enabled: boolean;
+  radius: number;
+  falloff: number;
+  minOpacity: number;
+}
+
+export interface ResolvedChromaticBreathingEffectOptions {
+  enabled: boolean;
+  speed: number;
+  palette: string[];
+  scope: PostEffectScope;
+  activationThreshold: number;
+}
+
+export interface ResolvedScanLineRevealEffectOptions {
+  enabled: boolean;
+  direction: ScanLineDirection;
+  speed: number;
+  bandWidth: number;
+  loop: boolean;
+}
+
+export interface ResolvedMagneticTrailEffectOptions {
+  enabled: boolean;
+  radius: number;
+  strength: number;
+  lifetimeMs: number;
+  maxPoints: number;
+  sampleIntervalMs: number;
+  scope: PostEffectScope;
+  activationThreshold: number;
+}
+
+export interface ResolvedGlitchRgbSplitEffectOptions {
+  enabled: boolean;
+  radius: number;
+  jitterAmount: number;
+  durationMs: number;
+  maxBursts: number;
+  triggerMode: ShockwaveTriggerMode;
+  scope: PostEffectScope;
+  activationThreshold: number;
+}
+
+export interface ResolvedGravityFallApartEffectOptions {
+  enabled: boolean;
+  gravity: number;
+  fallDurationMs: number;
+  activationThreshold: number;
+}
+
+export interface ResolvedConstellationConnectEffectOptions {
+  enabled: boolean;
+  radius: number;
+  linkDistance: number;
+  maxCandidates: number;
+  strength: number;
+  activationThreshold: number;
+}
+
 export interface ResolvedPixelGridEffectsOptions {
   paletteCycle: ResolvedPaletteCycleEffectOptions;
   dissolve: ResolvedPixelDissolveEffectOptions;
   shockwaveBurst: ResolvedShockwaveBurstEffectOptions;
+  waveWobble: ResolvedWaveWobbleEffectOptions;
+  cursorSpotlight: ResolvedCursorSpotlightEffectOptions;
+  chromaticBreathing: ResolvedChromaticBreathingEffectOptions;
+  scanLineReveal: ResolvedScanLineRevealEffectOptions;
+  magneticTrail: ResolvedMagneticTrailEffectOptions;
+  glitchRgbSplit: ResolvedGlitchRgbSplitEffectOptions;
+  gravityFallApart: ResolvedGravityFallApartEffectOptions;
+  constellationConnect: ResolvedConstellationConnectEffectOptions;
 }
 
 export interface ResolvedPerformanceOptions {
@@ -307,6 +489,7 @@ export interface PixelGridTextMaskConfig {
   fontWeight?: string | number;
   strength?: number;
   blurRadius?: number;
+  reveal?: TextMaskRevealOptions;
 }
 
 export interface PixelGridImageMaskConfig extends ImageMaskOptions {

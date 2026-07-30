@@ -77,6 +77,7 @@ export function createMaskStateMachine(
 
     for (const mask of masks) {
       influenceManager.add(mask.influence);
+      resetMaskRevealIfSupported(mask.influence);
     }
 
     setActiveTypeMasks(...masks);
@@ -100,7 +101,11 @@ export function createMaskStateMachine(
   const resolveMaskForStep = (stepIndex: number): RuntimeMaskRegistryEntry | null => {
     const step = params.maskTimeline.steps[stepIndex];
     if (!step) return null;
-    return registry.resolve(step.maskRef, step.mask);
+    const entry = registry.resolve(step.maskRef, step.mask);
+    // Per-mask blendMode override only applies within a combo step's masks[]; a singular
+    // step always resets to "max" so an earlier combo activation's override never leaks in.
+    if (entry) entry.influence.blendMode = "max";
+    return entry;
   };
 
   const isComboStep = (stepIndex: number): boolean =>
@@ -120,7 +125,10 @@ export function createMaskStateMachine(
       const resolved: RuntimeMaskRegistryEntry[] = [];
       for (const ref of step.maskRefs) {
         const entry = registry.resolve(ref, ref.type);
-        if (entry) resolved.push(entry);
+        if (entry) {
+          entry.influence.blendMode = ref.blendMode ?? "max";
+          resolved.push(entry);
+        }
       }
       return resolved;
     }
@@ -234,6 +242,7 @@ export function createMaskStateMachine(
       let initialMasks = resolveMasksForStep(currentStepIndex);
       if (initialMasks.length === 0) {
         const fallback = registry.resolve(null, params.initialMask);
+        if (fallback) fallback.influence.blendMode = "max";
         initialMasks = fallback ? [fallback] : [];
       }
       currentMask = initialMasks[0] ?? null;
@@ -243,6 +252,7 @@ export function createMaskStateMachine(
     }
 
     const fallback = registry.resolve(null, params.initialMask);
+    if (fallback) fallback.influence.blendMode = "max";
     currentMask = fallback;
     setActiveMasks(fallback ? [fallback] : []);
     playing = false;
@@ -312,5 +322,12 @@ function releaseMorphResources(mask: MaskInfluence): void {
   if ("releaseResources" in mask) {
     const releasable = mask as unknown as { releaseResources?: () => void };
     releasable.releaseResources?.();
+  }
+}
+
+function resetMaskRevealIfSupported(mask: MaskInfluence): void {
+  if ("resetReveal" in mask) {
+    const resettable = mask as unknown as { resetReveal?: () => void };
+    resettable.resetReveal?.();
   }
 }

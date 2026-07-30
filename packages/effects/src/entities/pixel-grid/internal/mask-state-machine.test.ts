@@ -18,6 +18,13 @@ class StaticMask extends MaskInfluence {
   protected generateMask(): void {}
 }
 
+class RevealableMask extends StaticMask {
+  resetRevealCallCount = 0;
+  resetReveal(): void {
+    this.resetRevealCallCount++;
+  }
+}
+
 function imageEntry(id: string) {
   return {
     id,
@@ -522,5 +529,131 @@ describe("pixel-grid mask-state-machine", () => {
     expect(machine.getCurrentStepIndex()).toBe(1);
     expect(machine.textMask).not.toBeNull();
     expect(machine.morphMask).toBeNull();
+  });
+
+  it("calls resetReveal() on a mask when it first becomes active", () => {
+    const manager = new InfluenceManager(1, 1, 1);
+    const mask = new RevealableMask();
+    const entry = { id: "text-1", type: "text" as const, influence: mask };
+
+    createMaskStateMachine({
+      influenceManager: manager,
+      maskTimeline: { enabled: false, autoplay: false, loop: false, initialStep: 0, steps: [] },
+      initialMask: "text",
+      imageMasks: [],
+      textMasks: [entry]
+    });
+
+    expect(mask.resetRevealCallCount).toBe(1);
+  });
+
+  it("calls resetReveal() again when a step loops back to the same mask (typewriter restarts each cycle)", () => {
+    const manager = new InfluenceManager(1, 1, 1);
+    const mask = new RevealableMask();
+    const entry = { id: "text-loop", type: "text" as const, influence: mask };
+
+    const machine = createMaskStateMachine({
+      influenceManager: manager,
+      maskTimeline: {
+        enabled: true,
+        autoplay: true,
+        loop: true,
+        initialStep: 0,
+        steps: [
+          {
+            mask: "text",
+            maskRef: { id: "text-loop", type: "text" },
+            holdMs: 5,
+            transition: { mode: "morph", durationMs: 1, seed: 1 }
+          }
+        ]
+      },
+      initialMask: "text",
+      imageMasks: [],
+      textMasks: [entry]
+    });
+
+    expect(mask.resetRevealCallCount).toBe(1);
+
+    machine.update(5); // holdMs elapses -> loops back to step 0, same mask id -> hard-cut
+    expect(mask.resetRevealCallCount).toBe(2);
+  });
+
+  it("applies a per-mask blendMode override for combo step entries, defaults the rest to 'max' (item: multi-mask blend)", () => {
+    const manager = new InfluenceManager(1, 1, 1);
+    const imageMask = imageEntry("hero-image");
+    const textMask = textEntry("hero-text");
+
+    createMaskStateMachine({
+      influenceManager: manager,
+      maskTimeline: {
+        enabled: true,
+        autoplay: false,
+        loop: true,
+        initialStep: 0,
+        steps: [
+          {
+            mask: "image",
+            maskRef: { id: "hero-image", type: "image" },
+            maskRefs: [
+              { id: "hero-image", type: "image", blendMode: "multiply" },
+              { id: "hero-text", type: "text" }
+            ],
+            holdMs: 10,
+            transition: { mode: "morph", durationMs: 10, seed: 1 }
+          }
+        ]
+      },
+      initialMask: "image",
+      imageMasks: [imageMask],
+      textMasks: [textMask]
+    });
+
+    expect(imageMask.influence.blendMode).toBe("multiply");
+    expect(textMask.influence.blendMode).toBe("max");
+  });
+
+  it("resets blendMode back to 'max' when the same mask is later reused without an override (no leak across steps)", () => {
+    const manager = new InfluenceManager(1, 1, 1);
+    const imageMask = imageEntry("hero-image");
+    const textMask = textEntry("hero-text");
+
+    const machine = createMaskStateMachine({
+      influenceManager: manager,
+      maskTimeline: {
+        enabled: true,
+        autoplay: false,
+        loop: true,
+        initialStep: 0,
+        steps: [
+          {
+            mask: "image",
+            maskRef: { id: "hero-image", type: "image" },
+            maskRefs: [
+              { id: "hero-image", type: "image", blendMode: "multiply" },
+              { id: "hero-text", type: "text" }
+            ],
+            holdMs: 5,
+            transition: { mode: "morph", durationMs: 1, seed: 1 }
+          },
+          {
+            mask: "image",
+            maskRef: { id: "hero-image", type: "image" },
+            holdMs: 5,
+            transition: { mode: "morph", durationMs: 1, seed: 1 }
+          }
+        ]
+      },
+      initialMask: "image",
+      imageMasks: [imageMask],
+      textMasks: [textMask]
+    });
+
+    expect(imageMask.influence.blendMode).toBe("multiply");
+
+    machine.play();
+    machine.update(5); // leaving a combo step always hard-cuts, straight into step 1
+
+    expect(imageMask.influence.blendMode).toBe("max");
   });
 });

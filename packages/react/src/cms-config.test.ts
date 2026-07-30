@@ -77,6 +77,30 @@ describe("cms-config", () => {
     expect(result.value?.gridConfig?.expandEase).toBe(0.1);
   });
 
+  it("deep-merges nested blocks beyond gridConfig when using a fallback (item 5.4)", () => {
+    const json = JSON.stringify({
+      schemaVersion: "1.0",
+      scrollReactive: {
+        intensity: 2
+      }
+    });
+
+    const result = loadPixelConfigFromJson(json, {
+      scrollReactive: {
+        enabled: true,
+        intensity: 1.5,
+        direction: "down"
+      }
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.value?.scrollReactive).toEqual({
+      enabled: true,
+      intensity: 2,
+      direction: "down"
+    });
+  });
+
   it("fails on invalid JSON", () => {
     const result = loadPixelConfigFromJson("{ invalid }");
     expect(result.ok).toBe(false);

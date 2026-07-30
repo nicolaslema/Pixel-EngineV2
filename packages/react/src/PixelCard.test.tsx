@@ -203,6 +203,70 @@ describe("PixelCard", () => {
     cleanupHost(container, root);
   });
 
+  it("supports overlayPointerEvents hybrid and forwards overlay hover as real PointerEvents on the canvas (item 5.1)", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const createEngine = vi.fn(() => ({
+      addEntity: vi.fn(),
+      removeEntity: vi.fn(),
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    })) as never;
+    const createGridEffect = vi.fn(() => ({
+      triggerRipple: vi.fn()
+    })) as never;
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelCard
+          width={320}
+          height={180}
+          gridConfig={{
+            colors: ["#334155", "#475569", "#64748b"],
+            gap: 6,
+            expandEase: 0.08,
+            breathSpeed: 1
+          }}
+          createEngine={createEngine}
+          createGridEffect={createGridEffect}
+          overlayPointerEvents="hybrid"
+        >
+          <button type="button">Overlay button</button>
+        </PixelCard>
+      );
+    });
+
+    const canvas = container.querySelector("canvas");
+    expect(canvas).not.toBeNull();
+
+    const receivedTypes: string[] = [];
+    canvas?.addEventListener("pointermove", (event) => receivedTypes.push(event.type));
+    canvas?.addEventListener("pointerenter", (event) => receivedTypes.push(event.type));
+    // Same-type sanity check: the bridge must NOT be dispatching MouseEvents for hover --
+    // that's exactly the bug this test guards against (item 5.1).
+    canvas?.addEventListener("mousemove", () => receivedTypes.push("mousemove (BUG)"));
+
+    const button = container.querySelector("button");
+    act(() => {
+      button?.dispatchEvent(
+        new PointerEvent("pointerenter", {
+          bubbles: true,
+          cancelable: true,
+          clientX: 12,
+          clientY: 18,
+          pointerId: 1,
+          pointerType: "mouse",
+          isPrimary: true
+        })
+      );
+    });
+
+    expect(receivedTypes).toEqual(["pointerenter", "pointermove"]);
+
+    cleanupHost(container, root);
+  });
+
   it("uses grid mode when preset is provided without gridConfig", () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     const createEngine = vi.fn(() => ({
