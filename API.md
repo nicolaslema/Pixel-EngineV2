@@ -121,6 +121,7 @@ console.log(engine.getLoopTuning()); // resolved runtime loop profile
 - `useScrollReactiveGrid(params)`
 - `useSectionTransitionPreset(params)`
 - `useDebugHudOverlay(params)`
+- `usePrefersReducedMotion()` — reactively tracks `prefers-reduced-motion: reduce`, updating live if the OS/browser preference changes (no reload needed). Used internally by `useScrollReactiveGrid`/`useSectionTransitionPreset`; exported for consumers building their own reduced-motion-aware UI.
 
 ### Components
 
@@ -128,6 +129,23 @@ console.log(engine.getLoopTuning()); // resolved runtime loop profile
 - `PixelGridCanvas`
 - `PixelSurface`
 - `PixelCard`
+
+### Imperative handles (`ref`)
+
+All 4 components are `forwardRef`-wrapped and expose an imperative handle via `ref`:
+
+| Component | Handle type | Methods |
+|---|---|---|
+| `PixelCanvas` | `PixelCanvasHandle` | `getEngine()` |
+| `PixelGridCanvas` | `PixelGridCanvasHandle` | `getEngine()`, `getGrid()`, `triggerRipple(x, y)`, `playMaskTimeline()`, `pauseMaskTimeline()`, `resetMaskTimeline()` |
+| `PixelSurface` | `PixelCanvasHandle` (aliased `PixelSurfaceHandle`) | Same as `PixelCanvas` — forwarded straight to the inner canvas. |
+| `PixelCard` | `PixelGridCanvasHandle` (aliased `PixelCardHandle`) | Same shape regardless of `mode` — in `mode="plain"`, `getGrid()` returns `null` and the other grid-specific methods are no-ops. |
+
+```tsx
+const cardRef = useRef<PixelCardHandle>(null);
+// ...
+cardRef.current?.triggerRipple(100, 60);
+```
 
 ### Helper functions
 
@@ -171,6 +189,9 @@ export function App() {
 | `createEngine` | `(options) => PixelEngine` | Custom engine factory (tests/custom runtime). |
 | `className` (`PixelCanvas`) | `string` | Canvas class name. |
 | `style` (`PixelCanvas`) | `CSSProperties` | Canvas style override. |
+| `decorative` | `boolean` | Default `true` — renders `aria-hidden="true"` on the canvas (correct for the common case: a purely visual background/effect). Set `false` when the canvas itself is meaningful content, and pair it with `aria-label`/`aria-labelledby`. |
+| `role` | `React.AriaRole` | Forwarded to the canvas element. |
+| `aria-label` / `aria-labelledby` / `aria-describedby` | `string` | Forwarded to the canvas element — required for a real accessible name/description when `decorative={false}`. |
 
 ### `usePixelGridEffect` / `PixelGridCanvas` core options
 
@@ -187,9 +208,13 @@ export function App() {
 | `rippleTrigger` | `"click" \| "pointerdown" \| "none"` | Built-in ripple trigger source. |
 | `onGridReady` | `(effect, engine) => void` | Effect ready callback. |
 | `onRipple` | `(payload) => void` | Ripple callback. |
+| `onMaskError` | `(event) => void` | Mask load/render error callback. |
+| `onConfigWarning` | `(warnings: string[]) => void` | Fired once per resolved-config recomputation that produced one or more dev warnings (the same messages `console.warn` would print) — e.g. an invalid `gridConfig.gap` falling back to the preset's value. Not called when the resolved config is warning-free. |
 | `createGridEffect` | `(engine, w, h, config, influenceOptions?) => PixelGridEffect` | Custom effect factory. |
 | `className` (`PixelGridCanvas`) | `string` | Canvas class name. |
 | `style` (`PixelGridCanvas`) | `CSSProperties` | Canvas style override (composed with transition/placeholder styles). |
+| `decorative` | `boolean` | Same as `PixelCanvas` — default `true` (`aria-hidden="true"`), set `false` + `aria-label`/`aria-labelledby` for meaningful canvas content. |
+| `role` / `aria-label` / `aria-labelledby` / `aria-describedby` | — | Same as `PixelCanvas`, forwarded to the canvas element. |
 
 ### `PixelGridCanvas` web utility options
 
@@ -213,8 +238,11 @@ export function App() {
 | `overlayStyle` | `CSSProperties` | Overlay wrapper style. |
 | `radius` (`PixelCard`) | `number` | Card border radius. |
 | `padding` (`PixelCard`) | `number` | Overlay content padding. |
+| `mode` (`PixelCard`) | `"grid" \| "plain"` | Which inner canvas to render. Default **`"grid"`** (renders `PixelGridCanvas`, even with zero grid-specific props). Pass `mode="plain"` for a bare `PixelCanvas`. |
 
 Notes:
+- `PixelCard`'s `mode` default is `"grid"` and **replaces** the previous prop-shape inference (which rendered a `PixelGridCanvas` only if a grid-specific prop like `gridConfig`/`preset`/`mask` was present, otherwise falling back to a plain, non-interactive `PixelCanvas`). If you were relying on that implicit "no grid props → plain canvas" fallback, pass `mode="plain"` explicitly.
+- Accessibility: all 4 canvas components render `aria-hidden="true"` by default (`decorative`, default `true`) since the canvas is almost always a purely visual effect. If you set `decorative={false}` because the canvas itself is meaningful content (not just a decorative background behind real `children`), you are responsible for providing an accessible name (`aria-label`/`aria-labelledby`) **and** a keyboard-accessible equivalent for any interaction you rely on — hover/ripple are pointer-only with no built-in keyboard fallback. For the common case (`PixelCard`/`PixelSurface` with real interactive `children` in the overlay), the default `decorative={true}` is correct and no further action is needed.
 - `gridConfig` is optional when `preset` is provided.
 - The React grid effect is recreated automatically when resolved `gridConfig` or `influenceOptions` changes.
 - Use `effectKey` when you need an additional explicit full remount/reset boundary.

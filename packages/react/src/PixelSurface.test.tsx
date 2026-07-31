@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createRoot, Root } from "react-dom/client";
 import { act } from "react";
 import { PixelSurface } from "./PixelSurface";
+import { PixelCanvasHandle } from "./types";
 
 function createHost(): { container: HTMLDivElement; root: Root } {
   const container = document.createElement("div");
@@ -91,6 +92,26 @@ describe("PixelSurface", () => {
     });
 
     expect(receivedTypes).toEqual(["pointerenter", "pointermove"]);
+
+    cleanupHost(container, root);
+  });
+
+  it("exposes getEngine via ref, forwarded to the inner PixelCanvas (item 5.15)", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const engineInstance = { start: vi.fn(), destroy: vi.fn(), resize: vi.fn() };
+    const createEngine = vi.fn(() => engineInstance) as never;
+    const ref = React.createRef<PixelCanvasHandle>();
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelSurface ref={ref} width={320} height={180} createEngine={createEngine}>
+          <button type="button">Click</button>
+        </PixelSurface>
+      );
+    });
+
+    expect(ref.current?.getEngine()).toBe(engineInstance);
 
     cleanupHost(container, root);
   });

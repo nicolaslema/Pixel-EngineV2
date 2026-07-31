@@ -1,5 +1,5 @@
 import { CSSProperties, useRef, useState } from "react";
-import { PixelCard } from "@pixel-engine/react";
+import { PixelCard, PixelCardHandle } from "@pixel-engine/react";
 import type { PixelGridEffect, HoverMode } from "@pixel-engine/effects";
 import { Button, FileControl, Section, SelectControl, ToggleControl, panelStyle } from "./controls";
 
@@ -68,6 +68,7 @@ const cardOverlayContentStyle: CSSProperties = {
 
 export function CardDemo() {
   const gridRef = useRef<PixelGridEffect | null>(null);
+  const cardRef = useRef<PixelCardHandle>(null);
   const [hoverMode, setHoverMode] = useState<HoverMode>("reactive");
   const [rippleOnClick, setRippleOnClick] = useState(true);
   const [overlayMode, setOverlayMode] = useState<OverlayMode>("hybrid");
@@ -111,6 +112,9 @@ export function CardDemo() {
           )}
         </Section>
         <Button onClick={() => gridRef.current?.triggerRipple(160, 100)}>Trigger ripple</Button>
+        <Button onClick={() => cardRef.current?.triggerRipple(160, 100)}>
+          Trigger ripple (via ref, item 5.15)
+        </Button>
       </div>
 
       <div style={siteMockStyle}>
@@ -129,6 +133,7 @@ export function CardDemo() {
           </div>
 
           <PixelCard
+            ref={cardRef}
             preset="card-soft"
             width={320}
             height={220}

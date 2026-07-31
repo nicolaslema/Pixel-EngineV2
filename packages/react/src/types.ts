@@ -144,7 +144,46 @@ export interface UsePixelEngineResult {
   isReady: boolean;
 }
 
-export interface PixelCanvasProps extends UsePixelEngineOptions {
+/** Imperative handle exposed via `ref` on `PixelCanvas` (and `PixelSurface`). */
+export interface PixelCanvasHandle {
+  /** The active engine instance, or `null` before mount / after unmount. */
+  getEngine: () => PixelEngine | null;
+}
+
+/** Imperative handle exposed via `ref` on `PixelGridCanvas`. */
+export interface PixelGridCanvasHandle extends PixelCanvasHandle {
+  getGrid: () => PixelGridEffect | null;
+  triggerRipple: (x: number, y: number) => void;
+  playMaskTimeline: () => void;
+  pauseMaskTimeline: () => void;
+  resetMaskTimeline: () => void;
+}
+
+export type PixelSurfaceHandle = PixelCanvasHandle;
+
+/**
+ * Imperative handle exposed via `ref` on `PixelCard`. Same shape as
+ * `PixelGridCanvasHandle` regardless of `mode` — in `mode="plain"`, the
+ * grid-specific methods are no-ops and `getGrid` returns `null`.
+ */
+export type PixelCardHandle = PixelGridCanvasHandle;
+
+export interface CanvasAccessibilityProps {
+  /**
+   * Whether the rendered `<canvas>` is purely decorative (default `true`, matching the
+   * common case for this engine — a visual background/effect with the real content, if
+   * any, living in an overlay's `children`). When `true`, the canvas renders
+   * `aria-hidden="true"` so assistive technology skips it entirely. Set to `false` when the
+   * canvas itself is meaningful content, and pair it with `aria-label`/`aria-labelledby`.
+   */
+  decorative?: boolean;
+  role?: React.AriaRole;
+  "aria-label"?: string;
+  "aria-labelledby"?: string;
+  "aria-describedby"?: string;
+}
+
+export interface PixelCanvasProps extends UsePixelEngineOptions, CanvasAccessibilityProps {
   className?: string;
   style?: React.CSSProperties;
 }
@@ -187,6 +226,7 @@ export interface UsePixelGridEffectOptions extends UsePixelEngineOptions {
   onGridReady?: (effect: PixelGridEffect, engine: PixelEngine) => void;
   onRipple?: (event: PixelPointerEventPayload) => void;
   onMaskError?: (event: PixelGridMaskErrorEvent) => void;
+  onConfigWarning?: (warnings: string[]) => void;
   createGridEffect?: (
     engine: PixelEngine,
     width: number,
@@ -200,7 +240,8 @@ export interface UsePixelGridEffectResult extends UsePixelEngineResult {
   grid: PixelGridEffect | null;
 }
 
-export interface PixelGridCanvasProps extends UsePixelGridEffectOptions {
+export interface PixelGridCanvasProps
+  extends UsePixelGridEffectOptions, CanvasAccessibilityProps {
   className?: string;
   style?: React.CSSProperties;
   scrollReactive?: ScrollReactiveGridOptions;

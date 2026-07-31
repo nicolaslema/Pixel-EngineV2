@@ -1,7 +1,7 @@
-import { CSSProperties, useEffect, useMemo, useRef } from "react";
+import { CSSProperties, forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from "react";
 import { PixelGridEffect } from "@pixel-engine/effects";
 import { usePixelGridEffect } from "./usePixelGridEffect";
-import { PixelGridCanvasProps } from "./types";
+import { PixelGridCanvasHandle, PixelGridCanvasProps } from "./types";
 import { useScrollReactiveGrid } from "./useScrollReactiveGrid";
 import { useSectionTransitionPreset } from "./useSectionTransitionPreset";
 import { useDebugHudOverlay } from "./useDebugHudOverlay";
@@ -17,10 +17,22 @@ const baseStyle: CSSProperties = {
   display: "block"
 };
 
-export function PixelGridCanvas(props: PixelGridCanvasProps) {
+/**
+ * Declarative wrapper around `usePixelGridEffect`: renders the `<canvas>` and layers in
+ * preset/mask resolution, theme/state sync, scroll-reactive and section-transition behavior,
+ * a debug HUD, and an SSR placeholder. `ref` exposes a `PixelGridCanvasHandle`
+ * (`getEngine()`, `getGrid()`, `triggerRipple()`, mask-timeline playback controls).
+ */
+export const PixelGridCanvas = forwardRef<PixelGridCanvasHandle, PixelGridCanvasProps>(
+  function PixelGridCanvas(props, ref) {
   const {
     className,
     style,
+    decorative = true,
+    role,
+    "aria-label": ariaLabel,
+    "aria-labelledby": ariaLabelledBy,
+    "aria-describedby": ariaDescribedBy,
     scrollReactive,
     sectionTransition,
     themeSync,
@@ -80,11 +92,30 @@ export function PixelGridCanvas(props: PixelGridCanvasProps) {
     [isReady, ssrPlaceholder]
   );
 
+  useImperativeHandle(
+    ref,
+    () => ({
+      getEngine: () => engine,
+      getGrid: () => gridRef.current,
+      triggerRipple: (x, y) => gridRef.current?.triggerRipple(x, y),
+      playMaskTimeline: () => gridRef.current?.playMaskTimeline?.(),
+      pauseMaskTimeline: () => gridRef.current?.pauseMaskTimeline?.(),
+      resetMaskTimeline: () => gridRef.current?.resetMaskTimeline?.()
+    }),
+    [engine]
+  );
+
   return (
     <canvas
       ref={canvasRef}
       className={className}
       style={{ ...baseStyle, ...placeholderStyle, ...sectionTransitionStyle, ...style }}
+      aria-hidden={decorative ? "true" : undefined}
+      role={role}
+      aria-label={ariaLabel}
+      aria-labelledby={ariaLabelledBy}
+      aria-describedby={ariaDescribedBy}
     />
   );
-}
+  }
+);

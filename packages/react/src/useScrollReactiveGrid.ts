@@ -1,6 +1,7 @@
 import { MutableRefObject, RefObject, useEffect } from "react";
-import { PixelGridEffect, prefersReducedMotion } from "@pixel-engine/effects";
+import { PixelGridEffect } from "@pixel-engine/effects";
 import { ScrollReactiveDirection, ScrollReactiveEdge, ScrollReactiveGridOptions } from "./types";
+import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 
 interface UseScrollReactiveGridParams {
   canvasRef: RefObject<HTMLCanvasElement | null>;
@@ -127,11 +128,12 @@ function nowMs(): number {
 
 export function useScrollReactiveGrid(params: UseScrollReactiveGridParams): void {
   const options = resolveOptions(params.options);
+  const prefersReduced = usePrefersReducedMotion();
 
   useEffect(() => {
     if (!options.enabled) return;
     if (typeof window === "undefined") return;
-    if (options.respectReducedMotion && prefersReducedMotion()) return;
+    if (options.respectReducedMotion && prefersReduced) return;
 
     const canvas = params.canvasRef.current;
     const { scrollTargets, wheelTarget } = resolveScrollTargets(options.source, canvas);
@@ -257,6 +259,7 @@ export function useScrollReactiveGrid(params: UseScrollReactiveGridParams): void
     options.source,
     options.cooldownMs,
     options.maxBurstRipples,
-    options.respectReducedMotion
+    options.respectReducedMotion,
+    prefersReduced
   ]);
 }

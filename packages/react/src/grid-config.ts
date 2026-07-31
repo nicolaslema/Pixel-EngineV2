@@ -12,7 +12,12 @@ import {
 } from "./types";
 import { createPixelPreset, mergePixelOptions } from "./presets";
 
+// Collects warnDev messages for resolveGridConfigInputWithWarnings without touching any of
+// the call sites below -- set/restored around a single resolveGridConfigInput call.
+let currentWarningCollector: string[] | null = null;
+
 function warnDev(message: string): void {
+  currentWarningCollector?.push(message);
   if (typeof process !== "undefined" && process.env?.NODE_ENV === "production") return;
   console.warn(`[pixel-engine/react] ${message}`);
 }
@@ -356,4 +361,24 @@ export function resolveGridConfigInput(params: {
     expandEase: safeExpandEase,
     breathSpeed: safeBreathSpeed
   };
+}
+
+/**
+ * Same resolution as `resolveGridConfigInput`, but also returns every warnDev message
+ * produced while resolving (instead of only logging them via `console.warn`) -- backs
+ * `usePixelGridEffect`'s `onConfigWarning` callback.
+ */
+export function resolveGridConfigInputWithWarnings(params: {
+  preset?: PixelGridPresetName;
+  gridConfig?: Partial<PixelGridConfig>;
+  mask?: PixelGridMaskInput;
+}): { config: PixelGridConfig; warnings: string[] } {
+  const warnings: string[] = [];
+  const previous = currentWarningCollector;
+  currentWarningCollector = warnings;
+  try {
+    return { config: resolveGridConfigInput(params), warnings };
+  } finally {
+    currentWarningCollector = previous;
+  }
 }

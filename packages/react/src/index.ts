@@ -6,6 +6,7 @@ export * from "./usePixelGridEffect";
 export * from "./useScrollReactiveGrid";
 export * from "./useSectionTransitionPreset";
 export * from "./useDebugHudOverlay";
+export * from "./usePrefersReducedMotion";
 export * from "./ssr-placeholder";
 export * from "./theme-state-presets";
 export * from "./cms-config";

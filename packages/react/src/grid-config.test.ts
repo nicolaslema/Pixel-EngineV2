@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PixelEngine } from "@pixel-engine/core";
 import { PixelGridEffect } from "@pixel-engine/effects";
-import { createMaskConfig, resolveGridConfigInput } from "./grid-config";
+import { createMaskConfig, resolveGridConfigInput, resolveGridConfigInputWithWarnings } from "./grid-config";
 import {
   createPixelPreset,
   getPixelPresetDefinition,
@@ -223,6 +223,41 @@ describe("grid config helpers", () => {
     expect(resolved.expandEase).toBeGreaterThan(0);
     expect(resolved.breathSpeed).toBeGreaterThan(0);
     expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it("resolveGridConfigInputWithWarnings collects the same messages as console.warn, without changing resolveGridConfigInput's own behavior (item 5.13)", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const { config, warnings } = resolveGridConfigInputWithWarnings({
+      preset: "minimal",
+      gridConfig: {
+        colors: [],
+        gap: 0,
+        expandEase: 0,
+        breathSpeed: 0
+      }
+    });
+
+    expect(config.colors.length).toBeGreaterThan(0);
+    expect(config.gap).toBeGreaterThan(0);
+    expect(warnings.length).toBeGreaterThan(0);
+    expect(warnings.some((message) => message.includes("gridConfig.gap must be > 0"))).toBe(true);
+    expect(warnings.some((message) => message.includes("colors was missing or empty"))).toBe(true);
+    // console.warn is still emitted (gated only by NODE_ENV, unchanged) -- the collector is
+    // additive, not a replacement.
+    expect(warnSpy).toHaveBeenCalledTimes(warnings.length);
+
+    // resolveGridConfigInput itself (unwrapped) still works exactly as before -- no warnings
+    // leak into a stale collector from the call above.
+    warnSpy.mockClear();
+    const resolved = resolveGridConfigInput({
+      preset: "minimal",
+      gridConfig: { colors: ["#000000"], gap: 4, expandEase: 0.1, breathSpeed: 1 }
+    });
+    expect(resolved.gap).toBe(4);
+    expect(warnSpy).not.toHaveBeenCalled();
+
     warnSpy.mockRestore();
   });
 

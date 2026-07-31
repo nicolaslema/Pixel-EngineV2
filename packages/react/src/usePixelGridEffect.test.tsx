@@ -460,4 +460,92 @@ describe("usePixelGridEffect", () => {
 
     cleanupHost(container, root);
   });
+
+  it("calls onConfigWarning when the resolved gridConfig has warnings (item 5.13)", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const engine = {
+      addEntity: vi.fn(),
+      removeEntity: vi.fn(),
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    };
+    const effect = { triggerRipple: vi.fn() };
+    const createEngine = vi.fn(() => engine);
+    const createGridEffect = vi.fn(() => effect);
+    const onConfigWarning = vi.fn();
+
+    function TestComponent() {
+      const { canvasRef } = usePixelGridEffect({
+        width: 300,
+        height: 180,
+        gridConfig: {
+          colors: [],
+          gap: 0,
+          expandEase: 0.08,
+          breathSpeed: 1
+        },
+        createEngine: createEngine as never,
+        createGridEffect: createGridEffect as never,
+        onConfigWarning
+      });
+      return <canvas ref={canvasRef} />;
+    }
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(<TestComponent />);
+    });
+
+    expect(onConfigWarning).toHaveBeenCalledTimes(1);
+    const warnings = onConfigWarning.mock.calls[0][0] as string[];
+    expect(warnings.some((message) => message.includes("gridConfig.gap must be > 0"))).toBe(true);
+
+    cleanupHost(container, root);
+    warnSpy.mockRestore();
+  });
+
+  it("does not call onConfigWarning when the resolved gridConfig is valid (item 5.13)", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+    const engine = {
+      addEntity: vi.fn(),
+      removeEntity: vi.fn(),
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    };
+    const effect = { triggerRipple: vi.fn() };
+    const createEngine = vi.fn(() => engine);
+    const createGridEffect = vi.fn(() => effect);
+    const onConfigWarning = vi.fn();
+
+    function TestComponent() {
+      const { canvasRef } = usePixelGridEffect({
+        width: 300,
+        height: 180,
+        gridConfig: {
+          colors: ["#334155", "#475569", "#64748b"],
+          gap: 6,
+          expandEase: 0.08,
+          breathSpeed: 1
+        },
+        createEngine: createEngine as never,
+        createGridEffect: createGridEffect as never,
+        onConfigWarning
+      });
+      return <canvas ref={canvasRef} />;
+    }
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(<TestComponent />);
+    });
+
+    expect(onConfigWarning).not.toHaveBeenCalled();
+
+    cleanupHost(container, root);
+  });
 });

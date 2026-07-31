@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createRoot, Root } from "react-dom/client";
 import { act } from "react";
 import { PixelGridCanvas } from "./PixelGridCanvas";
+import { PixelGridCanvasHandle } from "./types";
 
 function createHost(): { container: HTMLDivElement; root: Root } {
   const container = document.createElement("div");
@@ -52,6 +53,85 @@ describe("PixelGridCanvas", () => {
     const canvas = container.querySelector("canvas");
     expect(canvas).not.toBeNull();
     expect(canvas?.className).toBe("pixel-grid-canvas");
+
+    cleanupHost(container, root);
+  });
+
+  it("renders aria-hidden='true' by default (decorative canvas, item 5.7)", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const createEngine = vi.fn(() => ({
+      addEntity: vi.fn(),
+      removeEntity: vi.fn(),
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    })) as never;
+    const createGridEffect = vi.fn(() => ({
+      triggerRipple: vi.fn()
+    })) as never;
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelGridCanvas
+          width={320}
+          height={180}
+          gridConfig={{
+            colors: ["#334155", "#475569", "#64748b"],
+            gap: 6,
+            expandEase: 0.08,
+            breathSpeed: 1
+          }}
+          createEngine={createEngine}
+          createGridEffect={createGridEffect}
+        />
+      );
+    });
+
+    const canvas = container.querySelector("canvas");
+    expect(canvas?.getAttribute("aria-hidden")).toBe("true");
+
+    cleanupHost(container, root);
+  });
+
+  it("omits aria-hidden and forwards aria-label/role when decorative={false}", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const createEngine = vi.fn(() => ({
+      addEntity: vi.fn(),
+      removeEntity: vi.fn(),
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    })) as never;
+    const createGridEffect = vi.fn(() => ({
+      triggerRipple: vi.fn()
+    })) as never;
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelGridCanvas
+          width={320}
+          height={180}
+          gridConfig={{
+            colors: ["#334155", "#475569", "#64748b"],
+            gap: 6,
+            expandEase: 0.08,
+            breathSpeed: 1
+          }}
+          createEngine={createEngine}
+          createGridEffect={createGridEffect}
+          decorative={false}
+          role="img"
+          aria-label="Interactive pixel grid"
+        />
+      );
+    });
+
+    const canvas = container.querySelector("canvas");
+    expect(canvas?.hasAttribute("aria-hidden")).toBe(false);
+    expect(canvas?.getAttribute("role")).toBe("img");
+    expect(canvas?.getAttribute("aria-label")).toBe("Interactive pixel grid");
 
     cleanupHost(container, root);
   });
@@ -639,6 +719,62 @@ describe("PixelGridCanvas", () => {
 
     const canvas = container.querySelector("canvas");
     expect(canvas?.style.backgroundImage.length).toBeGreaterThan(0);
+
+    cleanupHost(container, root);
+  });
+
+  it("exposes getEngine/getGrid/triggerRipple/playMaskTimeline/pauseMaskTimeline/resetMaskTimeline via ref (item 5.15)", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const engineInstance = {
+      addEntity: vi.fn(),
+      removeEntity: vi.fn(),
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    };
+    const createEngine = vi.fn(() => engineInstance) as never;
+    const gridInstance = {
+      triggerRipple: vi.fn(),
+      playMaskTimeline: vi.fn(),
+      pauseMaskTimeline: vi.fn(),
+      resetMaskTimeline: vi.fn()
+    };
+    const createGridEffect = vi.fn(() => gridInstance) as never;
+    const ref = React.createRef<PixelGridCanvasHandle>();
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelGridCanvas
+          ref={ref}
+          width={320}
+          height={180}
+          gridConfig={{
+            colors: ["#334155", "#475569", "#64748b"],
+            gap: 6,
+            expandEase: 0.08,
+            breathSpeed: 1
+          }}
+          createEngine={createEngine}
+          createGridEffect={createGridEffect}
+        />
+      );
+    });
+
+    expect(ref.current?.getEngine()).toBe(engineInstance);
+    expect(ref.current?.getGrid()).toBe(gridInstance);
+
+    ref.current?.triggerRipple(12, 34);
+    expect(gridInstance.triggerRipple).toHaveBeenCalledWith(12, 34);
+
+    ref.current?.playMaskTimeline();
+    expect(gridInstance.playMaskTimeline).toHaveBeenCalledTimes(1);
+
+    ref.current?.pauseMaskTimeline();
+    expect(gridInstance.pauseMaskTimeline).toHaveBeenCalledTimes(1);
+
+    ref.current?.resetMaskTimeline();
+    expect(gridInstance.resetMaskTimeline).toHaveBeenCalledTimes(1);
 
     cleanupHost(container, root);
   });

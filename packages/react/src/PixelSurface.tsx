@@ -1,6 +1,6 @@
-import { CSSProperties, PropsWithChildren, useEffect, useRef } from "react";
+import { CSSProperties, PropsWithChildren, forwardRef, useEffect, useRef } from "react";
 import { PixelCanvas } from "./PixelCanvas";
-import { OverlayPointerEventsMode, PixelCanvasProps } from "./types";
+import { OverlayPointerEventsMode, PixelCanvasHandle, PixelCanvasProps } from "./types";
 import { attachHybridPointerBridge } from "./pointer-bridge";
 
 export interface PixelSurfaceProps extends PixelCanvasProps, PropsWithChildren {
@@ -28,16 +28,23 @@ const overlayStyleBase: CSSProperties = {
   zIndex: 1
 };
 
-export function PixelSurface({
-  children,
-  containerClassName,
-  containerStyle,
-  overlayClassName,
-  overlayStyle,
-  overlayPointerEvents = "none",
-  style,
-  ...canvasProps
-}: PixelSurfaceProps) {
+/**
+ * A `PixelCanvas` background with an interactive overlay layered on top for real content.
+ * `ref` exposes the same `PixelCanvasHandle` as `PixelCanvas` (`getEngine()`).
+ */
+export const PixelSurface = forwardRef<PixelCanvasHandle, PixelSurfaceProps>(function PixelSurface(
+  {
+    children,
+    containerClassName,
+    containerStyle,
+    overlayClassName,
+    overlayStyle,
+    overlayPointerEvents = "none",
+    style,
+    ...canvasProps
+  },
+  ref
+) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
 
@@ -60,10 +67,10 @@ export function PixelSurface({
 
   return (
     <div ref={containerRef} className={containerClassName} style={{ ...surfaceStyle, ...containerStyle }}>
-      <PixelCanvas {...canvasProps} style={{ ...canvasStyle, ...style }} />
+      <PixelCanvas ref={ref} {...canvasProps} style={{ ...canvasStyle, ...style }} />
       <div ref={overlayRef} className={overlayClassName} style={mergedOverlayStyle}>
         {children}
       </div>
     </div>
   );
-}
+});

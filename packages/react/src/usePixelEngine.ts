@@ -9,6 +9,11 @@ function getClientSize(canvas: HTMLCanvasElement): { width: number; height: numb
   };
 }
 
+/**
+ * Owns a `PixelEngine` instance's lifecycle (construction, start, resize, teardown) bound to
+ * a `<canvas>` via the returned `canvasRef`. SSR-safe: the engine is only constructed once
+ * mounted in a browser (`typeof window !== "undefined"`).
+ */
 export function usePixelEngine(options: UsePixelEngineOptions): UsePixelEngineResult {
   const {
     width,

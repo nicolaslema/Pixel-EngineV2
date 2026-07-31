@@ -1,7 +1,22 @@
-import { CSSProperties, PropsWithChildren, useEffect, useRef } from "react";
+import {
+  CSSProperties,
+  PropsWithChildren,
+  Ref,
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef
+} from "react";
 import { PixelCanvas } from "./PixelCanvas";
 import { PixelGridCanvas } from "./PixelGridCanvas";
-import { OverlayPointerEventsMode, PixelCanvasProps, PixelGridCanvasProps } from "./types";
+import {
+  OverlayPointerEventsMode,
+  PixelCanvasHandle,
+  PixelCanvasProps,
+  PixelCardHandle,
+  PixelGridCanvasHandle,
+  PixelGridCanvasProps
+} from "./types";
 import { attachHybridPointerBridge } from "./pointer-bridge";
 
 interface PixelCardBaseProps extends PropsWithChildren {
@@ -12,6 +27,13 @@ interface PixelCardBaseProps extends PropsWithChildren {
   overlayPointerEvents?: OverlayPointerEventsMode;
   radius?: number;
   padding?: number;
+  /**
+   * Which inner canvas component to render: `"grid"` (the interactive `PixelGridCanvas`,
+   * default) or `"plain"` (a bare `PixelCanvas`, e.g. for a purely visual, non-grid effect).
+   * Replaces the previous prop-shape inference — pass `mode="plain"` explicitly for the old
+   * "no grid props" fallback behavior.
+   */
+  mode?: "grid" | "plain";
 }
 
 export type PixelCardProps = PixelCardBaseProps & (PixelCanvasProps | PixelGridCanvasProps);
@@ -31,21 +53,38 @@ const canvasStyle: CSSProperties = {
   height: "100%"
 };
 
-export function PixelCard({
-  children,
-  radius = 16,
-  padding = 16,
-  className,
-  style,
-  containerClassName,
-  containerStyle,
-  overlayClassName,
-  overlayStyle,
-  overlayPointerEvents = "none",
-  ...canvasProps
-}: PixelCardProps) {
+function asGridHandle(
+  handle: PixelGridCanvasHandle | PixelCanvasHandle | null
+): PixelGridCanvasHandle | null {
+  return handle && "getGrid" in handle ? handle : null;
+}
+
+/**
+ * A card-shaped `PixelCanvas`/`PixelGridCanvas` background with an interactive overlay for
+ * real content on top. `mode` selects which inner canvas is rendered (default `"grid"`).
+ * `ref` exposes a `PixelCardHandle` — in `mode="plain"`, grid-specific methods are no-ops and
+ * `getGrid()` returns `null`.
+ */
+export const PixelCard = forwardRef<PixelCardHandle, PixelCardProps>(function PixelCard(
+  {
+    children,
+    radius = 16,
+    padding = 16,
+    className,
+    style,
+    containerClassName,
+    containerStyle,
+    overlayClassName,
+    overlayStyle,
+    overlayPointerEvents = "none",
+    mode = "grid",
+    ...canvasProps
+  },
+  ref
+) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
+  const innerRef = useRef<PixelGridCanvasHandle | PixelCanvasHandle | null>(null);
 
   useEffect(() => {
     if (overlayPointerEvents !== "hybrid") return;
@@ -58,18 +97,20 @@ export function PixelCard({
     return () => bridge.detach();
   }, [overlayPointerEvents]);
 
-  const isGridCard =
-    "gridConfig" in canvasProps ||
-    "preset" in canvasProps ||
-    "mask" in canvasProps ||
-    "rippleTrigger" in canvasProps ||
-    "onGridReady" in canvasProps ||
-    "scrollReactive" in canvasProps ||
-    "sectionTransition" in canvasProps ||
-    "themeSync" in canvasProps ||
-    "statePreset" in canvasProps ||
-    "debugHud" in canvasProps ||
-    "ssrPlaceholder" in canvasProps;
+  useImperativeHandle(
+    ref,
+    () => ({
+      getEngine: () => innerRef.current?.getEngine() ?? null,
+      getGrid: () => asGridHandle(innerRef.current)?.getGrid() ?? null,
+      triggerRipple: (x, y) => asGridHandle(innerRef.current)?.triggerRipple(x, y),
+      playMaskTimeline: () => asGridHandle(innerRef.current)?.playMaskTimeline(),
+      pauseMaskTimeline: () => asGridHandle(innerRef.current)?.pauseMaskTimeline(),
+      resetMaskTimeline: () => asGridHandle(innerRef.current)?.resetMaskTimeline()
+    }),
+    []
+  );
+
+  const isGridCard = mode === "grid";
 
   const mergedContainerStyle: CSSProperties = {
     ...surfaceStyle,
@@ -93,12 +134,16 @@ export function PixelCard({
     <div ref={containerRef} className={containerClassName} style={mergedContainerStyle}>
       {isGridCard ? (
         <PixelGridCanvas
+          // innerRef's union type can't be statically narrowed against a single branch's ref
+          // type here (isGridCard is a runtime check, not a type guard on canvasProps).
+          ref={innerRef as unknown as Ref<PixelGridCanvasHandle>}
           {...(canvasProps as PixelGridCanvasProps)}
           className={className}
           style={mergedCanvasStyle}
         />
       ) : (
         <PixelCanvas
+          ref={innerRef as unknown as Ref<PixelCanvasHandle>}
           {...(canvasProps as PixelCanvasProps)}
           className={className}
           style={mergedCanvasStyle}
@@ -109,4 +154,4 @@ export function PixelCard({
       </div>
     </div>
   );
-}
+});

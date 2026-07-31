@@ -1,6 +1,7 @@
 import { CSSProperties, MutableRefObject, RefObject, useEffect, useMemo, useState } from "react";
-import { PixelGridEffect, prefersReducedMotion } from "@pixel-engine/effects";
+import { PixelGridEffect } from "@pixel-engine/effects";
 import { SectionTransitionOptions, SectionTransitionPresetName } from "./types";
+import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 
 interface UseSectionTransitionPresetParams {
   canvasRef: RefObject<HTMLCanvasElement | null>;
@@ -80,6 +81,7 @@ export function buildSectionTransitionStyle(
 
 export function useSectionTransitionPreset(params: UseSectionTransitionPresetParams): CSSProperties {
   const options = resolveOptions(params.options);
+  const prefersReduced = usePrefersReducedMotion();
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
@@ -89,7 +91,7 @@ export function useSectionTransitionPreset(params: UseSectionTransitionPresetPar
     const canvas = params.canvasRef.current;
     if (!canvas) return;
 
-    const reduceMotion = options.respectReducedMotion && prefersReducedMotion();
+    const reduceMotion = options.respectReducedMotion && prefersReduced;
     const enteredRef = { current: false };
 
     const onEnter = () => {
@@ -158,7 +160,8 @@ export function useSectionTransitionPreset(params: UseSectionTransitionPresetPar
     options.rippleOnEnter,
     options.playTimelineOnEnter,
     options.pauseTimelineOnExit,
-    options.respectReducedMotion
+    options.respectReducedMotion,
+    prefersReduced
   ]);
 
   return useMemo(

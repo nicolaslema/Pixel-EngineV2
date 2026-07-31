@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { PixelGridEffect } from "@pixel-engine/effects";
 import { usePixelEngine } from "./usePixelEngine";
 import { UsePixelGridEffectOptions, UsePixelGridEffectResult } from "./types";
-import { resolveGridConfigInput } from "./grid-config";
+import { resolveGridConfigInputWithWarnings } from "./grid-config";
 import { isPlainObject } from "./internal/deep-merge-config";
 
 function toLocalCoords(canvas: HTMLCanvasElement, event: MouseEvent | PointerEvent) {
@@ -62,6 +62,13 @@ function stableSerialize(value: unknown): string {
   }
 }
 
+/**
+ * Owns a `PixelGridEffect` attached to a canvas managed by `usePixelEngine`.
+ *
+ * Recreates the underlying `PixelGridEffect` whenever the *resolved* `gridConfig`/
+ * `influenceOptions` change in content (not identity) or `effectKey` changes — see
+ * `MIGRATION.md` v1.0.21. Use `effectKey` to force an explicit remount independent of config.
+ */
 export function usePixelGridEffect(options: UsePixelGridEffectOptions): UsePixelGridEffectResult {
   const {
     width,
@@ -80,6 +87,7 @@ export function usePixelGridEffect(options: UsePixelGridEffectOptions): UsePixel
     onGridReady,
     onRipple,
     onMaskError,
+    onConfigWarning,
     createGridEffect,
     ...engineOptions
   } = options;
@@ -91,15 +99,16 @@ export function usePixelGridEffect(options: UsePixelGridEffectOptions): UsePixel
     resizeMode,
     ...engineOptions
   });
-  const resolvedGridConfig = useMemo(
+  const resolvedGridConfigResult = useMemo(
     () =>
-      resolveGridConfigInput({
+      resolveGridConfigInputWithWarnings({
         preset,
         gridConfig,
         mask
       }),
     [gridConfig, mask, preset]
   );
+  const resolvedGridConfig = resolvedGridConfigResult.config;
   const resolvedGridConfigSignature = useMemo(
     () => stableSerialize(resolvedGridConfig),
     [resolvedGridConfig]
@@ -112,6 +121,8 @@ export function usePixelGridEffect(options: UsePixelGridEffectOptions): UsePixel
   const onGridReadyRef = useRef(onGridReady);
   const onRippleRef = useRef(onRipple);
   const onMaskErrorRef = useRef(onMaskError);
+  const onConfigWarningRef = useRef(onConfigWarning);
+  const resolvedGridConfigResultRef = useRef(resolvedGridConfigResult);
   const createGridEffectRef = useRef(createGridEffect);
   const gridConfigRef = useRef(resolvedGridConfig);
   const influenceOptionsRef = useRef(influenceOptions);
@@ -125,6 +136,8 @@ export function usePixelGridEffect(options: UsePixelGridEffectOptions): UsePixel
     onGridReadyRef.current = onGridReady;
     onRippleRef.current = onRipple;
     onMaskErrorRef.current = onMaskError;
+    onConfigWarningRef.current = onConfigWarning;
+    resolvedGridConfigResultRef.current = resolvedGridConfigResult;
     createGridEffectRef.current = createGridEffect;
     gridConfigRef.current = resolvedGridConfig;
     influenceOptionsRef.current = influenceOptions;
@@ -138,14 +151,28 @@ export function usePixelGridEffect(options: UsePixelGridEffectOptions): UsePixel
     influenceOptions,
     onGridReady,
     onMaskError,
+    onConfigWarning,
     onRipple,
     resolvedGridConfig,
+    resolvedGridConfigResult,
     width,
     height,
     gridWidth,
     gridHeight,
     fitMode
   ]);
+
+  // Gated on the stable signature (not resolvedGridConfigResult's own identity) for the same
+  // reason the grid-creation effect below uses resolvedGridConfigSignature: gridConfig is
+  // typically an inline object literal, so its identity -- and resolvedGridConfigResult's --
+  // changes on every render even when content doesn't, which would fire onConfigWarning
+  // repeatedly for the same warnings. The ref is always fresh by the time this effect runs,
+  // since the ref-sync effect above (same commit, declared first) already updated it.
+  useEffect(() => {
+    const warnings = resolvedGridConfigResultRef.current.warnings;
+    if (warnings.length === 0) return;
+    onConfigWarningRef.current?.(warnings);
+  }, [resolvedGridConfigSignature]);
 
   // width/height/gridWidth/gridHeight/fitMode are intentionally read via the refs above,
   // not declared as dependencies below: this effect only computes the *initial* size at

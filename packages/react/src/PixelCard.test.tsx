@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createRoot, Root } from "react-dom/client";
 import { act } from "react";
 import { PixelCard } from "./PixelCard";
+import { PixelCardHandle } from "./types";
 
 function createHost(): { container: HTMLDivElement; root: Root } {
   const container = document.createElement("div");
@@ -78,7 +79,7 @@ describe("PixelCard", () => {
     cleanupHost(container, root);
   });
 
-  it("renders in engine mode when gridConfig is not provided", () => {
+  it("renders in engine mode when mode='plain' is set explicitly (item 5.11)", () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     const createEngine = vi.fn(() => ({
       start: vi.fn(),
@@ -89,7 +90,7 @@ describe("PixelCard", () => {
     const { container, root } = createHost();
     act(() => {
       root.render(
-        <PixelCard width={320} height={180} createEngine={createEngine}>
+        <PixelCard width={320} height={180} createEngine={createEngine} mode="plain">
           <span>Engine Content</span>
         </PixelCard>
       );
@@ -113,7 +114,7 @@ describe("PixelCard", () => {
     const { container, root } = createHost();
     act(() => {
       root.render(
-        <PixelCard width={320} height={180} createEngine={createEngine}>
+        <PixelCard width={320} height={180} createEngine={createEngine} mode="plain">
           <span>Overlay text</span>
         </PixelCard>
       );
@@ -129,6 +130,7 @@ describe("PixelCard", () => {
           height={180}
           createEngine={createEngine}
           overlayPointerEvents="auto"
+          mode="plain"
         >
           <span>Overlay text</span>
         </PixelCard>
@@ -531,6 +533,142 @@ describe("PixelCard", () => {
     expect(configArg.maskTimeline?.steps?.[0]?.assetId).toBe("card-title");
     expect(configArg.maskTimeline?.steps?.[3]?.assetId).toBe("card-img-b");
     expect(container.textContent).toContain("Multi mask card");
+
+    cleanupHost(container, root);
+  });
+
+  it("defaults to grid mode even with zero grid-specific props (item 5.11)", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const onGridReady = vi.fn();
+    const createEngine = vi.fn(() => ({
+      addEntity: vi.fn(),
+      removeEntity: vi.fn(),
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    })) as never;
+    const createGridEffect = vi.fn(() => ({
+      triggerRipple: vi.fn()
+    })) as never;
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelCard
+          width={320}
+          height={180}
+          createEngine={createEngine}
+          createGridEffect={createGridEffect}
+          onGridReady={onGridReady}
+        >
+          <span>Default mode content</span>
+        </PixelCard>
+      );
+    });
+
+    expect(onGridReady).toHaveBeenCalledTimes(1);
+
+    cleanupHost(container, root);
+  });
+
+  it("mode='plain' forces PixelCanvas even when grid-specific props are passed (item 5.11)", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const onGridReady = vi.fn();
+    const createEngine = vi.fn(() => ({
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    })) as never;
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelCard
+          width={320}
+          height={180}
+          preset="card-ripple"
+          createEngine={createEngine}
+          mode="plain"
+          onGridReady={onGridReady}
+        >
+          <span>Plain mode content</span>
+        </PixelCard>
+      );
+    });
+
+    expect(onGridReady).not.toHaveBeenCalled();
+    expect(container.querySelector("canvas")).not.toBeNull();
+
+    cleanupHost(container, root);
+  });
+
+  it("exposes getEngine/getGrid/triggerRipple via ref in grid mode (item 5.15)", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const engineInstance = {
+      addEntity: vi.fn(),
+      removeEntity: vi.fn(),
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    };
+    const createEngine = vi.fn(() => engineInstance) as never;
+    const gridInstance = {
+      triggerRipple: vi.fn(),
+      playMaskTimeline: vi.fn(),
+      pauseMaskTimeline: vi.fn(),
+      resetMaskTimeline: vi.fn()
+    };
+    const createGridEffect = vi.fn(() => gridInstance) as never;
+    const ref = React.createRef<PixelCardHandle>();
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelCard
+          ref={ref}
+          width={320}
+          height={180}
+          gridConfig={{
+            colors: ["#334155", "#475569", "#64748b"],
+            gap: 6,
+            expandEase: 0.08,
+            breathSpeed: 1
+          }}
+          createEngine={createEngine}
+          createGridEffect={createGridEffect}
+        >
+          <span>Ref content</span>
+        </PixelCard>
+      );
+    });
+
+    expect(ref.current?.getEngine()).toBe(engineInstance);
+    expect(ref.current?.getGrid()).toBe(gridInstance);
+
+    ref.current?.triggerRipple(5, 6);
+    expect(gridInstance.triggerRipple).toHaveBeenCalledWith(5, 6);
+
+    cleanupHost(container, root);
+  });
+
+  it("ref's grid-specific methods are no-ops / return null in mode='plain' (item 5.15)", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const engineInstance = { start: vi.fn(), destroy: vi.fn(), resize: vi.fn() };
+    const createEngine = vi.fn(() => engineInstance) as never;
+    const ref = React.createRef<PixelCardHandle>();
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelCard ref={ref} width={320} height={180} createEngine={createEngine} mode="plain">
+          <span>Plain ref content</span>
+        </PixelCard>
+      );
+    });
+
+    expect(ref.current?.getEngine()).toBe(engineInstance);
+    expect(ref.current?.getGrid()).toBeNull();
+    expect(() => ref.current?.triggerRipple(1, 2)).not.toThrow();
 
     cleanupHost(container, root);
   });
