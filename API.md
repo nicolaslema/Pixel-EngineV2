@@ -229,15 +229,24 @@ export function App() {
 
 ### `PixelGridCanvas` web utility options
 
+Common UX features first; accessibility/SSR/debug utilities — reached for less often, and easy to mistake for each other at a glance in a flat table — are broken out below.
+
+#### Common
+
 | Option | Type | Fields |
 |---|---|---|
-| `respectReducedMotion` | `boolean` | Convenience default (item 5.14) applied to the 3 independent `respectReducedMotion` switches below — `gridConfig.respectReducedMotion` (breathing/ripple/magnetic/jitter), `scrollReactive.respectReducedMotion`, and `sectionTransition.respectReducedMotion` — each of which already defaults to `true` on its own. Set this once instead of all 3, e.g. `respectReducedMotion={false}` to ignore the OS preference across the whole component for a controlled demo. Any of the 3 nested options can still set its own `respectReducedMotion` explicitly to override this fallback on just that surface. |
 | `scrollReactive` | object | `enabled`, `intensity`, `direction`, `edge`, `source`, `cooldownMs`, `maxBurstRipples`, `respectReducedMotion` |
 | `sectionTransition` | object | `enabled`, `preset`, `amount`, `threshold`, `once`, `rippleOnEnter`, `playTimelineOnEnter`, `pauseTimelineOnExit`, `respectReducedMotion` |
 | `themeSync` | object | `enabled`, `mode`, `followSystem`, `brandColors`, `brandCanvasBackground`, `brandHoverTintPalette`, `brandRippleTintPalette` |
 | `statePreset` | string or object | `"idle" \| "hover" \| "active" \| "success" \| "error" \| "loading"` or `{ enabled, value }` |
-| `debugHud` | object | `enabled`, `position`, `updateIntervalMs`, `offsetX`, `offsetY`, `showFps`, `showQuality`, `showLoop`, `showCells`, `showRipples`, `showTimeline` |
-| `ssrPlaceholder` | preset or object | `"minimal" \| "card-soft" \| "hero-image"` or `{ enabled, preset, hideOnReady, style }` |
+
+#### Advanced (accessibility, SSR, debugging)
+
+| Option | Type | Fields |
+|---|---|---|
+| `respectReducedMotion` | `boolean` | Convenience default (item 5.14) applied to the 3 independent `respectReducedMotion` switches above — `gridConfig.respectReducedMotion` (breathing/ripple/magnetic/jitter), `scrollReactive.respectReducedMotion`, and `sectionTransition.respectReducedMotion` — each of which already defaults to `true` on its own. Set this once instead of all 3, e.g. `respectReducedMotion={false}` to ignore the OS preference across the whole component for a controlled demo. Any of the 3 nested options can still set its own `respectReducedMotion` explicitly to override this fallback on just that surface. |
+| `ssrPlaceholder` | preset or object | `"minimal" \| "card-soft" \| "hero-image"` or `{ enabled, preset, hideOnReady, style }` — a static background shown before the engine is ready (SSR/hydration/initial mount). Most apps don't need this; reach for it if you see a layout flash before mount. |
+| `debugHud` | object | `enabled`, `position`, `updateIntervalMs`, `offsetX`, `offsetY`, `showFps`, `showQuality`, `showLoop`, `showCells`, `showRipples`, `showTimeline` — a dev-only fps/quality/cells/ripples/timeline overlay. Not something you ship enabled in production. |
 
 ### `PixelSurface` / `PixelCard` overlay options
 

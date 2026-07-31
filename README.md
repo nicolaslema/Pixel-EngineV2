@@ -68,6 +68,62 @@ By default (`fitMode="none"`), the canvas has a fixed pixel size — `width`/`he
 
 `fitMode="client"` measures the canvas's own `clientWidth`/`clientHeight` instead of using the `width`/`height` props directly, and `resizeMode` (default `"observer"`) keeps it in sync via `ResizeObserver` as the container resizes.
 
+### Framework setup
+
+Same package, same props, in the 3 most common React setups.
+
+**Next.js (App Router)**
+
+```bash
+npm install @pixel-engine/core @pixel-engine/effects @pixel-engine/react
+```
+
+```tsx
+// app/page.tsx -- a Server Component. No "use client" wrapper needed: the
+// package's bundle already ships the directive (see the note above).
+import { PixelGridCanvas } from "@pixel-engine/react";
+
+export default function Page() {
+  return <PixelGridCanvas width={900} height={520} preset="card-soft" />;
+}
+```
+
+**Vite**
+
+```bash
+npm create vite@latest my-app -- --template react-ts
+cd my-app
+npm install @pixel-engine/core @pixel-engine/effects @pixel-engine/react
+```
+
+```tsx
+// src/App.tsx -- no extra Vite config needed, this is a standard ESM package.
+import { PixelGridCanvas } from "@pixel-engine/react";
+
+export default function App() {
+  return <PixelGridCanvas width={900} height={520} preset="card-soft" />;
+}
+```
+
+**Create React App**
+
+```bash
+npx create-react-app my-app --template typescript
+cd my-app
+npm install @pixel-engine/core @pixel-engine/effects @pixel-engine/react
+```
+
+```tsx
+// src/App.tsx
+import { PixelGridCanvas } from "@pixel-engine/react";
+
+export default function App() {
+  return <PixelGridCanvas width={900} height={520} preset="card-soft" />;
+}
+```
+
+In every case, remember to import image assets as bundler URLs (`import catUrl from "./cat.png"`), not `"/src/..."` runtime paths -- see the Asset path note in `API.md`.
+
 ## Quick Start (Vanilla)
 
 ```ts
