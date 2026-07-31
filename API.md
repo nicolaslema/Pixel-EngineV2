@@ -203,7 +203,7 @@ export function App() {
 | `preset` | `"minimal" \| "card-soft" \| "card-ripple" \| "hero-image"` | Declarative base config. |
 | `gridConfig` | `Partial<PixelGridConfig>` | Manual config overrides. |
 | `mask` | `PixelGridMaskInput` | Declarative text/image/hybrid mask input. |
-| `influenceOptions` | `PixelGridInfluenceOptions` | Enable/disable influence groups. |
+| `influenceOptions` | `PixelGridInfluenceOptions` | Enable/disable influence groups (`ripple`/`hover`/`organic`) — see "`influenceOptions` reference" below for exactly what each one controls and how it relates to the per-effect `enabled` fields in `gridConfig`. |
 | `effectKey` | `string \| number` | Additional explicit remount key. |
 | `gridWidth` | `number` | Effect width override. |
 | `gridHeight` | `number` | Effect height override. |
@@ -218,6 +218,14 @@ export function App() {
 | `style` (`PixelGridCanvas`) | `CSSProperties` | Canvas style override (composed with transition/placeholder styles). |
 | `decorative` | `boolean` | Same as `PixelCanvas` — default `true` (`aria-hidden="true"`), set `false` + `aria-label`/`aria-labelledby` for meaningful canvas content. |
 | `role` / `aria-label` / `aria-labelledby` / `aria-describedby` | — | Same as `PixelCanvas`, forwarded to the canvas element. |
+
+### `influenceOptions` reference
+
+`PixelGridInfluenceOptions` (`{ ripple?, hover?, organic? }`, default `{ ripple: true, hover: true, organic: false }`) is a flat set of top-level master switches, deliberately separate from `gridConfig`'s own per-effect config blocks — it's not just an alternate spelling of an `enabled` field that already exists elsewhere:
+
+- **`hover`**: the *only* switch for hover interaction — `hoverEffects` has no `enabled` field of its own. Gates both the classic-mode hover `Influence` and the reactive-mode hover pass.
+- **`ripple`**: the master switch for the entire ripple system — when `false`, it blocks the reactive-ripple-on-interaction pass *and* makes manual `triggerRipple()` calls a no-op. This is a different, broader scope than `gridConfig.rippleEffects.enabled`, which only gates the automatic reactive-ripple-on-interaction pass — `rippleEffects.enabled: false` with `influenceOptions.ripple: true` (the default combination) still lets `triggerRipple()` work, it just won't auto-trigger from hover/click.
+- **`organic`**: OR'd together with `gridConfig.organicNoise.enabled` — either one being `true` enables organic noise (see the `organicNoise.enabled` note further down); this is intentional, not a duplicate to clean up — it lets `organicNoise.enabled` be set purely from `gridConfig` without also touching `influenceOptions`.
 
 ### `PixelGridCanvas` web utility options
 
