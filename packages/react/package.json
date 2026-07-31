@@ -36,11 +36,13 @@
   "files": [
     "dist"
   ],
-  "peerDependencies": {
-    "react": "^18.0.0 || ^19.0.0",
-    "react-dom": "^18.0.0 || ^19.0.0",
+  "dependencies": {
     "@pixel-engine/core": "^1.0.0",
     "@pixel-engine/effects": "^1.0.0"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0"
   },
   "publishConfig": {
     "access": "public"
