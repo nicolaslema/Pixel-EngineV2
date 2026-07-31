@@ -40,6 +40,9 @@ jobs:
       - name: Build (packages)
         run: npm run build:packages
 
+      - name: Use Client Directive Check
+        run: npm run check:use-client
+
       - name: Build (aggregate)
         run: npm run build
 

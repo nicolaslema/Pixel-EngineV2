@@ -167,6 +167,8 @@ export function App() {
 }
 ```
 
+**Next.js App Router**: `@pixel-engine/react`'s published bundle carries a `"use client"` directive (every export uses hooks/refs/canvas, so it's inherently client-only). Import it directly into a Server Component tree — no manual `"use client"` wrapper file needed on your end.
+
 ## React Options Reference
 
 ### `usePixelEngine` / `PixelCanvas` options

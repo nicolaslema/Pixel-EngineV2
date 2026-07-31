@@ -47,6 +47,8 @@ export default function App() {
 }
 ```
 
+`@pixel-engine/react` ships a `"use client"` directive on its bundle — every component/hook in it is client-only (canvas, refs, effects), so it's safe to import directly in a Next.js App Router Server Component tree without wrapping it yourself.
+
 ## Quick Start (Vanilla)
 
 ```ts
