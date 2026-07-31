@@ -548,4 +548,85 @@ describe("usePixelGridEffect", () => {
 
     cleanupHost(container, root);
   });
+
+  it("is safe under React.StrictMode across mount, unmount, and remount", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+    function makeEngine() {
+      return {
+        addEntity: vi.fn(),
+        removeEntity: vi.fn(),
+        start: vi.fn(),
+        destroy: vi.fn(),
+        resize: vi.fn()
+      };
+    }
+
+    const createEngine = vi.fn(makeEngine);
+    const createGridEffect = vi.fn(() => ({ triggerRipple: vi.fn() }));
+    const onGridReady = vi.fn();
+
+    function TestComponent() {
+      const { canvasRef } = usePixelGridEffect({
+        width: 300,
+        height: 180,
+        gridConfig: { colors: ["#334155"], gap: 6, expandEase: 0.08, breathSpeed: 1 },
+        createEngine: createEngine as never,
+        createGridEffect: createGridEffect as never,
+        onGridReady
+      });
+      return <canvas ref={canvasRef} />;
+    }
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <React.StrictMode>
+          <TestComponent />
+        </React.StrictMode>
+      );
+    });
+
+    // The underlying usePixelEngine still double-invokes under StrictMode (phantom engine
+    // created and destroyed, then a live one created), but the grid-creation effect only
+    // fires once it observes a stable, non-null engine -- so the grid effect itself is
+    // created and attached exactly once here, not twice.
+    expect(createEngine).toHaveBeenCalledTimes(2);
+    const liveEngine = createEngine.mock.results[1]?.value;
+    expect(createGridEffect).toHaveBeenCalledTimes(1);
+    expect(onGridReady).toHaveBeenCalledTimes(1);
+    expect(liveEngine.addEntity).toHaveBeenCalledTimes(1);
+    expect(liveEngine.removeEntity).not.toHaveBeenCalled();
+
+    // Real unmount must detach the grid effect from the surviving engine.
+    cleanupHost(container, root);
+    expect(liveEngine.removeEntity).toHaveBeenCalledTimes(1);
+
+    // Remount (a fresh mount cycle after a full unmount) must work cleanly too.
+    const createEngine2 = vi.fn(makeEngine);
+    const createGridEffect2 = vi.fn(() => ({ triggerRipple: vi.fn() }));
+    function TestComponent2() {
+      const { canvasRef } = usePixelGridEffect({
+        width: 300,
+        height: 180,
+        gridConfig: { colors: ["#334155"], gap: 6, expandEase: 0.08, breathSpeed: 1 },
+        createEngine: createEngine2 as never,
+        createGridEffect: createGridEffect2 as never
+      });
+      return <canvas ref={canvasRef} />;
+    }
+    const remounted = createHost();
+    act(() => {
+      remounted.root.render(
+        <React.StrictMode>
+          <TestComponent2 />
+        </React.StrictMode>
+      );
+    });
+    expect(createGridEffect2).toHaveBeenCalledTimes(1);
+    const liveEngine2 = createEngine2.mock.results[1]?.value;
+    expect(liveEngine2.addEntity).toHaveBeenCalledTimes(1);
+
+    cleanupHost(remounted.container, remounted.root);
+  });
 });

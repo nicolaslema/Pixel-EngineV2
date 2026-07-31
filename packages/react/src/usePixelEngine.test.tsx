@@ -228,4 +228,78 @@ describe("usePixelEngine", () => {
 
     cleanupHost(container, root);
   });
+
+  it("is safe under React.StrictMode across mount, unmount, and remount", () => {
+    function makeEngine() {
+      return {
+        start: vi.fn(),
+        destroy: vi.fn(),
+        resize: vi.fn()
+      };
+    }
+
+    const createEngine = vi.fn(makeEngine) as unknown as ReturnType<typeof vi.fn>;
+    const onReady = vi.fn();
+    const onDestroy = vi.fn();
+
+    function TestComponent() {
+      const { canvasRef, isReady } = usePixelEngine({
+        width: 300,
+        height: 180,
+        createEngine: createEngine as never,
+        onReady,
+        onDestroy
+      });
+      return <canvas ref={canvasRef} data-ready={isReady} />;
+    }
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <React.StrictMode>
+          <TestComponent />
+        </React.StrictMode>
+      );
+    });
+
+    // StrictMode double-invokes the mount effect in dev: create -> destroy (the "phantom"
+    // pass) -> create again (the pass that actually stays mounted).
+    expect(createEngine).toHaveBeenCalledTimes(2);
+    expect(onReady).toHaveBeenCalledTimes(2);
+    expect(onDestroy).toHaveBeenCalledTimes(1);
+
+    const [phantomEngine, liveEngine] = createEngine.mock.results.map((r) => r.value);
+    expect(phantomEngine.destroy).toHaveBeenCalledTimes(1);
+    expect(liveEngine.destroy).not.toHaveBeenCalled();
+    expect(container.querySelector("canvas")?.getAttribute("data-ready")).toBe("true");
+
+    // Real unmount must tear down the surviving (live) engine, not just the phantom one.
+    cleanupHost(container, root);
+    expect(onDestroy).toHaveBeenCalledTimes(2);
+    expect(liveEngine.destroy).toHaveBeenCalledTimes(1);
+
+    // Remount (a fresh mount cycle after a full unmount) must work cleanly too -- no leaked
+    // ref/state from the previous mount blocking a new engine from being created.
+    const createEngine2 = vi.fn(makeEngine) as unknown as ReturnType<typeof vi.fn>;
+    function TestComponent2() {
+      const { canvasRef, isReady } = usePixelEngine({
+        width: 300,
+        height: 180,
+        createEngine: createEngine2 as never
+      });
+      return <canvas ref={canvasRef} data-ready={isReady} />;
+    }
+    const remounted = createHost();
+    act(() => {
+      remounted.root.render(
+        <React.StrictMode>
+          <TestComponent2 />
+        </React.StrictMode>
+      );
+    });
+    expect(createEngine2).toHaveBeenCalledTimes(2);
+    expect(remounted.container.querySelector("canvas")?.getAttribute("data-ready")).toBe("true");
+
+    cleanupHost(remounted.container, remounted.root);
+  });
 });
