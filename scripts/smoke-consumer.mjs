@@ -73,9 +73,11 @@ try {
       "if (AggregateGrid !== EffectsGrid) throw new Error('ESM boundary mismatch: pixel-engine PixelGridEffect differs from @pixel-engine/effects');",
       "if (cjsAggregate.PixelEngine !== cjsCore.PixelEngine) throw new Error('CJS boundary mismatch: pixel-engine PixelEngine differs from @pixel-engine/core');",
       "if (cjsAggregate.PixelGridEffect !== cjsEffects.PixelGridEffect) throw new Error('CJS boundary mismatch: pixel-engine PixelGridEffect differs from @pixel-engine/effects');",
-      "if (typeof PixelGridCanvas !== 'function') throw new Error('Missing React PixelGridCanvas export');",
-      "if (typeof PixelCanvas !== 'function') throw new Error('Missing React PixelCanvas export');",
-      "if (typeof PixelCard !== 'function') throw new Error('Missing React PixelCard export');",
+      // forwardRef-wrapped components (item 5.15) are objects (`$$typeof: Symbol(react.forward_ref)`),
+      // not functions -- check for a rendered element type instead of `typeof === 'function'`.
+      "if (PixelGridCanvas == null) throw new Error('Missing React PixelGridCanvas export');",
+      "if (PixelCanvas == null) throw new Error('Missing React PixelCanvas export');",
+      "if (PixelCard == null) throw new Error('Missing React PixelCard export');",
       "if (typeof usePixelGridEffect !== 'function') throw new Error('Missing React usePixelGridEffect export');",
       "console.log('Smoke consumer import + package-boundary check passed');"
     ].join("\n")

@@ -1,6 +1,6 @@
 import { CSSProperties, useMemo, useRef, useState } from "react";
 import { PixelGridCanvas } from "@pixel-engine/react";
-import type { PixelGridPresetName, PixelGridMaskInput } from "@pixel-engine/react";
+import type { PixelGridPresetName, PixelGridMaskInput, DebugHudPosition } from "@pixel-engine/react";
 import type { PixelGridEffect } from "@pixel-engine/effects";
 import type {
   PixelGridConfig,
@@ -31,6 +31,7 @@ const ORGANIC_NOISE_FALLOFFS: OrganicNoiseFalloff[] = ["radial", "none"];
 const WAVE_WOBBLE_DIRECTIONS: WaveWobbleDirection[] = ["horizontal", "vertical", "both"];
 const SCAN_LINE_DIRECTIONS: ScanLineDirection[] = ["horizontal", "vertical"];
 const SHOCKWAVE_TRIGGER_MODES: ShockwaveTriggerMode[] = ["pointerDown", "hoverEnter", "both"];
+const DEBUG_HUD_POSITIONS: DebugHudPosition[] = ["top-left", "top-right", "bottom-left", "bottom-right"];
 const MASK_KINDS = ["none", "text", "image"] as const;
 type MaskKind = (typeof MASK_KINDS)[number];
 
@@ -82,6 +83,15 @@ export function Configurator() {
   const [expandEase, setExpandEase] = useState(0.08);
   const [breathSpeed, setBreathSpeed] = useState(0.9);
   const [detail, setDetail] = useState<PixelGridDetailLevel>("medium");
+
+  const [debugHudEnabled, setDebugHudEnabled] = useState(false);
+  const [debugHudPosition, setDebugHudPosition] = useState<DebugHudPosition>("top-left");
+  const [debugHudShowFps, setDebugHudShowFps] = useState(true);
+  const [debugHudShowQuality, setDebugHudShowQuality] = useState(true);
+  const [debugHudShowLoop, setDebugHudShowLoop] = useState(false);
+  const [debugHudShowCells, setDebugHudShowCells] = useState(true);
+  const [debugHudShowRipples, setDebugHudShowRipples] = useState(true);
+  const [debugHudShowTimeline, setDebugHudShowTimeline] = useState(true);
 
   const [hoverMode, setHoverMode] = useState<HoverMode>("reactive");
   const [hoverScope, setHoverScope] = useState<ReactiveHoverScope>("all");
@@ -351,6 +361,29 @@ export function Configurator() {
     ]
   );
 
+  const debugHud = useMemo(
+    () => ({
+      enabled: debugHudEnabled,
+      position: debugHudPosition,
+      showFps: debugHudShowFps,
+      showQuality: debugHudShowQuality,
+      showLoop: debugHudShowLoop,
+      showCells: debugHudShowCells,
+      showRipples: debugHudShowRipples,
+      showTimeline: debugHudShowTimeline
+    }),
+    [
+      debugHudEnabled,
+      debugHudPosition,
+      debugHudShowFps,
+      debugHudShowQuality,
+      debugHudShowLoop,
+      debugHudShowCells,
+      debugHudShowRipples,
+      debugHudShowTimeline
+    ]
+  );
+
   const mask: PixelGridMaskInput | undefined = useMemo(() => {
     if (maskKind === "text") {
       return { type: "text", text: maskText || "PIXEL", fontSize: maskFontSize };
@@ -401,6 +434,30 @@ export function Configurator() {
             onChange={setBreathSpeed}
           />
           <SelectControl label="performance.detail" value={detail} options={DETAIL_LEVELS} onChange={setDetail} />
+        </Section>
+
+        <Section title="Debug HUD">
+          <ToggleControl
+            label="enabled (debugHud.enabled)"
+            checked={debugHudEnabled}
+            onChange={setDebugHudEnabled}
+          />
+          <SelectControl
+            label="position"
+            value={debugHudPosition}
+            options={DEBUG_HUD_POSITIONS}
+            onChange={setDebugHudPosition}
+          />
+          <ToggleControl label="showFps" checked={debugHudShowFps} onChange={setDebugHudShowFps} />
+          <ToggleControl label="showQuality" checked={debugHudShowQuality} onChange={setDebugHudShowQuality} />
+          <ToggleControl label="showLoop" checked={debugHudShowLoop} onChange={setDebugHudShowLoop} />
+          <ToggleControl label="showCells" checked={debugHudShowCells} onChange={setDebugHudShowCells} />
+          <ToggleControl label="showRipples" checked={debugHudShowRipples} onChange={setDebugHudShowRipples} />
+          <ToggleControl label="showTimeline" checked={debugHudShowTimeline} onChange={setDebugHudShowTimeline} />
+          <div style={{ fontSize: 11, color: "#64748b" }}>
+            Portaled to `document.body` via `createPortal` (item 5.6) -- look for a small
+            floating panel over the page, not inside this panel.
+          </div>
         </Section>
 
         <Section title="Influences">
@@ -890,6 +947,7 @@ export function Configurator() {
           gridConfig={gridConfig}
           mask={mask}
           influenceOptions={influenceOptions}
+          debugHud={debugHud}
           width={WIDTH}
           height={HEIGHT}
           style={{ ...canvasFrameStyle, width: WIDTH, height: HEIGHT }}
