@@ -30,6 +30,44 @@ Compatibility aggregate package:
 npm install pixel-engine
 ```
 
+**Not yet published to npm.** These packages aren't on the public npm registry yet — the commands above describe the intended install once they are. Until then, see "Local Usage (Before Publishing)" below for how to consume this repo from another project today.
+
+## Local Usage (Before Publishing)
+
+The fastest way to use this in another project right now is `npm pack` + installing the generated tarballs directly — no publishing, no registry required.
+
+### 1. Build and pack
+
+From this repo's root:
+
+```bash
+npm run build:packages
+npm pack --pack-destination ./dist-packs -w @pixel-engine/core
+npm pack --pack-destination ./dist-packs -w @pixel-engine/effects
+npm pack --pack-destination ./dist-packs -w @pixel-engine/react
+```
+
+This produces `./dist-packs/pixel-engine-core-1.0.0.tgz`, `pixel-engine-effects-1.0.0.tgz`, and `pixel-engine-react-1.0.0.tgz` (version number matches whatever `package.json` currently has).
+
+### 2. Install all three tarballs together, in one command
+
+In the consumer project:
+
+```bash
+npm install react react-dom \
+  /path/to/pixel-engine-core-1.0.0.tgz \
+  /path/to/pixel-engine-effects-1.0.0.tgz \
+  /path/to/pixel-engine-react-1.0.0.tgz
+```
+
+**Install all three in a single `npm install` command, not one at a time.** `@pixel-engine/react`'s `package.json` declares `@pixel-engine/core`/`@pixel-engine/effects` as regular `dependencies` — if you install only the React tarball by itself, npm falls back to resolving those two from the public npm registry instead of using your local build. That fallback isn't just a dead end either: `@pixel-engine/core` (and the unscoped `pixel-engine` name) are already registered on npm by unrelated third parties, so npm would silently install the wrong package instead of erroring. Listing all the tarballs explicitly in one `npm install` call avoids this — npm resolves the internal `@pixel-engine/*` dependency links from what you gave it, not the registry.
+
+Only using the vanilla `@pixel-engine/core`/`@pixel-engine/effects` API (no React)? Drop the `react react-dom` and the React tarball from the command above.
+
+### 3. Re-sync after making changes
+
+This is a snapshot, not a live link — after changing source in this repo, repeat steps 1-2 (rebuild, repack, reinstall) to pick up the changes in the consumer project. For faster iteration on a single machine, `npm link` or a `file:` dependency in the consumer's `package.json` are lower-friction alternatives worth considering, at the cost of being a less exact match for what a real npm install would look like.
+
 ## Quick Start (React)
 
 ```tsx
