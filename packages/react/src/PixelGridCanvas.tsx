@@ -33,6 +33,7 @@ export const PixelGridCanvas = forwardRef<PixelGridCanvasHandle, PixelGridCanvas
     "aria-label": ariaLabel,
     "aria-labelledby": ariaLabelledBy,
     "aria-describedby": ariaDescribedBy,
+    respectReducedMotion,
     scrollReactive,
     sectionTransition,
     themeSync,
@@ -48,11 +49,12 @@ export const PixelGridCanvas = forwardRef<PixelGridCanvasHandle, PixelGridCanvas
   const derivedGridConfig = useMemo(
     () =>
       mergeGridConfigPartials(
+        respectReducedMotion === undefined ? undefined : { respectReducedMotion },
         gridConfig,
         resolveThemeSyncGridOverride(themeSync, resolvedThemeMode),
         resolveStatePresetGridOverride(statePreset)
       ),
-    [gridConfig, resolvedThemeMode, statePreset, themeSync]
+    [gridConfig, respectReducedMotion, resolvedThemeMode, statePreset, themeSync]
   );
 
   const { canvasRef, engine, isReady } = usePixelGridEffect({
@@ -74,14 +76,14 @@ export const PixelGridCanvas = forwardRef<PixelGridCanvasHandle, PixelGridCanvas
   useScrollReactiveGrid({
     canvasRef,
     gridRef,
-    options: scrollReactive
+    options: { respectReducedMotion, ...scrollReactive }
   });
   const sectionTransitionStyle = useSectionTransitionPreset({
     canvasRef,
     gridRef,
-    options: sectionTransition
+    options: { respectReducedMotion, ...sectionTransition }
   });
-  useDebugHudOverlay({
+  const debugHudNode = useDebugHudOverlay({
     canvasRef,
     gridRef,
     engine,
@@ -106,16 +108,19 @@ export const PixelGridCanvas = forwardRef<PixelGridCanvasHandle, PixelGridCanvas
   );
 
   return (
-    <canvas
-      ref={canvasRef}
-      className={className}
-      style={{ ...baseStyle, ...placeholderStyle, ...sectionTransitionStyle, ...style }}
-      aria-hidden={decorative ? "true" : undefined}
-      role={role}
-      aria-label={ariaLabel}
-      aria-labelledby={ariaLabelledBy}
-      aria-describedby={ariaDescribedBy}
-    />
+    <>
+      <canvas
+        ref={canvasRef}
+        className={className}
+        style={{ ...baseStyle, ...placeholderStyle, ...sectionTransitionStyle, ...style }}
+        aria-hidden={decorative ? "true" : undefined}
+        role={role}
+        aria-label={ariaLabel}
+        aria-labelledby={ariaLabelledBy}
+        aria-describedby={ariaDescribedBy}
+      />
+      {debugHudNode}
+    </>
   );
   }
 );

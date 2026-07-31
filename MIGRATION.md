@@ -2,6 +2,27 @@
 
 This guide covers migration to the formal v1 stable baseline and the new package split.
 
+## Update: Unreleased — `useDebugHudOverlay` now returns a portal node instead of `void` (2026-07-30)
+
+- `useDebugHudOverlay(params)` (`@pixel-engine/react`) previously returned `void` and mounted the debug HUD `<div>` itself via `document.body.appendChild(...)`. It now returns `ReactNode | null` — a React portal (`createPortal(..., document.body)`) — and does **not** append anything to the DOM on its own. The caller is responsible for rendering the returned value somewhere in its own JSX tree.
+- Reason: the previous imperative DOM manipulation didn't participate in Strict Mode/Concurrent rendering, wasn't inspectable in React DevTools, and risked colliding with other code appending directly to `document.body`. `createPortal` is React's documented pattern for exactly this case (content that needs to escape its container and float over the page). This also let the HUD gain `role="status" aria-live="polite"` as a normal DOM attribute on a JSX element instead of imperative `setAttribute` calls.
+- Impact: `PixelGridCanvas` (and therefore `PixelCard`/`PixelSurface`) already renders the returned node internally — no change needed for consumers who only use `debugHud` via those components. Only affects code that calls `useDebugHudOverlay(...)` directly.
+- Migration: if you called the hook directly for its side effect, render its return value instead:
+
+```tsx
+// before
+useDebugHudOverlay({ canvasRef, gridRef, engine, options: debugHud });
+
+// after
+const hud = useDebugHudOverlay({ canvasRef, gridRef, engine, options: debugHud });
+return (
+  <>
+    <canvas ref={canvasRef} />
+    {hud}
+  </>
+);
+```
+
 ## Update: Unreleased — `PaletteCycleScope` renamed to `PostEffectScope` (2026-07-30)
 
 - `PaletteCycleScope` (values unchanged: `"all" | "activeOnly"`) is renamed to `PostEffectScope`.

@@ -135,6 +135,7 @@ export interface UsePixelEngineOptions {
   onDestroy?: (engine: PixelEngine) => void;
   onHoverStart?: (event: PixelPointerEventPayload) => void;
   onHoverEnd?: (event: PixelPointerEventPayload) => void;
+  onEngineError?: (error: unknown) => void;
   createEngine?: (options: PixelEngineOptions) => PixelEngine;
 }
 
@@ -244,6 +245,16 @@ export interface PixelGridCanvasProps
   extends UsePixelGridEffectOptions, CanvasAccessibilityProps {
   className?: string;
   style?: React.CSSProperties;
+  /**
+   * Convenience default for `prefers-reduced-motion: reduce` handling across all 3
+   * independent switches this package exposes: `gridConfig.respectReducedMotion`,
+   * `scrollReactive.respectReducedMotion`, and `sectionTransition.respectReducedMotion`
+   * (each already defaults to `true` on its own). Set this once instead of all 3 — e.g.
+   * `respectReducedMotion={false}` for a controlled demo that should ignore the OS
+   * preference everywhere. Any of the 3 nested options can still override this on its own
+   * surface by setting its own `respectReducedMotion` explicitly, which always wins.
+   */
+  respectReducedMotion?: boolean;
   scrollReactive?: ScrollReactiveGridOptions;
   sectionTransition?: SectionTransitionOptions;
   themeSync?: ThemeSyncOptions;

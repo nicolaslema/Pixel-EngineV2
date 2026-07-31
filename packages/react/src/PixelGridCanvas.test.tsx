@@ -17,6 +17,25 @@ function cleanupHost(container: HTMLDivElement, root: Root): void {
   container.remove();
 }
 
+interface MockMediaQueryList {
+  matches: boolean;
+  addEventListener: (type: string, cb: () => void) => void;
+  removeEventListener: (type: string, cb: () => void) => void;
+}
+
+function mockPrefersReducedMotion(matches: boolean): () => void {
+  const original = window.matchMedia;
+  const mql: MockMediaQueryList = {
+    matches,
+    addEventListener: () => {},
+    removeEventListener: () => {}
+  };
+  window.matchMedia = vi.fn(() => mql) as unknown as typeof window.matchMedia;
+  return () => {
+    window.matchMedia = original;
+  };
+}
+
 describe("PixelGridCanvas", () => {
   it("renders canvas with declarative grid setup", () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -684,6 +703,11 @@ describe("PixelGridCanvas", () => {
     expect(hud?.textContent).toContain("fps:");
     expect(hud?.textContent).toContain("cells:");
     expect(hud?.textContent).toContain("ripples:");
+    expect(hud?.getAttribute("role")).toBe("status");
+    expect(hud?.getAttribute("aria-live")).toBe("polite");
+    // Portaled to document.body via createPortal (item 5.6), not appended imperatively
+    // as a child of the render container.
+    expect(container.contains(hud)).toBe(false);
 
     cleanupHost(container, root);
     expect(document.querySelector("[data-pixel-engine-debug-hud='true']")).toBeNull();
@@ -777,5 +801,109 @@ describe("PixelGridCanvas", () => {
     expect(gridInstance.resetMaskTimeline).toHaveBeenCalledTimes(1);
 
     cleanupHost(container, root);
+  });
+
+  it("by default, scrollReactive still respects a live OS prefers-reduced-motion (item 5.14 baseline)", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const restoreMatchMedia = mockPrefersReducedMotion(true);
+    const createEngine = vi.fn(() => ({
+      addEntity: vi.fn(),
+      removeEntity: vi.fn(),
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    })) as never;
+    const createGridEffect = vi.fn(() => ({ triggerRipple: vi.fn() })) as never;
+    const addSpy = vi.spyOn(window, "addEventListener");
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelGridCanvas
+          width={320}
+          height={180}
+          preset="minimal"
+          scrollReactive={{ enabled: true, source: "window" }}
+          createEngine={createEngine}
+          createGridEffect={createGridEffect}
+        />
+      );
+    });
+
+    expect(addSpy).not.toHaveBeenCalledWith("wheel", expect.any(Function), expect.anything());
+
+    cleanupHost(container, root);
+    addSpy.mockRestore();
+    restoreMatchMedia();
+  });
+
+  it("top-level respectReducedMotion={false} overrides scrollReactive's own default (item 5.14)", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const restoreMatchMedia = mockPrefersReducedMotion(true);
+    const createEngine = vi.fn(() => ({
+      addEntity: vi.fn(),
+      removeEntity: vi.fn(),
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    })) as never;
+    const createGridEffect = vi.fn(() => ({ triggerRipple: vi.fn() })) as never;
+    const addSpy = vi.spyOn(window, "addEventListener");
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelGridCanvas
+          width={320}
+          height={180}
+          preset="minimal"
+          respectReducedMotion={false}
+          scrollReactive={{ enabled: true, source: "window" }}
+          createEngine={createEngine}
+          createGridEffect={createGridEffect}
+        />
+      );
+    });
+
+    expect(addSpy).toHaveBeenCalledWith("wheel", expect.any(Function), expect.anything());
+
+    cleanupHost(container, root);
+    addSpy.mockRestore();
+    restoreMatchMedia();
+  });
+
+  it("an explicit scrollReactive.respectReducedMotion still wins over the top-level fallback (item 5.14)", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const restoreMatchMedia = mockPrefersReducedMotion(true);
+    const createEngine = vi.fn(() => ({
+      addEntity: vi.fn(),
+      removeEntity: vi.fn(),
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    })) as never;
+    const createGridEffect = vi.fn(() => ({ triggerRipple: vi.fn() })) as never;
+    const addSpy = vi.spyOn(window, "addEventListener");
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelGridCanvas
+          width={320}
+          height={180}
+          preset="minimal"
+          respectReducedMotion={false}
+          scrollReactive={{ enabled: true, source: "window", respectReducedMotion: true }}
+          createEngine={createEngine}
+          createGridEffect={createGridEffect}
+        />
+      );
+    });
+
+    expect(addSpy).not.toHaveBeenCalledWith("wheel", expect.any(Function), expect.anything());
+
+    cleanupHost(container, root);
+    addSpy.mockRestore();
+    restoreMatchMedia();
   });
 });

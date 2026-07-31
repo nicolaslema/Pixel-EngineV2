@@ -29,6 +29,7 @@ export function usePixelEngine(options: UsePixelEngineOptions): UsePixelEngineRe
     onDestroy,
     onHoverStart,
     onHoverEnd,
+    onEngineError,
     createEngine
   } = options;
 
@@ -38,6 +39,7 @@ export function usePixelEngine(options: UsePixelEngineOptions): UsePixelEngineRe
   const onDestroyRef = useRef(onDestroy);
   const onHoverStartRef = useRef(onHoverStart);
   const onHoverEndRef = useRef(onHoverEnd);
+  const onEngineErrorRef = useRef(onEngineError);
   const createEngineRef = useRef(createEngine);
   const [isReady, setIsReady] = useState(false);
 
@@ -46,8 +48,9 @@ export function usePixelEngine(options: UsePixelEngineOptions): UsePixelEngineRe
     onDestroyRef.current = onDestroy;
     onHoverStartRef.current = onHoverStart;
     onHoverEndRef.current = onHoverEnd;
+    onEngineErrorRef.current = onEngineError;
     createEngineRef.current = createEngine;
-  }, [createEngine, onDestroy, onHoverEnd, onHoverStart, onReady]);
+  }, [createEngine, onDestroy, onEngineError, onHoverEnd, onHoverStart, onReady]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -69,9 +72,15 @@ export function usePixelEngine(options: UsePixelEngineOptions): UsePixelEngineRe
       devicePixelRatio
     };
 
-    const engine = createEngineRef.current
-      ? createEngineRef.current(engineOptions)
-      : new PixelEngine(engineOptions);
+    let engine: PixelEngine;
+    try {
+      engine = createEngineRef.current
+        ? createEngineRef.current(engineOptions)
+        : new PixelEngine(engineOptions);
+    } catch (error) {
+      onEngineErrorRef.current?.(error);
+      return () => {};
+    }
     engineRef.current = engine;
 
     if (autoStart) engine.start();

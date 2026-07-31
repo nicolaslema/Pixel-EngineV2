@@ -152,6 +152,45 @@ describe("usePixelEngine", () => {
     cleanupHost(container, root);
   });
 
+  it("catches engine construction failures and calls onEngineError instead of throwing", () => {
+    const onEngineError = vi.fn();
+    const onReady = vi.fn();
+    const thrown = new Error("getContext failed");
+    const createEngine = vi.fn(() => {
+      throw thrown;
+    });
+
+    function TestComponent() {
+      const { isReady, canvasRef } = usePixelEngine({
+        width: 320,
+        height: 180,
+        createEngine: createEngine as never,
+        onReady,
+        onEngineError
+      });
+      return (
+        <div>
+          <canvas ref={canvasRef} />
+          <span data-testid="ready">{String(isReady)}</span>
+        </div>
+      );
+    }
+
+    const { container, root } = createHost();
+    expect(() => {
+      act(() => {
+        root.render(<TestComponent />);
+      });
+    }).not.toThrow();
+
+    expect(onEngineError).toHaveBeenCalledTimes(1);
+    expect(onEngineError).toHaveBeenCalledWith(thrown);
+    expect(onReady).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-testid="ready"]')?.textContent).toBe("false");
+
+    cleanupHost(container, root);
+  });
+
   it("forwards loop tuning options to engine creation", () => {
     const createEngine = vi.fn(() => ({
       start: vi.fn(),

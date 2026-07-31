@@ -1,4 +1,5 @@
-import { MutableRefObject, RefObject, useEffect } from "react";
+import { CSSProperties, MutableRefObject, ReactNode, RefObject, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { PixelEngine } from "@pixel-engine/core";
 import { PixelGridEffect } from "@pixel-engine/effects";
 import { DebugHudOptions, DebugHudPosition } from "./types";
@@ -23,6 +24,21 @@ interface ResolvedDebugHudOptions {
   showRipples: boolean;
   showTimeline: boolean;
 }
+
+const hudStyle: CSSProperties = {
+  position: "fixed",
+  zIndex: 2147483647,
+  pointerEvents: "none",
+  background: "rgba(2, 6, 23, 0.86)",
+  border: "1px solid rgba(148, 163, 184, 0.4)",
+  borderRadius: "8px",
+  padding: "8px 10px",
+  color: "#e2e8f0",
+  fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+  fontSize: "11px",
+  lineHeight: "1.45",
+  whiteSpace: "pre"
+};
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -79,28 +95,22 @@ function setHudPosition(
   hud.style.bottom = `${yBottom}px`;
 }
 
-export function useDebugHudOverlay(params: UseDebugHudOverlayParams): void {
+/**
+ * Renders a fixed-position debug HUD (fps/quality/cells/ripples/timeline) into
+ * `document.body` via a React portal when `options.enabled`. Returns the portal node —
+ * the caller must render the returned value for the HUD to actually mount (this hook does
+ * not append anything to the DOM on its own). Returns `null` when disabled or outside a
+ * browser (`document` unavailable, e.g. SSR).
+ */
+export function useDebugHudOverlay(params: UseDebugHudOverlayParams): ReactNode | null {
   const options = resolveOptions(params.options);
+  const hudRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!options.enabled) return;
-    if (typeof document === "undefined" || typeof window === "undefined") return;
-
-    const hud = document.createElement("div");
-    hud.setAttribute("data-pixel-engine-debug-hud", "true");
-    hud.style.position = "fixed";
-    hud.style.zIndex = "2147483647";
-    hud.style.pointerEvents = "none";
-    hud.style.background = "rgba(2, 6, 23, 0.86)";
-    hud.style.border = "1px solid rgba(148, 163, 184, 0.4)";
-    hud.style.borderRadius = "8px";
-    hud.style.padding = "8px 10px";
-    hud.style.color = "#e2e8f0";
-    hud.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, monospace";
-    hud.style.fontSize = "11px";
-    hud.style.lineHeight = "1.45";
-    hud.style.whiteSpace = "pre";
-    document.body.appendChild(hud);
+    if (typeof window === "undefined") return;
+    const hud = hudRef.current;
+    if (!hud) return;
 
     const update = () => {
       const canvas = params.canvasRef.current;
@@ -161,7 +171,6 @@ export function useDebugHudOverlay(params: UseDebugHudOverlayParams): void {
     const timer = window.setInterval(update, options.updateIntervalMs);
     return () => {
       window.clearInterval(timer);
-      hud.remove();
     };
   }, [
     params.canvasRef,
@@ -179,4 +188,17 @@ export function useDebugHudOverlay(params: UseDebugHudOverlayParams): void {
     options.showRipples,
     options.showTimeline
   ]);
+
+  if (!options.enabled || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      ref={hudRef}
+      data-pixel-engine-debug-hud="true"
+      role="status"
+      aria-live="polite"
+      style={hudStyle}
+    />,
+    document.body
+  );
 }

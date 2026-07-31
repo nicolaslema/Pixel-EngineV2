@@ -120,7 +120,7 @@ console.log(engine.getLoopTuning()); // resolved runtime loop profile
 - `usePixelGridEffect(options)`
 - `useScrollReactiveGrid(params)`
 - `useSectionTransitionPreset(params)`
-- `useDebugHudOverlay(params)`
+- `useDebugHudOverlay(params)` — returns `ReactNode | null`: a `createPortal`-based debug HUD (fps/quality/cells/ripples/timeline, `role="status" aria-live="polite"`) mounted to `document.body` when `debugHud.enabled`, or `null` otherwise. Render the returned value in your tree (`PixelGridCanvas` already does this for you). Returning `void` here was breaking; see `MIGRATION.md`.
 - `usePrefersReducedMotion()` — reactively tracks `prefers-reduced-motion: reduce`, updating live if the OS/browser preference changes (no reload needed). Used internally by `useScrollReactiveGrid`/`useSectionTransitionPreset`; exported for consumers building their own reduced-motion-aware UI.
 
 ### Components
@@ -186,6 +186,7 @@ export function App() {
 | `onDestroy` | `(engine) => void` | Engine cleanup callback. |
 | `onHoverStart` | `(payload) => void` | Pointer enter callback. |
 | `onHoverEnd` | `(payload) => void` | Pointer leave callback. |
+| `onEngineError` | `(error: unknown) => void` | Called if `PixelEngine` construction throws (e.g. `canvas.getContext("2d")` returns `null` — old browser, privacy extension blocking canvas). The error is caught internally so it never crashes past the component (`isReady` stays `false`, `onReady`/`autoStart` are skipped); this callback is your only signal that construction failed. It does **not** cover errors thrown from your own `onReady`/`onDestroy`/render code — wrap the component tree in a React error boundary for those. |
 | `createEngine` | `(options) => PixelEngine` | Custom engine factory (tests/custom runtime). |
 | `className` (`PixelCanvas`) | `string` | Canvas class name. |
 | `style` (`PixelCanvas`) | `CSSProperties` | Canvas style override. |
@@ -220,6 +221,7 @@ export function App() {
 
 | Option | Type | Fields |
 |---|---|---|
+| `respectReducedMotion` | `boolean` | Convenience default (item 5.14) applied to the 3 independent `respectReducedMotion` switches below — `gridConfig.respectReducedMotion` (breathing/ripple/magnetic/jitter), `scrollReactive.respectReducedMotion`, and `sectionTransition.respectReducedMotion` — each of which already defaults to `true` on its own. Set this once instead of all 3, e.g. `respectReducedMotion={false}` to ignore the OS preference across the whole component for a controlled demo. Any of the 3 nested options can still set its own `respectReducedMotion` explicitly to override this fallback on just that surface. |
 | `scrollReactive` | object | `enabled`, `intensity`, `direction`, `edge`, `source`, `cooldownMs`, `maxBurstRipples`, `respectReducedMotion` |
 | `sectionTransition` | object | `enabled`, `preset`, `amount`, `threshold`, `once`, `rippleOnEnter`, `playTimelineOnEnter`, `pauseTimelineOnExit`, `respectReducedMotion` |
 | `themeSync` | object | `enabled`, `mode`, `followSystem`, `brandColors`, `brandCanvasBackground`, `brandHoverTintPalette`, `brandRippleTintPalette` |
