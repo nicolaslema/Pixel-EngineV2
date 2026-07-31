@@ -49,6 +49,25 @@ export default function App() {
 
 `@pixel-engine/react` ships a `"use client"` directive on its bundle — every component/hook in it is client-only (canvas, refs, effects), so it's safe to import directly in a Next.js App Router Server Component tree without wrapping it yourself.
 
+### Responsive canvas
+
+By default (`fitMode="none"`), the canvas has a fixed pixel size — `width`/`height` are applied once and never change. If you pass a `style` with a percentage/viewport-unit width or height (`"100%"`, `"50vh"`, etc.) without also setting `fitMode="client"`, it'll silently get overwritten: the underlying `Canvas2DRenderer` sets `canvas.style.width`/`height` to a fixed `px` value imperatively on every resize (including at mount), so that responsive value never actually takes effect. In dev, doing this logs a `console.warn` pointing at the fix. Make the canvas track its container's size instead:
+
+```tsx
+<div style={{ width: "100%", height: 400 }}>
+  <PixelGridCanvas
+    width={900}
+    height={520}
+    fitMode="client"
+    resizeMode="observer"
+    style={{ width: "100%", height: "100%" }}
+    preset="minimal"
+  />
+</div>
+```
+
+`fitMode="client"` measures the canvas's own `clientWidth`/`clientHeight` instead of using the `width`/`height` props directly, and `resizeMode` (default `"observer"`) keeps it in sync via `ResizeObserver` as the container resizes.
+
 ## Quick Start (Vanilla)
 
 ```ts

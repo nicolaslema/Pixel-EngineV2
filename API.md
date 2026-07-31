@@ -183,7 +183,7 @@ export function App() {
 | `clearColor` | `string \| null` | Canvas clear color (`null` = transparent). |
 | `devicePixelRatio` | `number` | DPR override. |
 | `resizeMode` | `"observer" \| "window" \| "none"` | Resize strategy (for `fitMode="client"`). |
-| `fitMode` | `"none" \| "client"` | Fixed dimensions vs client-resized canvas. |
+| `fitMode` | `"none" \| "client"` | Default `"none"` — fixed pixel size from `width`/`height`, applied once at mount. `"client"` measures the canvas's own `clientWidth`/`clientHeight` instead, kept in sync via `resizeMode`. **Required for a responsive canvas**: with `"none"` (the default), `Canvas2DRenderer` sets `canvas.style.width`/`height` to a fixed `px` value imperatively on every resize (including at mount) — a `style` with a `%`/`vw`/`vh`/etc. width or height gets silently overwritten and never takes effect. A dev-only `console.warn` fires if it detects this mismatch (`style` looks responsive but `fitMode` isn't `"client"`). |
 | `onReady` | `(engine) => void` | Engine initialized callback. |
 | `onDestroy` | `(engine) => void` | Engine cleanup callback. |
 | `onHoverStart` | `(payload) => void` | Pointer enter callback. |

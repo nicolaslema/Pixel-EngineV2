@@ -6,6 +6,7 @@ import { useScrollReactiveGrid } from "./useScrollReactiveGrid";
 import { useSectionTransitionPreset } from "./useSectionTransitionPreset";
 import { useDebugHudOverlay } from "./useDebugHudOverlay";
 import { resolveSsrPlaceholderCanvasStyle } from "./ssr-placeholder";
+import { warnIfResponsiveCanvasStyleMismatch } from "./canvas-responsive-warning";
 import {
   mergeGridConfigPartials,
   resolveStatePresetGridOverride,
@@ -72,6 +73,14 @@ export const PixelGridCanvas = forwardRef<PixelGridCanvasHandle, PixelGridCanvas
     },
     []
   );
+
+  useEffect(() => {
+    warnIfResponsiveCanvasStyleMismatch(style, gridOptions.fitMode);
+    // Deliberately depends on style.width/height (not the `style` object) so this doesn't
+    // re-fire -- and re-console.warn -- on every render when a consumer passes an inline
+    // style={{...}} literal (a fresh object identity each render).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [style?.width, style?.height, gridOptions.fitMode]);
 
   useScrollReactiveGrid({
     canvasRef,

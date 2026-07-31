@@ -906,4 +906,69 @@ describe("PixelGridCanvas", () => {
     addSpy.mockRestore();
     restoreMatchMedia();
   });
+
+  it("warns in dev when style looks responsive without fitMode=client (item 1.6)", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const createEngine = vi.fn(() => ({
+      addEntity: vi.fn(),
+      removeEntity: vi.fn(),
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    })) as never;
+    const createGridEffect = vi.fn(() => ({ triggerRipple: vi.fn() })) as never;
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelGridCanvas
+          width={320}
+          height={180}
+          preset="minimal"
+          style={{ width: "100%" }}
+          createEngine={createEngine}
+          createGridEffect={createGridEffect}
+        />
+      );
+    });
+
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("fitMode"));
+
+    cleanupHost(container, root);
+    warnSpy.mockRestore();
+  });
+
+  it("does not warn when fitMode=client is set", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const createEngine = vi.fn(() => ({
+      addEntity: vi.fn(),
+      removeEntity: vi.fn(),
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    })) as never;
+    const createGridEffect = vi.fn(() => ({ triggerRipple: vi.fn() })) as never;
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelGridCanvas
+          width={320}
+          height={180}
+          preset="minimal"
+          fitMode="client"
+          style={{ width: "100%" }}
+          createEngine={createEngine}
+          createGridEffect={createGridEffect}
+        />
+      );
+    });
+
+    expect(warnSpy).not.toHaveBeenCalledWith(expect.stringContaining("fitMode"));
+
+    cleanupHost(container, root);
+    warnSpy.mockRestore();
+  });
 });

@@ -111,4 +111,59 @@ describe("PixelCanvas", () => {
 
     cleanupHost(container, root);
   });
+
+  it("warns in dev when style looks responsive without fitMode=client (item 1.6)", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const createEngine = vi.fn(() => ({
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    })) as never;
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelCanvas
+          width={300}
+          height={200}
+          style={{ width: "100%" }}
+          createEngine={createEngine}
+        />
+      );
+    });
+
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("fitMode"));
+
+    cleanupHost(container, root);
+    warnSpy.mockRestore();
+  });
+
+  it("does not warn when fitMode=client is set", () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const createEngine = vi.fn(() => ({
+      start: vi.fn(),
+      destroy: vi.fn(),
+      resize: vi.fn()
+    })) as never;
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const { container, root } = createHost();
+    act(() => {
+      root.render(
+        <PixelCanvas
+          width={300}
+          height={200}
+          fitMode="client"
+          style={{ width: "100%" }}
+          createEngine={createEngine}
+        />
+      );
+    });
+
+    expect(warnSpy).not.toHaveBeenCalledWith(expect.stringContaining("fitMode"));
+
+    cleanupHost(container, root);
+    warnSpy.mockRestore();
+  });
 });
