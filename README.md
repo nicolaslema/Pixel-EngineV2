@@ -87,80 +87,7 @@ export default function App() {
 
 `@pixel-engine/react` ships a `"use client"` directive on its bundle — every component/hook in it is client-only (canvas, refs, effects), so it's safe to import directly in a Next.js App Router Server Component tree without wrapping it yourself.
 
-### Responsive canvas
-
-By default (`fitMode="none"`), the canvas has a fixed pixel size — `width`/`height` are applied once and never change. If you pass a `style` with a percentage/viewport-unit width or height (`"100%"`, `"50vh"`, etc.) without also setting `fitMode="client"`, it'll silently get overwritten: the underlying `Canvas2DRenderer` sets `canvas.style.width`/`height` to a fixed `px` value imperatively on every resize (including at mount), so that responsive value never actually takes effect. In dev, doing this logs a `console.warn` pointing at the fix. Make the canvas track its container's size instead:
-
-```tsx
-<div style={{ width: "100%", height: 400 }}>
-  <PixelGridCanvas
-    width={900}
-    height={520}
-    fitMode="client"
-    resizeMode="observer"
-    style={{ width: "100%", height: "100%" }}
-    preset="minimal"
-  />
-</div>
-```
-
-`fitMode="client"` measures the canvas's own `clientWidth`/`clientHeight` instead of using the `width`/`height` props directly, and `resizeMode` (default `"observer"`) keeps it in sync via `ResizeObserver` as the container resizes.
-
-### Framework setup
-
-Same package, same props, in the 3 most common React setups.
-
-**Next.js (App Router)**
-
-```bash
-npm install @pixel-engine/core @pixel-engine/effects @pixel-engine/react
-```
-
-```tsx
-// app/page.tsx -- a Server Component. No "use client" wrapper needed: the
-// package's bundle already ships the directive (see the note above).
-import { PixelGridCanvas } from "@pixel-engine/react";
-
-export default function Page() {
-  return <PixelGridCanvas width={900} height={520} preset="card-soft" />;
-}
-```
-
-**Vite**
-
-```bash
-npm create vite@latest my-app -- --template react-ts
-cd my-app
-npm install @pixel-engine/core @pixel-engine/effects @pixel-engine/react
-```
-
-```tsx
-// src/App.tsx -- no extra Vite config needed, this is a standard ESM package.
-import { PixelGridCanvas } from "@pixel-engine/react";
-
-export default function App() {
-  return <PixelGridCanvas width={900} height={520} preset="card-soft" />;
-}
-```
-
-**Create React App**
-
-```bash
-npx create-react-app my-app --template typescript
-cd my-app
-npm install @pixel-engine/core @pixel-engine/effects @pixel-engine/react
-```
-
-```tsx
-// src/App.tsx
-import { PixelGridCanvas } from "@pixel-engine/react";
-
-export default function App() {
-  return <PixelGridCanvas width={900} height={520} preset="card-soft" />;
-}
-```
-
-In every case, remember to import image assets as bundler URLs (`import catUrl from "./cat.png"`), not `"/src/..."` runtime paths -- see the Asset path note in `API.md`.
+For framework setup (Next.js/Vite/CRA), the responsive-canvas footgun, the full prop/hook reference, a cookbook of common use cases, and troubleshooting, see the dedicated **[`@pixel-engine/react` guide](packages/react/README.md)**.
 
 ## Quick Start (Vanilla)
 
@@ -184,71 +111,7 @@ engine.addEntity(grid);
 engine.start();
 ```
 
-## React Usage by Complexity
-
-### Easy
-
-```tsx
-<PixelGridCanvas width={900} height={520} preset="card-soft" />
-```
-
-### Medium
-
-```tsx
-<PixelGridCanvas
-  width={900}
-  height={520}
-  preset="card-ripple"
-  gridConfig={{ gap: 6, hoverEffects: { radius: 120 } }}
-  scrollReactive={{ enabled: true, intensity: 1.1, direction: "both" }}
-  sectionTransition={{ enabled: true, preset: "lift", amount: 28 }}
-  statePreset={{ enabled: true, value: "active" }}
-/>
-```
-
-### Advanced
-
-```tsx
-import catPngUrl from "./assets/cat.png";
-
-<PixelGridCanvas
-  width={960}
-  height={540}
-  preset="hero-image"
-  mask={{
-    type: "hybrid",
-    initialMask: "image",
-    items: [
-      { type: "text", id: "title", text: "PIXEL", centerX: 480, centerY: 280, fontSize: 132, fontFamily: "Arial", fontWeight: 700 },
-      { type: "image", id: "imgA", src: catPngUrl, centerX: 480, centerY: 260, scale: 2.05, sampleMode: "threshold" }
-    ],
-    steps: [
-      { mask: "text", assetId: "title", holdMs: 1100, mode: "morph", durationMs: 700 },
-      { mask: "image", assetId: "imgA", holdMs: 1000, mode: "fade", durationMs: 450 }
-    ],
-    maskTimeline: { enabled: true, autoplay: true, loop: true, initialStep: 0 }
-  }}
-  themeSync={{ enabled: true, mode: "brand", brandColors: ["#0f766e", "#14b8a6", "#2dd4bf"] }}
-  debugHud={{ enabled: true, position: "top-right", updateIntervalMs: 180 }}
-  ssrPlaceholder={{ enabled: true, preset: "hero-image", hideOnReady: true }}
-/>
-```
-
-For complete prop/hook option tables, go to `API.md`.
-
-## React Surface Components
-
-| Component | Primary use |
-|---|---|
-| `PixelCanvas` | Low-level engine canvas |
-| `PixelGridCanvas` | Fastest declarative PixelGrid integration |
-| `PixelSurface` | Canvas + overlay content layout |
-| `PixelCard` | Reusable interactive card primitive |
-
-Overlay behavior:
-- `overlayPointerEvents="none"`: overlay does not block canvas interactions.
-- `overlayPointerEvents="auto"`: overlay handles pointer input.
-- `overlayPointerEvents="hybrid"`: overlay stays interactive and pointer bridge forwards interactions to canvas effects.
+For the full React usage ladder (easy/medium/advanced), the complete component/hook reference, and overlay behavior notes, see the **[`@pixel-engine/react` guide](packages/react/README.md)**.
 
 ## Package Split
 
@@ -258,7 +121,8 @@ Overlay behavior:
 
 ## Documentation Map
 
-- Public API and examples: `API.md`
+- Full `@pixel-engine/react` guide (setup, concepts, reference, cookbook, troubleshooting): `packages/react/README.md`
+- Vanilla `core`/`effects` API and examples: `API.md`
 - Migration notes: `MIGRATION.md`
 - Release notes: `CHANGELOG.md`
 - Benchmarks: `BENCHMARKS.md`
